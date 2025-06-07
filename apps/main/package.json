@@ -1,0 +1,19 @@
+{
+  "name": "@abai-desktop/main",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "ts-node --transpile-only src/main.ts",
+    "build": "tsc -p .",
+    "dev": "ts-node --transpile-only src/main.ts"
+  },
+  "dependencies": {
+    "electron": "^34.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

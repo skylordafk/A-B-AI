@@ -1,7 +1,12 @@
 import ChatPage from './ChatPage';
+import { ChatProvider } from './contexts/ChatContext';
 
 function App() {
-  return <ChatPage />;
+  return (
+    <ChatProvider>
+      <ChatPage />
+    </ChatProvider>
+  );
 }
 
 export default App;

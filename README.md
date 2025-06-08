@@ -1,5 +1,30 @@
 # ABAI Desktop App
 
+[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/yourusername/abai-desktop/releases)
+[![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/yourusername/abai-desktop/releases)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
+## 🚀 30-Second Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/yourusername/abai-desktop.git
+cd abai-desktop
+pnpm install
+
+# Run the app
+pnpm dev
+
+# Enter your API keys in Settings (File → Settings)
+# Start chatting with multiple AI models!
+```
+
+**That's it!** The app will open automatically. See [First Model Guide](docs/first-model.md) for detailed setup.
+
+---
+
+## About
+
 A desktop application built with Electron, Vite, and React for AI model comparison and cost analysis.
 
 ## Project Structure

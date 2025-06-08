@@ -2,6 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+/* React Diff Viewer Custom Styling - Force light theme consistency */
+.react-diff-viewer {
+  background-color: #fafaf9 !important;
+  color: #1c1917 !important;
+}
+
+.react-diff-viewer table {
+  background-color: #fafaf9 !important;
+}
+
+.react-diff-viewer .diff-container {
+  background-color: #fafaf9 !important;
+  color: #1c1917 !important;
+}
+
+.react-diff-viewer .diff-line {
+  background-color: #fafaf9 !important;
+  color: #1c1917 !important;
+}
+
+.react-diff-viewer .diff-gutter {
+  background-color: #f5f5f4 !important;
+  color: #57534e !important;
+}
+
+.react-diff-viewer .diff-code {
+  background-color: #fafaf9 !important;
+  color: #1c1917 !important;
+}
+
+.react-diff-viewer .diff-code-insert {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+.react-diff-viewer .diff-code-delete {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+.react-diff-viewer .diff-gutter-insert {
+  background-color: #d1fae5 !important;
+  color: #57534e !important;
+}
+
+.react-diff-viewer .diff-gutter-delete {
+  background-color: #fed7d7 !important;
+  color: #57534e !important;
+}
+
+.react-diff-viewer .diff-line:hover .diff-gutter {
+  background-color: #e7e5e4 !important;
+}
+
+.react-diff-viewer .diff-line:hover .diff-code {
+  background-color: #f5f5f4 !important;
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -28,8 +86,6 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }

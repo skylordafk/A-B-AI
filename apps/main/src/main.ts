@@ -3,6 +3,7 @@ import path from 'path';
 import Store from 'electron-store';
 import { chatWithOpenAI } from './providers/openai';
 import { allProviders, ProviderId } from './providers';
+import { getAllKeys, setKey, getKey, validateKey } from './settings';
 
 const isDev = !app.isPackaged;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -17,18 +18,7 @@ const store = new Store<{
 
 // Set up global API key getter
 (globalThis as any).getApiKey = (id: ProviderId) => {
-  switch (id) {
-    case 'openai':
-      return store.get('openaiKey');
-    case 'anthropic':
-      return store.get('anthropicKey');
-    case 'grok':
-      return store.get('grokKey');
-    case 'gemini':
-      return store.get('geminiKey');
-    default:
-      return undefined;
-  }
+  return getKey(id);
 };
 
 function createWindow() {
@@ -59,20 +49,15 @@ function createWindow() {
 
 // IPC handlers
 ipcMain.handle('settings:saveApiKey', (_, id: ProviderId, key: string) => {
-  switch (id) {
-    case 'openai':
-      store.set('openaiKey', key);
-      break;
-    case 'anthropic':
-      store.set('anthropicKey', key);
-      break;
-    case 'grok':
-      store.set('grokKey', key);
-      break;
-    case 'gemini':
-      store.set('geminiKey', key);
-      break;
-  }
+  setKey(id, key);
+});
+
+ipcMain.handle('settings:getAllKeys', () => {
+  return getAllKeys();
+});
+
+ipcMain.handle('settings:validateKey', async (_, id: ProviderId) => {
+  return validateKey(id);
 });
 
 // Legacy single-model chat handler for backward compatibility
@@ -87,12 +72,26 @@ ipcMain.handle('chat:multiSend', async (_, prompt: string, ids: ProviderId[]) =>
   const selected = allProviders.filter((p) => ids.includes(p.id as ProviderId));
   const results = await Promise.all(
     selected.map((p) =>
-      p.chat(prompt).catch((err) => ({
-        answer: `Error: ${err.message}`,
-        promptTokens: 0,
-        answerTokens: 0,
-        costUSD: 0,
-      }))
+      p.chat(prompt).catch((err) => {
+        // Emit invalid key event if it's an auth error
+        if (
+          err.status === 401 ||
+          err.status === 403 ||
+          err.message?.includes('API key') ||
+          err.message?.includes('authentication')
+        ) {
+          const win = BrowserWindow.getAllWindows()[0];
+          if (win) {
+            win.webContents.send('settings:invalidKey', p.id);
+          }
+        }
+        return {
+          answer: `Error: ${err.message}`,
+          promptTokens: 0,
+          answerTokens: 0,
+          costUSD: 0,
+        };
+      })
     )
   );
   return results.map((r, i) => ({ provider: selected[i].label, ...r }));

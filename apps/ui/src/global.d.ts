@@ -1,7 +1,12 @@
 interface Window {
   api: {
     saveApiKey(key: string): Promise<void>;
-    saveApiKeyForProvider(id: 'openai' | 'anthropic', key: string): Promise<void>;
+    saveApiKeyForProvider(
+      id: 'openai' | 'anthropic' | 'grok' | 'gemini',
+      key: string
+    ): Promise<void>;
+    getAllKeys(): Promise<Record<'openai' | 'anthropic' | 'grok' | 'gemini', string | undefined>>;
+    validateKey(id: 'openai' | 'anthropic' | 'grok' | 'gemini'): Promise<boolean>;
     sendPrompt(prompt: string): Promise<{
       answer: string;
       promptTokens: number;
@@ -10,7 +15,7 @@ interface Window {
     }>;
     sendPrompts(
       prompt: string,
-      ids: ('openai' | 'anthropic')[]
+      ids: ('openai' | 'anthropic' | 'grok' | 'gemini')[]
     ): Promise<
       {
         provider: string;
@@ -23,5 +28,6 @@ interface Window {
   };
   ipc: {
     onOpenSettings(cb: () => void): void;
+    onInvalidKey(cb: (providerId: string) => void): void;
   };
 }

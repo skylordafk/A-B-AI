@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('api', {
   saveApiKey: (key) => ipcRenderer.invoke('settings:saveApiKey', 'openai', key),
   // New multi-provider key save
   saveApiKeyForProvider: (id, key) => ipcRenderer.invoke('settings:saveApiKey', id, key),
+  // Get all API keys
+  getAllKeys: () => ipcRenderer.invoke('settings:getAllKeys'),
+  // Validate a specific API key
+  validateKey: (id) => ipcRenderer.invoke('settings:validateKey', id),
   // Legacy single prompt
   sendPrompt: (prompt) => ipcRenderer.invoke('chat:send', prompt),
   // New multi-model prompt
@@ -27,5 +31,8 @@ contextBridge.exposeInMainWorld('api', {
 contextBridge.exposeInMainWorld('ipc', {
   onOpenSettings: (cb) => {
     ipcRenderer.on('open-settings', cb);
+  },
+  onInvalidKey: (cb) => {
+    ipcRenderer.on('settings:invalidKey', (_, providerId) => cb(providerId));
   },
 });

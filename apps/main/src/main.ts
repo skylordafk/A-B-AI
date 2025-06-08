@@ -2,12 +2,17 @@ import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import path from 'path';
 import Store from 'electron-store';
 import { chatWithOpenAI } from './providers/openai';
+import { allProviders, ProviderId } from './providers';
 
 const isDev = !app.isPackaged;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const store = new Store<{ apiKey?: string }>() as any;
+const store = new Store<{ openaiKey?: string; anthropicKey?: string }>() as any;
+
+// Set up global API key getter
+(globalThis as any).getApiKey = (id: ProviderId) =>
+  id === 'openai' ? store.get('openaiKey') : store.get('anthropicKey');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -36,14 +41,31 @@ function createWindow() {
 }
 
 // IPC handlers
-ipcMain.handle('settings:saveApiKey', (_, key: string) => {
-  store.set('apiKey', key);
+ipcMain.handle('settings:saveApiKey', (_, id: ProviderId, key: string) => {
+  store.set(id === 'openai' ? 'openaiKey' : 'anthropicKey', key);
 });
 
+// Legacy single-model chat handler for backward compatibility
 ipcMain.handle('chat:send', async (_, prompt: string) => {
-  const apiKey = store.get('apiKey');
+  const apiKey = store.get('openaiKey');
   if (!apiKey) throw new Error('API key not set');
   return chatWithOpenAI(apiKey, prompt);
+});
+
+// Multi-model chat handler
+ipcMain.handle('chat:multiSend', async (_, prompt: string, ids: ProviderId[]) => {
+  const selected = allProviders.filter((p) => ids.includes(p.id as ProviderId));
+  const results = await Promise.all(
+    selected.map((p) =>
+      p.chat(prompt).catch((err) => ({
+        answer: `Error: ${err.message}`,
+        promptTokens: 0,
+        answerTokens: 0,
+        costUSD: 0,
+      }))
+    )
+  );
+  return results.map((r, i) => ({ provider: selected[i].label, ...r }));
 });
 
 app.whenReady().then(() => {

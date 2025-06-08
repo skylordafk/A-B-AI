@@ -12,8 +12,14 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process
 // to use the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('api', {
-  saveApiKey: (key) => ipcRenderer.invoke('settings:saveApiKey', key),
+  // Legacy single key save (for backward compatibility)
+  saveApiKey: (key) => ipcRenderer.invoke('settings:saveApiKey', 'openai', key),
+  // New multi-provider key save
+  saveApiKeyForProvider: (id, key) => ipcRenderer.invoke('settings:saveApiKey', id, key),
+  // Legacy single prompt
   sendPrompt: (prompt) => ipcRenderer.invoke('chat:send', prompt),
+  // New multi-model prompt
+  sendPrompts: (prompt, ids) => ipcRenderer.invoke('chat:multiSend', prompt, ids),
 });
 
 contextBridge.exposeInMainWorld('ipc', {

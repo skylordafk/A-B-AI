@@ -22,27 +22,26 @@ jobs:
         with:
           enablement: true
         
-      - name: Create latest directory
-        run: mkdir -p docs/latest
-        
-      - name: Create placeholder for artifacts
+      - name: Prepare docs for deployment
         run: |
-          cat > docs/latest/README.md << EOF
-          # Download Artifacts
-          
-          Please download the installers from the [Releases page](https://github.com/skylordafk/A-B-AI/releases/tag/v1.0.0).
-          
-          ## Direct Links:
-          - [Windows Installer](https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-Setup.exe)
-          - [macOS Intel](https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-x64.dmg)
-          - [macOS Apple Silicon](https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-arm64.dmg)
+          # Remove any existing artifact directories to avoid large file issues
+          rm -rf docs/latest
+          # Create a clean latest directory
+          mkdir -p docs/latest
+          # Create a simple redirect file
+          cat > docs/latest/index.html << EOF
+          <!doctype html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0;url=https://github.com/skylordafk/A-B-AI/releases/tag/v1.0.0">
+            <title>Redirecting to Downloads</title>
+          </head>
+          <body>
+            <p>Redirecting to <a href="https://github.com/skylordafk/A-B-AI/releases/tag/v1.0.0">download page</a>...</p>
+          </body>
+          </html>
           EOF
-          
-      - name: Update download page with release links
-        run: |
-          sed -i 's|./latest/A-B-AI-1.0.0-Setup.exe|https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-Setup.exe|g' docs/download.html
-          sed -i 's|./latest/A-B-AI-1.0.0-arm64.dmg|https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-arm64.dmg|g' docs/download.html
-          sed -i 's|./latest/A-B-AI-1.0.0-x64.dmg|https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-x64.dmg|g' docs/download.html
           
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -98,32 +98,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy-pages:
-    needs: release
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: installers-macOS
-          path: docs/latest
-      - uses: actions/download-artifact@v4
-        with:
-          name: installers-Windows
-          path: docs/latest
-      - run: cp docs/latest/SHA256SUMS.txt docs/ || echo "No SHA256SUMS.txt found"
-      - name: Inject hashes
-        run: |
-          if [ -f docs/SHA256SUMS.txt ]; then
-            awk '{print $1"  "$2}' docs/SHA256SUMS.txt \
-              | sed -e 's|.*A-B-AI-.*Setup.exe|document.getElementById("sha-win").innerText="&";|' \
-                    -e 's|.*arm64.dmg|document.getElementById("sha-mac").innerText="&";|' \
-                    -e 's|.*x64.dmg|document.getElementById("sha-macx").innerText="&";|' \
-              > docs/fill.js
-            sed -i 's|</body>|<script src="./fill.js"></script>&|' docs/download.html
-          fi
-      - uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs 
+ 

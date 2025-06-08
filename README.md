@@ -1,15 +1,15 @@
 # ABAI Desktop App
 
-[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/yourusername/abai-desktop/releases)
-[![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/yourusername/abai-desktop/releases)
+[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/skylordafk/A-B-AI/releases)
+[![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/skylordafk/A-B-AI/releases)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 ## 🚀 30-Second Quick Start
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/abai-desktop.git
-cd abai-desktop
+git clone https://github.com/skylordafk/A-B-AI.git
+cd A-B-AI
 pnpm install
 
 # Run the app
@@ -36,7 +36,8 @@ ABAI/
 ├── apps/
 │   ├── main/      # Electron main process
 │   └── ui/        # React UI (Vite)
-├── .github/       # CI/CD workflows
+├── docs/          # Documentation
+├── tests/         # Test files
 └── package.json   # Root workspace config
 ```
 
@@ -50,8 +51,8 @@ ABAI/
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd abai-desktop
+git clone https://github.com/skylordafk/A-B-AI.git
+cd A-B-AI
 ```
 
 2. Install dependencies:
@@ -132,4 +133,4 @@ GitHub Actions workflow runs on push/PR to:
 
 ## Next Steps
 
-Refer to `.cursor/docs/ROADMAP.md` for the complete development roadmap.
+Refer to `docs/ROADMAP.md` for the complete development roadmap.

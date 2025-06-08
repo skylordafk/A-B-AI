@@ -1,8 +1,13 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import path from 'path';
+import Store from 'electron-store';
+import { chatWithOpenAI } from './providers/openai';
 
 const isDev = !app.isPackaged;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const store = new Store<{ apiKey?: string }>() as any;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -25,10 +30,24 @@ function createWindow() {
   if (isDev) {
     win.webContents.openDevTools({ mode: 'detach' });
   }
+
+  // Return the window for use in menu
+  return win;
 }
 
+// IPC handlers
+ipcMain.handle('settings:saveApiKey', (_, key: string) => {
+  store.set('apiKey', key);
+});
+
+ipcMain.handle('chat:send', async (_, prompt: string) => {
+  const apiKey = store.get('apiKey');
+  if (!apiKey) throw new Error('API key not set');
+  return chatWithOpenAI(apiKey, prompt);
+});
+
 app.whenReady().then(() => {
-  createWindow();
+  const win = createWindow();
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
@@ -37,9 +56,7 @@ app.whenReady().then(() => {
         {
           label: 'Settings',
           click: () => {
-            // TODO: Implement settings window
-            // eslint-disable-next-line no-console
-            console.log('Settings clicked');
+            win.webContents.send('open-settings');
           },
         },
         { type: 'separator' },

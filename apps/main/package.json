@@ -9,7 +9,10 @@
     "dev": "electron src/electron.js"
   },
   "dependencies": {
-    "electron": "^34.0.0"
+    "@dqbd/tiktoken": "^1.0.21",
+    "electron": "^34.0.0",
+    "electron-store": "^10.0.1",
+    "openai": "^5.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",

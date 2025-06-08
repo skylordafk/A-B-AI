@@ -15,6 +15,9 @@ jobs:
         os: [windows-latest, macos-latest]
         node-version: [18.x, 20.x]
     
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,6 +41,13 @@ jobs:
       
       - name: Build packages
         run: pnpm build
+      
+      - name: Check OpenAI API Key
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "Skipping live OpenAI tests - OPENAI_API_KEY not set"
+          fi
+        shell: bash
       
       - name: Run tests (if any)
         run: pnpm test --if-present 

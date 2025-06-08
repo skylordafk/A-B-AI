@@ -1,6 +1,8 @@
 {
   "name": "abai-desktop",
   "version": "1.0.0",
+  "description": "A-B/AI Desktop - Compare AI models side-by-side with cost analysis",
+  "author": "skylordafk",
   "private": true,
   "packageManager": "pnpm@8.15.8",
   "workspaces": [
@@ -28,6 +30,7 @@
     "concurrently": "^9.0.1",
     "cross-env": "^7.0.3",
     "dotenv": "^16.5.0",
+    "electron": "^34.0.0",
     "electron-builder": "^24.9.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
@@ -57,8 +60,10 @@
       "package.json"
     ],
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
+    "includeSubNodeModules": true,
     "mac": {
       "target": [
         "dmg",

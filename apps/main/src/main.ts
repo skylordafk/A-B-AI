@@ -38,6 +38,7 @@ app.whenReady().then(() => {
           label: 'Settings',
           click: () => {
             // TODO: Implement settings window
+            // eslint-disable-next-line no-console
             console.log('Settings clicked');
           },
         },

@@ -4,16 +4,18 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "start": "ts-node --transpile-only src/main.ts",
+    "start": "electron .",
     "build": "tsc -p .",
-    "dev": "ts-node --transpile-only src/main.ts"
+    "dev": "electron src/electron.js"
   },
   "dependencies": {
     "electron": "^34.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",
+    "electron-vite": "^3.1.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.8.3"
   }
 }

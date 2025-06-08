@@ -13,10 +13,14 @@ jobs:
         with:
           name: installers-macOS
           path: docs/latest
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/download-artifact@v4
         with:
           name: installers-Windows
           path: docs/latest
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - run: cp docs/latest/SHA256SUMS.txt docs/
       - name: Inject hashes
         run: |

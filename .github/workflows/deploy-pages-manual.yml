@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 jobs:
   deploy:
@@ -18,6 +19,8 @@ jobs:
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
+        with:
+          enablement: true
         
       - name: Create latest directory
         run: mkdir -p docs/latest

@@ -1,0 +1,51 @@
+name: 📄 Deploy Download Page
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'docs/**'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Create latest directory
+        run: mkdir -p docs/latest
+        
+      - name: Create placeholder for artifacts
+        run: |
+          cat > docs/latest/README.md << EOF
+          # Download Artifacts
+          
+          Please download the installers from the [Releases page](https://github.com/skylordafk/A-B-AI/releases/tag/v1.0.0).
+          
+          ## Direct Links:
+          - [Windows Installer](https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-Setup.exe)
+          - [macOS Intel](https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-x64.dmg)
+          - [macOS Apple Silicon](https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-arm64.dmg)
+          EOF
+          
+      - name: Update download page with release links
+        run: |
+          sed -i 's|./latest/A-B-AI-1.0.0-Setup.exe|https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-Setup.exe|g' docs/download.html
+          sed -i 's|./latest/A-B-AI-1.0.0-arm64.dmg|https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-arm64.dmg|g' docs/download.html
+          sed -i 's|./latest/A-B-AI-1.0.0-x64.dmg|https://github.com/skylordafk/A-B-AI/releases/download/v1.0.0/A-B-AI-1.0.0-x64.dmg|g' docs/download.html
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 

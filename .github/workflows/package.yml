@@ -51,13 +51,27 @@ jobs:
         with:
           name: installers-Windows
           path: artifacts/
+      - name: Check if release exists
+        id: check_release
+        run: |
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Create Tag
+        if: steps.check_release.outputs.exists == 'false'
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git tag -a v1.0.0 -m "Release v1.0.0" || echo "Tag already exists"
           git push origin v1.0.0 || echo "Tag already pushed"
+          
       - name: Create Release
+        if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.0.0
@@ -71,6 +85,18 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/SHA256SUMS.txt
           token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Update existing release
+        if: steps.check_release.outputs.exists == 'true'
+        run: |
+          echo "Release v1.0.0 already exists. Uploading additional assets..."
+          for file in artifacts/**/*.{exe,dmg,zip,txt}; do
+            if [ -f "$file" ]; then
+              gh release upload v1.0.0 "$file" --clobber || echo "Failed to upload $file"
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy-pages:
     needs: release

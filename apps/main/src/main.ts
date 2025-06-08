@@ -8,11 +8,28 @@ const isDev = !app.isPackaged;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const store = new Store<{ openaiKey?: string; anthropicKey?: string }>() as any;
+const store = new Store<{
+  openaiKey?: string;
+  anthropicKey?: string;
+  grokKey?: string;
+  geminiKey?: string;
+}>() as any;
 
 // Set up global API key getter
-(globalThis as any).getApiKey = (id: ProviderId) =>
-  id === 'openai' ? store.get('openaiKey') : store.get('anthropicKey');
+(globalThis as any).getApiKey = (id: ProviderId) => {
+  switch (id) {
+    case 'openai':
+      return store.get('openaiKey');
+    case 'anthropic':
+      return store.get('anthropicKey');
+    case 'grok':
+      return store.get('grokKey');
+    case 'gemini':
+      return store.get('geminiKey');
+    default:
+      return undefined;
+  }
+};
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -42,7 +59,20 @@ function createWindow() {
 
 // IPC handlers
 ipcMain.handle('settings:saveApiKey', (_, id: ProviderId, key: string) => {
-  store.set(id === 'openai' ? 'openaiKey' : 'anthropicKey', key);
+  switch (id) {
+    case 'openai':
+      store.set('openaiKey', key);
+      break;
+    case 'anthropic':
+      store.set('anthropicKey', key);
+      break;
+    case 'grok':
+      store.set('grokKey', key);
+      break;
+    case 'gemini':
+      store.set('geminiKey', key);
+      break;
+  }
 });
 
 // Legacy single-model chat handler for backward compatibility

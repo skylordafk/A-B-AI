@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Textarea } from './components/ui/textarea';
 import { Button } from './components/ui/button';
 import SettingsModal from './components/SettingsModal';
+import ModelSelect from './components/ModelSelect';
 import ReactDiffViewer from 'react-diff-viewer-continued';
 
 interface Msg {
@@ -13,16 +14,11 @@ interface Msg {
   costUSD?: number;
 }
 
-const MODELS = [
-  { id: 'openai', label: 'OpenAI o3' },
-  { id: 'anthropic', label: 'Claude Opus 4' },
-];
-
 export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [prompt, setPrompt] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selected, setSelected] = useState<string[]>(['openai']);
+  const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
     window.ipc.onOpenSettings(() => setSettingsOpen(true));
@@ -33,9 +29,28 @@ export default function ChatPage() {
 
     setMessages((m) => [...m, { role: 'user', content: prompt }]);
 
+    // Map model IDs to provider IDs
+    const providerMap: Record<string, string> = {
+      'o3-2025-04-16': 'openai',
+      'gpt-4.1-mini': 'openai',
+      'claude-opus-4-20250514': 'anthropic',
+      'claude-3-haiku': 'anthropic',
+      'grok-3': 'grok',
+      'grok-3-mini': 'grok',
+      'models/gemini-2.5-pro-thinking': 'gemini',
+      'models/gemini-1.5-flash-fast': 'gemini',
+    };
+
+    const selectedProviders = [
+      ...new Set(selected.map((modelId) => providerMap[modelId]).filter(Boolean)),
+    ];
+
     // Use multi-model endpoint
     try {
-      const results = await window.api.sendPrompts(prompt, selected as ('openai' | 'anthropic')[]);
+      const results = await window.api.sendPrompts(
+        prompt,
+        selectedProviders as ('openai' | 'anthropic' | 'grok' | 'gemini')[]
+      );
       setMessages((m) => [
         ...m,
         ...results.map((r) => ({
@@ -59,21 +74,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen p-4 gap-2">
-      <div className="flex gap-4 items-center mb-2">
-        {MODELS.map((m) => (
-          <label key={m.id} className="flex items-center gap-1 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selected.includes(m.id)}
-              onChange={() =>
-                setSelected((s) => (s.includes(m.id) ? s.filter((i) => i !== m.id) : [...s, m.id]))
-              }
-              className="cursor-pointer"
-            />
-            <span className="text-sm">{m.label}</span>
-          </label>
-        ))}
-      </div>
+      <ModelSelect selectedModels={selected} onSelectionChange={setSelected} />
 
       <div className="flex-1 overflow-y-auto space-y-4">
         {shouldShowDiff ? (

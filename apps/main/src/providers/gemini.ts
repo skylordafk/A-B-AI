@@ -1,5 +1,6 @@
 import { BaseProvider, ChatResult } from './base';
 import { ModelMeta } from '../types/model';
+import { GoogleGenAI } from '@google/genai';
 
 /** Adapter for Google AI Gemini API */
 export class GeminiProvider implements BaseProvider {
@@ -29,9 +30,43 @@ export class GeminiProvider implements BaseProvider {
     return this.MODELS;
   }
 
-  async chat(_userPrompt: string): Promise<ChatResult> {
-    // TODO implement sendMessage(opts) incl. streaming & safety
-    throw new Error('Gemini provider chat not implemented yet');
+  async chat(userPrompt: string): Promise<ChatResult> {
+    const apiKey = (globalThis as any).getApiKey?.('gemini');
+    if (!apiKey) throw new Error('Gemini API key missing');
+
+    const genAI = new GoogleGenAI({ apiKey });
+
+    try {
+      // Use gemini-1.5-flash-fast as default model (fast tier)
+      const modelName = 'gemini-1.5-flash';
+      const model = genAI.models;
+
+      const response = await model.generateContent({
+        model: modelName,
+        contents: userPrompt,
+      });
+
+      const answer = response.text || '';
+
+      // Estimate token counts (Gemini doesn't provide exact token counts in basic API)
+      // Using rough approximation: 1 token ≈ 4 characters
+      const promptTokens = Math.ceil(userPrompt.length / 4);
+      const answerTokens = Math.ceil(answer.length / 4);
+
+      // Use the fast tier pricing
+      const pricePerKTokens = 0.00035;
+      const costUSD = ((promptTokens + answerTokens) / 1000) * pricePerKTokens;
+
+      return {
+        answer,
+        promptTokens,
+        answerTokens,
+        costUSD,
+      };
+    } catch (error: any) {
+      console.error('Gemini API error:', error);
+      throw new Error(`Gemini API error: ${error.message || 'Unknown error'}`);
+    }
   }
 }
 

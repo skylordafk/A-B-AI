@@ -6,6 +6,8 @@ import { useState } from 'react';
 export default function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [openaiKey, setOpenaiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
+  const [grokKey, setGrokKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
 
   const handleSave = async () => {
     if (openaiKey) {
@@ -13,6 +15,12 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     }
     if (anthropicKey) {
       await window.api.saveApiKeyForProvider('anthropic', anthropicKey);
+    }
+    if (grokKey) {
+      await window.api.saveApiKeyForProvider('grok', grokKey);
+    }
+    if (geminiKey) {
+      await window.api.saveApiKeyForProvider('gemini', geminiKey);
     }
     onClose();
   };
@@ -39,6 +47,24 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
               placeholder="sk-ant-..."
               value={anthropicKey}
               onChange={(e) => setAnthropicKey(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Grok API Key</label>
+            <Input
+              placeholder="xai-..."
+              value={grokKey}
+              onChange={(e) => setGrokKey(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Gemini API Key</label>
+            <Input
+              placeholder="AIza..."
+              value={geminiKey}
+              onChange={(e) => setGeminiKey(e.target.value)}
               className="mt-1"
             />
           </div>

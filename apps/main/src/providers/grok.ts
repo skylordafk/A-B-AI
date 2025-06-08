@@ -1,5 +1,7 @@
 import { BaseProvider, ChatResult } from './base';
 import { ModelMeta } from '../types/model';
+import { createXai } from '@ai-sdk/xai';
+import { generateText } from 'ai';
 
 /** Adapter for xAI Grok API (v3) */
 export class GrokProvider implements BaseProvider {
@@ -29,9 +31,38 @@ export class GrokProvider implements BaseProvider {
     return this.MODELS;
   }
 
-  async chat(_userPrompt: string): Promise<ChatResult> {
-    // TODO implement sendMessage(opts) – follow other adapters
-    throw new Error('Grok provider chat not implemented yet');
+  async chat(userPrompt: string): Promise<ChatResult> {
+    const apiKey = (globalThis as any).getApiKey?.('grok');
+    if (!apiKey) throw new Error('Grok API key missing');
+
+    const xai = createXai({
+      apiKey,
+    });
+
+    try {
+      // Use grok-3-mini as default model
+      const model = xai('grok-3-mini');
+
+      const { text, usage } = await generateText({
+        model,
+        prompt: userPrompt,
+      });
+
+      // Grok uses flat pricing, so we'll estimate based on message count
+      // Actual pricing would need to be obtained from xAI
+      const flatPricePerMessage = 0.01; // Example: $0.01 per message
+      const costUSD = flatPricePerMessage;
+
+      return {
+        answer: text,
+        promptTokens: usage?.promptTokens || 0,
+        answerTokens: usage?.completionTokens || 0,
+        costUSD,
+      };
+    } catch (error: any) {
+      console.error('Grok API error:', error);
+      throw new Error(`Grok API error: ${error.message || 'Unknown error'}`);
+    }
   }
 }
 

@@ -9,8 +9,11 @@
     "dev": "electron src/electron.js"
   },
   "dependencies": {
+    "@ai-sdk/xai": "^1.2.16",
     "@anthropic-ai/sdk": "^0.53.0",
     "@dqbd/tiktoken": "^1.0.21",
+    "@google/genai": "^1.4.0",
+    "ai": "^4.3.16",
     "electron": "^34.0.0",
     "electron-store": "^10.0.1",
     "openai": "^5.1.1"

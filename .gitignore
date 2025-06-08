@@ -78,5 +78,4 @@ Temporary Items
 .env.production.local
 
 # Electron
-electron-builder.yml
 electron-builder.json5 

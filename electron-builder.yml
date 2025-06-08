@@ -1,0 +1,71 @@
+appId: ai.ab.desktop
+productName: A-B/AI
+copyright: Copyright © 2024 skylordafk
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - apps/main/dist/**/*
+  - apps/ui/dist/**/*
+  - apps/main/package.json
+  - apps/main/node_modules/**/*
+  - apps/ui/node_modules/**/*
+  - package.json
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/*.d.ts"
+  - "!**/node_modules/.bin"
+  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+  - "!.editorconfig"
+  - "!**/._*"
+  - "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}"
+  - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
+  - "!**/{appveyor.yml,.travis.yml,circle.yml}"
+  - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+  - "!**/node_modules/electron/**/*"
+  - "!**/node_modules/electron-builder/**/*"
+  - "!**/node_modules/@typescript-eslint/**/*"
+  - "!**/node_modules/eslint*/**/*"
+  - "!**/node_modules/prettier/**/*"
+  - "!**/node_modules/husky/**/*"
+  - "!**/node_modules/lint-staged/**/*"
+  - "!**/node_modules/vitest/**/*"
+  - "!**/node_modules/@vitest/**/*"
+  - "!**/node_modules/concurrently/**/*"
+  - "!**/node_modules/cross-env/**/*"
+
+asar: true
+compression: maximum
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # icon: build/icon.icns  # TODO: Add icon file
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+  artifactName: ${productName}-${version}-Setup.${ext}
+  # icon: build/icon.ico  # TODO: Add icon file
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-Setup.${ext}
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  artifactName: ${productName}-${version}.${ext} 

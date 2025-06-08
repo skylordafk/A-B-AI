@@ -12,6 +12,7 @@ files:
   - apps/main/package.json
   - apps/main/node_modules/**/*
   - apps/ui/node_modules/**/*
+  - node_modules/**/*
   - package.json
   - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
   - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
@@ -39,6 +40,9 @@ files:
 asar: true
 compression: maximum
 
+# Skip code signing for now
+forceCodeSigning: false
+
 mac:
   category: public.app-category.productivity
   target:
@@ -57,6 +61,7 @@ win:
       arch: [x64]
   artifactName: ${productName}-${version}-Setup.${ext}
   # icon: build/icon.ico  # TODO: Add icon file
+  sign: null
 
 nsis:
   oneClick: false

@@ -68,6 +68,14 @@ ipcMain.handle('chat:multiSend', async (_, prompt: string, ids: ProviderId[]) =>
   return results.map((r, i) => ({ provider: selected[i].label, ...r }));
 });
 
+// Get available models handler
+ipcMain.handle('models:getAvailable', async () => {
+  return allProviders.map((provider) => ({
+    provider: provider.label,
+    models: provider.listModels(),
+  }));
+});
+
 app.whenReady().then(() => {
   const win = createWindow();
 

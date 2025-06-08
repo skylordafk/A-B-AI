@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('api', {
   sendPrompt: (prompt) => ipcRenderer.invoke('chat:send', prompt),
   // New multi-model prompt
   sendPrompts: (prompt, ids) => ipcRenderer.invoke('chat:multiSend', prompt, ids),
+  // Get available models
+  getAvailableModels: () => ipcRenderer.invoke('models:getAvailable'),
 });
 
 contextBridge.exposeInMainWorld('ipc', {

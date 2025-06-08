@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { encoding_for_model } from '@dqbd/tiktoken';
 import { BaseProvider, ChatResult } from './base';
+import { ModelMeta } from '../types/model';
 
 const MODEL = 'o3-2025-04-16';
 const PRICE_PER_1K_INPUT = 0.01; // USD per 1k input tokens ($10 per 1M)
@@ -9,6 +10,27 @@ const PRICE_PER_1K_OUTPUT = 0.04; // USD per 1k output tokens ($40 per 1M)
 export const openaiProvider: BaseProvider = {
   id: 'openai',
   label: 'OpenAI o3',
+
+  listModels(): ModelMeta[] {
+    return [
+      {
+        id: 'o3-2025-04-16',
+        name: 'OpenAI o3',
+        description: 'Reasoning model with advanced capabilities.',
+        contextSize: 128_000,
+        pricePrompt: 10, // $10 per 1K
+        priceCompletion: 40, // $40 per 1K
+      },
+      {
+        id: 'gpt-4.1-mini',
+        name: 'GPT-4.1 Mini',
+        description: 'Cost-effective, fast OpenAI model.',
+        contextSize: 128_000,
+        pricePrompt: 0.0005,
+        priceCompletion: 0.0015,
+      },
+    ];
+  },
 
   async chat(userPrompt: string): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('openai');

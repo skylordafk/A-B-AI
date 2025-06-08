@@ -1,38 +1,76 @@
-### **Final Phased Development Plan**
+## Phase 4 — Provider-Layer Expansion & Normalisation
 
-_(React + Vite UI in a dedicated Electron window; all Node/back-end code lives inside Electron’s main process or preload layer)_
+_Goal: bring every major model family online behind a single adapter interface._
 
-| Phase                                           | Goal & Deliverables (one-sentence)                                                                                    | Key Tasks (ordered)                                                                                                                                                                                                                                            | Dependencies / Risks                                             | Effort\*<br>(Skill)                             | Acceptance Criteria                                                                                                                    |                                                                |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **0 — Project Foundation**                      | GitHub repo, code-style tooling, and CI baselines set.                                                                | 1. Create repo & default branch.<br>2. Add EditorConfig, ESLint/Prettier, Husky.<br>3. GitHub Actions for lint & unit-test on Win/macOS.<br>4. \`setup.(sh                                                                                                     | ps1)\` installs Node 18+ & pnpm.                                 | Node ≥ 18 required on dev/CI; runner flakiness. | **S** (DevOps)                                                                                                                         | Fresh clone → `pnpm install && pnpm test` passes on both OSes. |
-| **1 — Runnable Skeleton** **_(critical path)_** | Launch Electron window (task-bar/dock icon) that loads live Vite React UI in dev and bundled files in prod.           | 1. `pnpm create vite` → React template in `/ui`.<br>2. Set up Electron main process + preload.<br>3. Dev script: start Vite + Electron via `concurrently`.<br>4. Prod build script: `vite build` & `electron-builder`.<br>5. Top-bar **File → Settings** stub. | Coordinate Vite dev URL vs `file://` prod path; window controls. | **M** (Full-stack JS)                           | `pnpm dev` opens an Electron window with blank page; icon appears in task-bar/dock; `pnpm build && pnpm start:prod` loads packaged UI. |                                                                |
-| **2 — Single-Model Chat + Cost Display**        | Send prompt to GPT-4o; show tokens & ±1 % cost.                                                                       | 1. Add provider module (OpenAI SDK) in main process.<br>2. Integrate `@dqbd/tiktoken` for token counting.<br>3. Hard-code GPT-4o price map.<br>4. React chat component shows messages, tokens, cost.                                                           | User enters API key in Settings; handle API errors.              | **M** (Backend + UI)                            | User prompt → assistant reply rendered; tokens & cost accurate ±1 %.                                                                   |                                                                |
-| **3 — Multi-Model Toggle + Diff Viewer**        | Compare outputs from ≥ 2 cloud models side-by-side with diff.                                                         | 1. Abstract provider interface (OpenAI, Claude).<br>2. Extend price map JSON.<br>3. Build split-pane diff (Monaco).<br>4. Save session state in memory.                                                                                                        | SDK response shape differences; multiple API keys.               | **L** (Front-end + Node)                        | Select two models → click **Send** → diff pane shows both outputs.                                                                     |                                                                |
-| **4 — Local Model Adapter**                     | Let user run prompts through Ollama/llama.cpp if installed manually.                                                  | 1. Detect Ollama CLI; show “Not installed” notice.<br>2. Spawn subprocess & stream output.<br>3. Add “Local” checkbox in model picker.<br>4. Treat cost as \$0.                                                                                                | User environment variance (ARM/x64, RAM).                        | **L** (Systems)                                 | After manual model install, local checkbox returns answer ≤ 30 s on 8 GB machine.                                                      |                                                                |
-| **5 — Prompt Coach v1**                         | Score prompt (0-100) & “Improve” diff.                                                                                | 1. Heuristic scorer.<br>2. Few-shot OpenAI rewrite call.<br>3. Diff viewer between prompts.<br>4. Store score per prompt in session.                                                                                                                           | Subjective scoring; toggle to hide.                              | **M** (Prompt Eng.)                             | Clicking **Improve** shows revised prompt & color-coded diff ≥ 90 % useful.                                                            |                                                                |
-| **6 — Batch Mode**                              | CSV upload executes prompts in parallel and exports cost report.                                                      | 1. Parse CSV in renderer → queue jobs via main process.<br>2. Throttle per provider; worker pool.<br>3. Progress bar; downloadable JSON/CSV summary.<br>4. Persist run in `userData/history/`.                                                                 | API rate limits; memory for big CSVs.                            | **L–XL** (Backend)                              | 1 k-row CSV finishes < 10 min; subtotal cost matches sum ±1 %.                                                                         |                                                                |
-| **7 — Daily Pricing Sync**                      | Automatic model-pricing JSON refresh via GitHub Action.                                                               | 1. Scrape official pages (cheerio).<br>2. Push updated file on cron.<br>3. Fallback manual override in Settings.                                                                                                                                               | Provider page markup changes silently.                           | **M** (Scripting)                               | File refreshes daily; app uses cached prices when offline.                                                                             |                                                                |
-| **8 — Packaging & Auto-Update**                 | Signed installers on GitHub Releases for Win (.exe) & Mac (.dmg) with desktop shortcut, updater, and crash‐reporting. | 1. Configure `electron-builder` (nsis + dmg).<br>2. macOS notarisation + Windows EV cert (start paperwork early).<br>3. GitHub Release workflow to build & upload artifacts.<br>4. Wire `electron-updater` to public repo.                                     | Cert cost & lead-time; SmartScreen warnings.                     | **L** (DevOps)                                  | Download installer → shortcut created; “Check for Updates” downloads new version & restarts quietly.                                   |                                                                |
+| #   | Task                                                                                                                           | Acceptance / Deliverable                                   | Notes                                                   |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------- |
+| 4-1 | **Adapter refactor**<br/>• Add `listModels(): ModelMeta[]` (id, name, description, contextSize, pricePrompt, priceCompletion). | Type-safe interface + unit tests for existing adapters.    | Foundation for all later work.                          |
+| 4-2 | **Grok provider**<br/>• High-end **Grok 3**.<br/>• Fast tier **Grok-3-mini**.                                                  | `src/providers/grok.ts`; e2e smoke test.                   | Grok pricing is “flat per msg”; store in manifest.      |
+| 4-3 | **Gemini provider**<br/>• High-end **Gemini 2.5 Pro-Thinking**.<br/>• Fast tier **Gemini 1.5 Flash-Fast**.                     | `src/providers/gemini.ts`; e2e smoke test.                 | Handle streaming + safety blocks.                       |
+| 4-4 | **OpenAI fast tier** → **gpt-4.1-mini**.                                                                                       | Added to existing OpenAI adapter; visible in model picker. |                                                         |
+| 4-5 | **Anthropic fast tier** → **Claude 3 Haiku**.                                                                                  | Added to Anthropic adapter; visible in model picker.       | High-end **Opus** and **o3** are already in repo.       |
+| 4-6 | **Static pricing manifest** → `modelPricing.json`.                                                                             | CI check ensures every adapter model has a price entry.    | Manual lookup script for now; nightly sync comes later. |
 
-\*Effort legend: **S** ≤ 1 day, **M** 2-3 days, **L** ≈ 1 week, **XL** > 2 weeks (solo dev).
+**Exit test:** choose any three new models → send prompt → receive full response + cost line-items.
 
 ---
 
-#### **Critical-Path Items**
+## Phase 5 — Critical UI/UX & Docs Sprint
 
-1. **Phase 1 runnable skeleton** – foundation for every feature.
-2. **Provider abstraction (Phase 3)** – required before batch mode, prompt coach, pricing sync.
-3. **Local model adapter (Phase 4)** – differentiates product; may affect marketing timeline.
-4. **Packaging & auto-update (Phase 8)** – gates public release due to cert delays.
+_Goal: a first-time user can install, add keys once, and have a smooth chat in <5 min._
 
-#### **Resource Gaps & Mitigations**
-
-| Gap                                   | Mitigation                                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Electron + React full-stack depth** | Allocate 1-2 study days; reuse `electron-vite` boilerplate.                        |
-| **Notarisation / EV certs**           | Budget for certificates; begin Apple dev account & EV validation during Phase 4–5. |
-| **Solo-dev bandwidth**                | Stick to phase order, weekly self-checkpoint, defer nice-to-haves.                 |
+| #   | Task                                                                                                                                 | Acceptance                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| 5-1 | **Markdown renderer fix** – properly split fenced code-blocks so diff viewer isn’t broken.                                           | Three code-block test renders correctly.                              |
+| 5-2 | **Loading states** – global spinner / “thinking…” overlay, disable send button, allow cancel token.                                  | Visible until first streamed token.                                   |
+| 5-3 | **API-key storage** – persist keys after first entry; expose editable values in _Settings_; never prompt per session unless missing. | Keys survive app restart; bad key shows inline error with “Fix” link. |
+| 5-4 | **Session chat history** – retain the entire back-and-forth in memory; only the latest assistant message gets diff viewer.           | Closing the window clears history (cross-session storage TBD).        |
+| 5-5 | **30-second Quick-Start docs** – top-of-README and `/docs/first-model.md` walk-through for Windows & macOS.                          | Fresh VM → clone → install → first response in < 5 min.               |
 
 ---
 
-### ✅ Ready to Build
+## Phase 6 — First Production Build (“good-enough” installer)
+
+_Goal: publish unsigned installers + a download page; defer heavy infra to a later hardening phase._
+
+| #   | Task                                                                                  | Acceptance                                                      |
+| --- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 6-1 | **Basic tests pass in CI** (lint + unit + minimal Playwright).                        | Green build on `main`.                                          |
+| 6-2 | **Electron-builder config** → create `.exe` (NSIS) & `.dmg`/`.zip` on GitHub Actions. | Artifacts appear in the workflow summary.                       |
+| 6-3 | **Release download page** – GitHub Pages splash with links & SHA-256 checksums.       | User can click → download → install → app icon in taskbar/dock. |
+
+_Infra-hardening footnote:_ code-signing, auto-update, notarisation, and artifact retention move to **Phase 10**.
+
+---
+
+## Phase 7 — Batch Prompting MVP
+
+Queue CSV/JSON of prompts; route each to the cheapest “fast tier” unless the user pins a model. Provide per-row cost summary.
+
+---
+
+## Phase 8 — Prompt Coach v1
+
+Score a prompt, suggest improvements, and display side-by-side output diff.
+
+---
+
+## Phase 9 — Automated Pricing Sync
+
+Nightly script scrapes provider pricing → updates `modelPricing.json` → opens PR.
+
+---
+
+## Phase 10 — Infrastructure Hardening
+
+Code-signing for Win/macOS, delta auto-updates, notarisation, long-term artifact retention, and extended test matrix.
+
+---
+
+### Timeline at a glance
+
+1. **Phase 4** → unblock new models.
+2. **Phase 5** → remove biggest papercuts before showing anyone the app.
+3. **Phase 6** → “good-enough” installers + download page.
+4. **Phase 7–9** → power-user features.
+5. **Phase 10** → polish & enterprise trust.

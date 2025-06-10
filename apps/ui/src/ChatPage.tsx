@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Textarea } from './components/ui/textarea';
 import { Button } from './components/ui/button';
 import SettingsModal from './components/SettingsModal';
@@ -249,6 +250,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [invalidKeyError, setInvalidKeyError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Debounced prompt for performance
   const debouncedPrompt = useDebounce(prompt, 150);
@@ -387,6 +389,14 @@ export default function ChatPage() {
                 </p>
               )}
             </div>
+          </div>
+          <div>
+            <Button
+              onClick={() => navigate('/batch')}
+              className="bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Batch Prompt
+            </Button>
           </div>
         </div>
 

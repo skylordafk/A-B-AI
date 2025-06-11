@@ -7,13 +7,13 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
     <button
       type="button"
       onClick={toggleMode}
-      className={`p-2 rounded-md text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors ${className}`}
+      className={`p-1 rounded text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors ${className}`}
       title={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}
     >
       {mode === 'light' ? (
         // Moon icon
         <svg
-          className="w-5 h-5"
+          className="w-4 h-4"
           fill="currentColor"
           viewBox="0 0 20 20"
           xmlns="http://www.w3.org/2000/svg"
@@ -23,7 +23,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
       ) : (
         // Sun icon
         <svg
-          className="w-5 h-5"
+          className="w-4 h-4"
           fill="currentColor"
           viewBox="0 0 20 20"
           xmlns="http://www.w3.org/2000/svg"

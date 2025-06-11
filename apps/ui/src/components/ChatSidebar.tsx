@@ -49,13 +49,13 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
         fixed top-0 left-0 h-full bg-stone-100 dark:bg-stone-900 border-r border-stone-300 dark:border-stone-700 z-50
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        w-80 flex flex-col
+        w-64 flex flex-col
       `}
     >
       {/* Header */}
-      <div className="p-4 border-b border-stone-300 dark:border-stone-700">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50">Chats</h2>
+      <div className="p-3 border-b border-stone-300 dark:border-stone-700">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-50">Chats</h2>
           <button
             onClick={onToggle}
             className="p-1 rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
@@ -90,7 +90,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
             <p className="text-sm">Start a new conversation!</p>
           </div>
         ) : (
-          <div className="p-2">
+          <div className="p-1">
             {chats
               .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
               .map((chat) => (
@@ -98,7 +98,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
                   key={chat.id}
                   onClick={() => switchToChat(chat.id)}
                   className={`
-                    group relative p-3 mb-2 rounded-lg cursor-pointer transition-all duration-200
+                    group relative p-2 mb-1 rounded cursor-pointer transition-all duration-200
                     ${
                       currentChatId === chat.id
                         ? 'bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700'
@@ -176,7 +176,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-stone-300 dark:border-stone-700">
+      <div className="p-2 border-t border-stone-300 dark:border-stone-700">
         <p className="text-xs text-stone-600 dark:text-stone-400 text-center">
           Session chats • Clear on app restart
         </p>

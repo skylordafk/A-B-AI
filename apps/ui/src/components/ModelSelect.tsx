@@ -69,27 +69,27 @@ export default function ModelSelect({ selectedModels, onSelectionChange }: Model
   };
 
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex flex-wrap gap-2">
       {availableModels.map(({ provider, models }) => (
         <div
           key={provider}
-          className="border border-stone-300 rounded-lg p-3 bg-stone-50 dark:bg-stone-700 dark:border-stone-600"
+          className="border border-stone-300 rounded p-2 bg-stone-50 dark:bg-stone-700 dark:border-stone-600"
         >
-          <h4 className="text-sm font-semibold mb-3 text-stone-800 dark:text-stone-100 uppercase tracking-wide">
+          <h4 className="text-xs font-semibold mb-1.5 text-stone-800 dark:text-stone-100 uppercase tracking-wide">
             {provider}
           </h4>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {models.map((model) => (
               <label key={model.id} className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={selectedModels.includes(model.id)}
                   onChange={() => handleModelToggle(model.id)}
-                  className="cursor-pointer w-4 h-4 text-slate-600 bg-stone-100 dark:bg-stone-600/30 border-stone-300 dark:border-stone-500 rounded focus:ring-slate-500 focus:ring-2"
+                  className="cursor-pointer w-3 h-3 text-slate-600 bg-stone-100 dark:bg-stone-600/30 border-stone-300 dark:border-stone-500 rounded-sm focus:ring-slate-500 focus:ring-1"
                 />
-                <span className="text-sm font-medium text-stone-800 dark:text-stone-100 group-hover:text-stone-900 dark:group-hover:text-stone-50 transition-colors">
+                <span className="text-xs font-medium text-stone-800 dark:text-stone-100 group-hover:text-stone-900 dark:group-hover:text-stone-50 transition-colors">
                   {model.name}{' '}
-                  <span className="text-xs text-stone-600 dark:text-stone-300 font-normal">
+                  <span className="text-[10px] text-stone-600 dark:text-stone-300 font-normal">
                     {getPriceBadge(model)}
                   </span>
                 </span>

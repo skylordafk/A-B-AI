@@ -49,7 +49,7 @@ const CopyButton = ({ text, className = '' }: { text: string; className?: string
   return (
     <button
       onClick={handleCopy}
-      className={`flex items-center gap-1 px-2 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded border border-slate-600 transition-colors ${className}`}
+      className={`flex items-center gap-1 px-1.5 py-0.5 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded-sm border border-slate-600 transition-colors ${className}`}
       title="Copy to clipboard"
     >
       {copied ? (
@@ -84,7 +84,7 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
 
   // Helpers to render the two answers inside TerminalBlock
   const renderAnswers = () => (
-    <div className={`grid gap-4 ${sideBySide ? 'md:grid-cols-2 grid-cols-1' : 'grid-cols-1'}`}>
+    <div className={`grid gap-2 ${sideBySide ? 'md:grid-cols-2 grid-cols-1' : 'grid-cols-1'}`}>
       {assistantMessages.map((msg, idx) => (
         <div key={idx} className="max-w-full">
           <div className="flex items-center gap-2 mb-1">
@@ -200,17 +200,17 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
   );
 
   return (
-    <div className="border border-stone-300 dark:border-stone-600 rounded-lg p-4 bg-stone-200 dark:bg-stone-700 relative">
-      <div className="flex justify-end gap-2 mb-2">
+    <div className="border border-stone-300 dark:border-stone-600 rounded p-3 bg-stone-200 dark:bg-stone-700 relative">
+      <div className="flex justify-end gap-1 mb-2">
         <button
           onClick={() => setSideBySide(!sideBySide)}
-          className="text-xs px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white border border-slate-600 rounded transition-colors"
+          className="text-xs px-1.5 py-0.5 bg-slate-600 hover:bg-slate-700 text-white border border-slate-600 rounded-sm transition-colors"
         >
           {sideBySide ? 'Single column' : 'Compare side-by-side'}
         </button>
         <button
           onClick={() => setShowDiff(!showDiff)}
-          className="text-xs px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white border border-slate-600 rounded transition-colors"
+          className="text-xs px-1.5 py-0.5 bg-slate-600 hover:bg-slate-700 text-white border border-slate-600 rounded-sm transition-colors"
         >
           {showDiff ? 'Hide diff' : 'Show diff'}
         </button>
@@ -235,10 +235,10 @@ const ConversationRound = ({
   const [isExpanded, setIsExpanded] = useState(isLatest);
 
   return (
-    <div className="border border-stone-200 rounded-lg mb-4 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
+    <div className="border border-stone-200 rounded mb-2 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-3 text-left flex items-center justify-between bg-stone-50 dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-600 transition-colors text-stone-900 dark:text-stone-50"
+        className="w-full p-2 text-left flex items-center justify-between bg-stone-50 dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-600 transition-colors text-stone-900 dark:text-stone-50"
       >
         <div className="flex-1">
           <div className="font-medium text-stone-900 dark:text-stone-50 text-sm">
@@ -260,10 +260,10 @@ const ConversationRound = ({
       </button>
 
       {isExpanded && (
-        <div className="border-t border-stone-200 p-4 space-y-4">
+        <div className="border-t border-stone-200 p-3 space-y-3">
           {/* User message */}
           <div className="text-right">
-            <div className="inline-block max-w-3xl p-3 bg-slate-600 text-white rounded-lg">
+            <div className="inline-block max-w-3xl p-2 bg-slate-600 text-white rounded">
               <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
                 {userMessage.content}
               </ReactMarkdown>
@@ -285,7 +285,7 @@ const ConversationRound = ({
                   <CopyButton text={msg.content} />
                 </div>
                 <div
-                  className="inline-block p-3 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg relative text-stone-900 dark:text-stone-50"
+                  className="inline-block p-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded relative text-stone-900 dark:text-stone-50"
                   style={{ userSelect: 'text' }}
                 >
                   <div className="prose prose-sm max-w-none prose-stone">
@@ -430,11 +430,11 @@ export default function ChatPage() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-2 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
+                className="p-1 rounded bg-slate-600 hover:bg-slate-700 text-white transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -447,11 +447,11 @@ export default function ChatPage() {
               </button>
 
               <div>
-                <h1 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
+                <h1 className="text-base font-semibold text-stone-900 dark:text-stone-50">
                   {currentChat?.title || 'New Chat'}
                 </h1>
                 {messages.length > 0 && (
-                  <p className="text-sm text-stone-600 dark:text-stone-300">
+                  <p className="text-xs text-stone-600 dark:text-stone-300">
                     {conversationRounds.length} round{conversationRounds.length !== 1 ? 's' : ''}
                   </p>
                 )}
@@ -464,8 +464,8 @@ export default function ChatPage() {
 
           {/* Invalid key toast */}
           {invalidKeyError && (
-            <div className="mx-4 mt-4">
-              <div className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+            <div className="mx-2 mt-2">
+              <div className="bg-red-500 text-white px-3 py-1.5 rounded shadow-lg flex items-center gap-2 text-sm">
                 <span>{invalidKeyError}</span>
                 <button
                   onClick={() => {
@@ -482,8 +482,8 @@ export default function ChatPage() {
 
           {/* Model Selection for New Chats */}
           {showModelSelect && (
-            <div className="p-4 border-b border-stone-200 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
-              <h3 className="text-sm font-medium text-stone-800 dark:text-stone-50 mb-3">
+            <div className="p-2 border-b border-stone-200 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
+              <h3 className="text-sm font-medium text-stone-800 dark:text-stone-50 mb-2">
                 Select AI Models:
               </h3>
               <ModelSelect selectedModels={selected} onSelectionChange={setSelected} />
@@ -491,7 +491,7 @@ export default function ChatPage() {
           )}
 
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3">
             {conversationRounds.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="max-w-md">
@@ -532,7 +532,7 @@ export default function ChatPage() {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-stone-200 p-4 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
+          <div className="border-t border-stone-200 p-2 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
             <div className="max-w-4xl mx-auto">
               <Textarea
                 value={prompt}
@@ -541,12 +541,12 @@ export default function ChatPage() {
                   e.key === 'Enter' && !e.shiftKey && !isLoading && (e.preventDefault(), send())
                 }
                 placeholder="Ask something…"
-                className="resize-none mb-3 border-[var(--border)] focus:border-[var(--border)] focus:ring-slate-500 bg-[var(--bg-secondary)] text-[var(--text-primary)]"
+                className="resize-none mb-1.5 border-[var(--border)] focus:border-[var(--border)] focus:ring-slate-500 bg-[var(--bg-secondary)] text-[var(--text-primary)]"
                 disabled={isLoading}
-                rows={3}
+                rows={2}
               />
               <div className="flex justify-between items-center">
-                <p className="text-xs text-stone-600">
+                <p className="text-[10px] text-stone-600">
                   Press Enter to send, Shift+Enter for new line
                 </p>
                 <SplitButton

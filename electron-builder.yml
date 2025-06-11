@@ -37,6 +37,9 @@ files:
   - "!**/node_modules/concurrently/**/*"
   - "!**/node_modules/cross-env/**/*"
 
+# Include sub node_modules for monorepo
+includeSubNodeModules: true
+
 asar: false
 compression: maximum
 

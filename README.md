@@ -4,6 +4,17 @@
 [![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/skylordafk/A-B-AI/releases)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
+## 📥 Download
+
+Download the latest version of A-B/AI for your platform:
+
+| Platform | Download                                                                                               | Version |
+| -------- | ------------------------------------------------------------------------------------------------------ | ------- |
+| Windows  | [A-BAI-Setup.exe](https://github.com/skylordafk/A-B-AI/releases/latest/download/A-BAI-1.0.2-Setup.exe) | v1.0.2  |
+| macOS    | Coming Soon                                                                                            | -       |
+
+> **Note**: macOS support is in development. For now, macOS users can build from source using the instructions below.
+
 ## 🚀 30-Second Quick Start
 
 ```bash

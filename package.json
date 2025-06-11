@@ -1,14 +1,24 @@
 {
   "name": "abai-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A-B/AI Desktop - Compare AI models side-by-side with cost analysis",
   "author": "skylordafk",
   "private": true,
+  "main": "apps/main/dist/main.js",
   "packageManager": "pnpm@8.15.8",
   "workspaces": [
     "apps/main",
     "apps/ui"
   ],
+  "dependencies": {
+    "@ai-sdk/xai": "^1.2.16",
+    "@anthropic-ai/sdk": "^0.53.0",
+    "@dqbd/tiktoken": "^1.0.21",
+    "@google/genai": "^1.4.0",
+    "ai": "^4.3.16",
+    "electron-store": "8.1.0",
+    "openai": "^5.1.1"
+  },
   "scripts": {
     "dev": "concurrently -k -n UI,MAIN \"pnpm --filter ./apps/ui dev\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 pnpm --filter ./apps/main dev\"",
     "build": "pnpm -r run build",
@@ -22,12 +32,11 @@
     "docs": "start docs/first-model.md || open docs/first-model.md || xdg-open docs/first-model.md",
     "package": "pnpm build && electron-builder --publish never",
     "package:win": "pnpm build && electron-builder --win --x64 --publish never",
+    "package:win:npm": "pnpm build && cd apps/main && npm install --production --force && cd ../.. && electron-builder --win --x64 --publish never",
     "package:mac": "pnpm build && electron-builder --mac --arm64 --x64 --publish never"
   },
-  "dependencies": {
-    "electron-store": "^10.0.1"
-  },
   "devDependencies": {
+    "@playwright/test": "^1.43.1",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@vitest/ui": "^3.2.2",
@@ -42,9 +51,8 @@
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "prettier": "^3.3.3",
-    "vitest": "^3.2.2",
-    "@playwright/test": "^1.43.1",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^3.2.2"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
@@ -56,8 +64,97 @@
     ]
   },
   "build": {
+    "appId": "ai.ab.desktop",
+    "productName": "A-B/AI",
+    "copyright": "Copyright © 2024 skylordafk",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "apps/main/dist/**/*",
+      "apps/ui/dist/**/*",
+      "apps/main/package.json",
+      "node_modules/**/*",
+      "package.json",
+      "!apps/*/node_modules/**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+      "!**/node_modules/electron/**/*",
+      "!**/node_modules/electron-builder/**/*",
+      "!**/node_modules/@typescript-eslint/**/*",
+      "!**/node_modules/eslint*/**/*",
+      "!**/node_modules/prettier/**/*",
+      "!**/node_modules/husky/**/*",
+      "!**/node_modules/lint-staged/**/*",
+      "!**/node_modules/vitest/**/*",
+      "!**/node_modules/@vitest/**/*",
+      "!**/node_modules/concurrently/**/*",
+      "!**/node_modules/cross-env/**/*",
+      "!**/node_modules/**/*.map",
+      "!**/node_modules/**/*.ts",
+      "!**/node_modules/**/*.tsx",
+      "!**/node_modules/**/*.md",
+      "!**/node_modules/**/LICENSE*",
+      "!**/node_modules/**/license*",
+      "!**/node_modules/**/.github",
+      "!**/node_modules/**/docs/**/*",
+      "!**/node_modules/**/test/**/*",
+      "!**/node_modules/**/tests/**/*",
+      "!**/node_modules/**/__tests__/**/*",
+      "!**/node_modules/**/coverage/**/*",
+      "!**/node_modules/**/.eslintrc*",
+      "!**/node_modules/**/.prettier*",
+      "!**/node_modules/**/tsconfig.json",
+      "!**/node_modules/**/webpack.config.*",
+      "!**/node_modules/**/rollup.config.*"
+    ],
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "asar": true,
+    "compression": "normal",
+    "asarUnpack": [
+      "node_modules/electron-store/**/*",
+      "node_modules/@dqbd/tiktoken/**/*",
+      "**/*.node"
+    ],
+    "forceCodeSigning": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-Setup.${ext}",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-${version}-Setup.${ext}",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
     "extraMetadata": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "main": "apps/main/dist/main.js"
     }
   }

@@ -1,6 +1,6 @@
 {
   "name": "abai-desktop",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "A-B/AI Desktop - Compare AI models side-by-side with cost analysis",
   "author": "skylordafk",
   "private": true,
@@ -154,7 +154,7 @@
       "createStartMenuShortcut": true
     },
     "extraMetadata": {
-      "version": "1.0.2",
+      "version": "1.1.0",
       "main": "apps/main/dist/main.js"
     }
   }

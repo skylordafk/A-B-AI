@@ -78,4 +78,8 @@ Temporary Items
 .env.production.local
 
 # Electron
-electron-builder.json5 
+electron-builder.json5
+
+# Playwright compiled output (legacy) and artefacts
+tests-out/
+test-results/ 

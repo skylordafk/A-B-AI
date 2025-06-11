@@ -1,6 +1,6 @@
 {
   "name": "abai-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A-B/AI Desktop - Compare AI models side-by-side with cost analysis",
   "author": "skylordafk",
   "private": true,
@@ -15,6 +15,7 @@
     "start:prod": "pnpm --filter ./apps/main exec electron .",
     "test": "vitest",
     "test:ui": "vitest --ui",
+    "test:e2e": "playwright test",
     "lint": "eslint \"**/*.{ts,tsx,js,jsx}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "prepare": "husky",
@@ -34,14 +35,16 @@
     "cross-env": "^7.0.3",
     "dotenv": "^16.5.0",
     "electron": "^34.0.0",
-    "electron-builder": "^24.9.1",
+    "electron-builder": "^26.0.12",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "prettier": "^3.3.3",
-    "vitest": "^3.2.2"
+    "vitest": "^3.2.2",
+    "@playwright/test": "^1.43.1",
+    "typescript": "^5.4.5"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
@@ -54,7 +57,7 @@
   },
   "build": {
     "extraMetadata": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "main": "apps/main/dist/main.js"
     }
   }

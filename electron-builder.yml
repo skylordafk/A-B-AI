@@ -52,6 +52,7 @@ mac:
       arch: [x64, arm64]
   artifactName: ${productName}-${version}-${arch}.${ext}
   # icon: build/icon.icns  # TODO: Add icon file
+  # icon: build/icon.icns
 
 win:
   target:
@@ -60,13 +61,16 @@ win:
     - target: zip
       arch: [x64]
   artifactName: ${productName}-${version}-Setup.${ext}
-  # icon: build/icon.ico  # TODO: Add icon file
+  icon: build/icon.ico  # TODO: Add icon file
   sign: null
+  icon: build/icon.ico
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   artifactName: ${productName}-${version}-Setup.${ext}
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
 
 linux:
   target:

@@ -37,7 +37,7 @@ files:
   - "!**/node_modules/concurrently/**/*"
   - "!**/node_modules/cross-env/**/*"
 
-asar: true
+asar: false
 compression: maximum
 
 # Unpack ESM-only deps to avoid Node ERR_UNSUPPORTED_ESM_URL_SCHEME bug (electron-store triggers this)

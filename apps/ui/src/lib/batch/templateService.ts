@@ -55,6 +55,51 @@ class TemplateService {
     return new File([blob], `${template.id}.csv`, { type: 'text/csv' });
   }
 
+  async downloadTemplateToDevice(template: Template): Promise<void> {
+    try {
+      const content = await this.downloadTemplate(template);
+
+      // Create a more user-friendly filename
+      const sanitizedName = template.name
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '-')
+        .toLowerCase();
+      const filename = `${sanitizedName}-template.csv`;
+
+      // Create and trigger download
+      const blob = new Blob([content], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download template to device:', error);
+      throw new Error('Failed to download template. Please try again later.');
+    }
+  }
+
+  async downloadAllTemplatesAsZip(): Promise<void> {
+    try {
+      const templates = await this.getTemplates();
+
+      // For simplicity, we'll download each template individually
+      // In a real implementation, you might want to use a zip library like JSZip
+      for (const template of templates) {
+        await this.downloadTemplateToDevice(template);
+        // Add a small delay to prevent overwhelming the browser
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error('Failed to download all templates:', error);
+      throw new Error('Failed to download all templates. Please try again later.');
+    }
+  }
+
   getTemplatesByCategory(category: string): Promise<Template[]> {
     return this.getTemplates().then((templates) =>
       templates.filter((t) => t.category === category)

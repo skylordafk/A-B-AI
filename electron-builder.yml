@@ -10,10 +10,9 @@ files:
   - apps/main/dist/**/*
   - apps/ui/dist/**/*
   - apps/main/package.json
-  - apps/main/node_modules/**/*
-  - apps/ui/node_modules/**/*
   - node_modules/**/*
   - package.json
+  - "!apps/*/node_modules/**/*"
   - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
   - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
   - "!**/node_modules/*.d.ts"
@@ -36,16 +35,37 @@ files:
   - "!**/node_modules/@vitest/**/*"
   - "!**/node_modules/concurrently/**/*"
   - "!**/node_modules/cross-env/**/*"
+  - "!**/node_modules/**/*.map"
+  - "!**/node_modules/**/*.ts"
+  - "!**/node_modules/**/*.tsx"
+  - "!**/node_modules/**/*.md"
+  - "!**/node_modules/**/LICENSE*"
+  - "!**/node_modules/**/license*"
+  - "!**/node_modules/**/.github"
+  - "!**/node_modules/**/docs/**/*"
+  - "!**/node_modules/**/test/**/*"
+  - "!**/node_modules/**/tests/**/*"
+  - "!**/node_modules/**/__tests__/**/*"
+  - "!**/node_modules/**/coverage/**/*"
+  - "!**/node_modules/**/.eslintrc*"
+  - "!**/node_modules/**/.prettier*"
+  - "!**/node_modules/**/tsconfig.json"
+  - "!**/node_modules/**/webpack.config.*"
+  - "!**/node_modules/**/rollup.config.*"
 
 # Include sub node_modules for monorepo
 includeSubNodeModules: true
 
-asar: false
-compression: maximum
+npmRebuild: false
+nodeGypRebuild: false
+asar: true
+compression: normal
 
 # Unpack ESM-only deps to avoid Node ERR_UNSUPPORTED_ESM_URL_SCHEME bug (electron-store triggers this)
 asarUnpack:
   - "node_modules/electron-store/**/*"
+  - "node_modules/@dqbd/tiktoken/**/*"
+  - "**/*.node"
 
 # Skip code signing for now
 forceCodeSigning: false

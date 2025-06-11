@@ -141,3 +141,67 @@ The batch processor supports all models available in A-B/AI. Use the following f
 If no model is specified, the default (`openai/o3-2025-04-16`) will be used.
 
 See the sample template for examples of each model in use.
+
+## Using Templates
+
+A-B/AI provides a template system to help you get started quickly. Templates are CSV files with pre-configured prompts, models, and settings for common use-cases.
+
+### Accessing Templates
+
+1. **Browse Templates**: Click "Browse Templates" in the batch processing interface
+2. **Template Categories**: Templates are organized by category:
+   - **General**: Basic starter templates
+   - **Creative**: Creative writing and content generation
+   - **Analysis**: Data analysis and interpretation
+   - **Development**: Code review and programming assistance
+   - **Research**: Academic and research analysis
+
+### Using Templates
+
+**Load Template**: Click on any template card to load it directly into the batch processor. This will populate your CSV data with the template's prompts and settings.
+
+**Download Template**: Hover over a template card and click the "Download" button to save the template CSV file to your local device. This allows you to:
+
+- Modify the template offline
+- Use it as a starting point for your own templates
+- Keep local copies for future use
+
+**Download All Templates**: Use the "Download All" button in the template browser to download all available templates at once.
+
+### Template Structure
+
+Templates follow the standard CSV format:
+
+```csv
+prompt,model,system,temperature
+"Your prompt text here",openai/gpt-4o-mini,"System message",0.5
+```
+
+### Available Models
+
+Templates use various AI models optimized for different tasks:
+
+**OpenAI:**
+
+- `openai/o3-2025-04-16` - Latest reasoning model (default)
+- `openai/gpt-4o-mini` - Cost-effective, fast model
+- `openai/gpt-4.1-turbo` - Enhanced GPT-4 model
+
+**Anthropic:**
+
+- `anthropic/claude-3-haiku` - Fast, cost-effective model
+- `anthropic/claude-opus-4-20250514` - High-capability model for complex tasks
+
+**Google:**
+
+- `gemini/models/gemini-2.5-pro-thinking` - Advanced reasoning model
+- `gemini/models/gemini-2.5-flash-preview` - Fast and efficient Gemini model
+
+**Grok:**
+
+- `grok/grok-3` - Latest high-end model
+- `grok/grok-3-mini` - Low-cost, high-speed tier
+
+If no model is specified, the default (`openai/o3-2025-04-16`) will be used.
+
+See the sample template for examples of each model in use.

@@ -1,0 +1,98 @@
+/* Spreadsheet Editor Styles */
+
+/* Excel-like cursor styles */
+.cursor-cell {
+  cursor: cell;
+}
+
+/* Ensure cells have proper min-height for better interaction */
+.spreadsheet-cell {
+  min-height: 24px;
+  position: relative;
+}
+
+/* Selection highlight with Excel-like border */
+.spreadsheet-cell-selected {
+  position: relative;
+  z-index: 1;
+}
+
+.spreadsheet-cell-selected::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border: 2px solid #0066cc;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Drag preview styling */
+.spreadsheet-cell-drag-preview {
+  background-color: rgba(0, 102, 204, 0.1) !important;
+  border-style: dashed !important;
+}
+
+/* Fill handle (drag corner) */
+.spreadsheet-fill-handle {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  background-color: #0066cc;
+  border: 1px solid white;
+  cursor: crosshair;
+  z-index: 3;
+}
+
+/* Cell editing styles */
+.spreadsheet-cell-editing input,
+.spreadsheet-cell-editing textarea,
+.spreadsheet-cell-editing select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Disable text selection during drag operations */
+.spreadsheet-selecting {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Row number styling */
+.spreadsheet-row-header {
+  background-color: #f5f5f5;
+  font-weight: 500;
+  user-select: none;
+}
+
+.dark .spreadsheet-row-header {
+  background-color: #374151;
+}
+
+/* Column header styling */
+.spreadsheet-col-header {
+  background-color: #f5f5f5;
+  font-weight: 600;
+  user-select: none;
+  text-align: center;
+}
+
+.dark .spreadsheet-col-header {
+  background-color: #374151;
+}
+
+/* Improve textarea auto-resize */
+.spreadsheet-textarea {
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+  min-height: 24px;
+  max-height: 120px;
+} 

@@ -23,7 +23,7 @@ interface DialogContentProps {
 
 export function DialogContent({ children }: DialogContentProps) {
   return (
-    <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+    <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border)] rounded shadow-lg p-4 max-w-md w-full mx-4">
       {children}
     </div>
   );

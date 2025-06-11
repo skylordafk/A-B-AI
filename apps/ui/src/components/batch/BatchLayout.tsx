@@ -53,7 +53,6 @@ export default function BatchLayout({
           >
             Download basic template
           </a>
-
           <button
             onClick={onNavigateToChat}
             className="px-4 py-2 text-sm bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors"

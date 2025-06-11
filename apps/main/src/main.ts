@@ -32,12 +32,13 @@ function createWindow() {
     },
   });
 
-  const url =
-    isDev && VITE_DEV_SERVER_URL
-      ? VITE_DEV_SERVER_URL
-      : `file://${path.join(__dirname, '../../ui/dist/index.html')}`;
-
-  win.loadURL(url);
+  // In development, load the Vite dev server URL. In production, use `loadFile` to avoid
+  // malformed "file://" URLs on Windows that can trigger ERR_UNSUPPORTED_ESM_URL_SCHEME.
+  if (isDev && VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL);
+  } else {
+    win.loadFile(path.join(__dirname, '../../ui/dist/index.html'));
+  }
 
   if (isDev) {
     win.webContents.openDevTools({ mode: 'detach' });

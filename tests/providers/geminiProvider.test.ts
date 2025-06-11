@@ -16,14 +16,14 @@ describe('Gemini Provider', () => {
     expect(proThinking).toBeDefined();
     expect(proThinking?.name).toBe('Gemini 2.5 Pro-Thinking');
     expect(proThinking?.contextSize).toBe(1_000_000);
-    expect(proThinking?.pricePrompt).toBe(0.0008);
-    expect(proThinking?.priceCompletion).toBe(0.0008);
+    expect(proThinking?.pricePrompt).toBe(0.00125);
+    expect(proThinking?.priceCompletion).toBe(0.01);
 
-    const flashFast = models.find((m) => m.id === 'models/gemini-1.5-flash-fast');
-    expect(flashFast).toBeDefined();
-    expect(flashFast?.name).toBe('Gemini 1.5 Flash-Fast');
-    expect(flashFast?.contextSize).toBe(1_000_000);
-    expect(flashFast?.pricePrompt).toBe(0.00035);
-    expect(flashFast?.priceCompletion).toBe(0.00035);
+    const flashPreview = models.find((m) => m.id === 'models/gemini-2.5-flash-preview');
+    expect(flashPreview).toBeDefined();
+    expect(flashPreview?.name).toBe('Gemini 2.5 Flash-Preview');
+    expect(flashPreview?.contextSize).toBe(1_000_000);
+    expect(flashPreview?.pricePrompt).toBe(0.00035);
+    expect(flashPreview?.priceCompletion).toBe(0.00175);
   });
 });

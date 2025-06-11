@@ -1,0 +1,148 @@
+import Papa from 'papaparse';
+import type { BatchRow, RowError } from '../../types/batch';
+
+export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors: RowError[] }> {
+  const rows: BatchRow[] = [];
+  const errors: RowError[] = [];
+
+  const text = await file.text();
+  const extension = file.name.toLowerCase().split('.').pop();
+
+  if (extension === 'csv') {
+    // Parse CSV
+    const results = Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().toLowerCase(),
+    });
+
+    // Validate required columns
+    const headers = results.meta.fields || [];
+    if (!headers.includes('prompt')) {
+      errors.push({
+        row: 0,
+        message: 'CSV must have a "prompt" column',
+      });
+      return { rows, errors };
+    }
+
+    // Process each row
+    results.data.forEach((row: any, index: number) => {
+      try {
+        if (!row.prompt || row.prompt.trim() === '') {
+          errors.push({
+            row: index + 2, // +2 because CSV is 1-indexed and has header
+            message: 'Row missing prompt',
+            data: row,
+          });
+          return;
+        }
+
+        const batchRow: BatchRow = {
+          id: `row-${index + 1}`,
+          prompt: row.prompt.trim(),
+          model: row.model?.trim(),
+          system: row.system?.trim(),
+          temperature: row.temperature ? parseFloat(row.temperature) : undefined,
+        };
+
+        // Validate temperature if provided
+        if (
+          batchRow.temperature !== undefined &&
+          (isNaN(batchRow.temperature) || batchRow.temperature < 0 || batchRow.temperature > 2)
+        ) {
+          errors.push({
+            row: index + 2,
+            message: 'Temperature must be between 0 and 2',
+            data: row,
+          });
+          return;
+        }
+
+        rows.push(batchRow);
+      } catch (err) {
+        errors.push({
+          row: index + 2,
+          message: err instanceof Error ? err.message : 'Failed to parse row',
+          data: row,
+        });
+      }
+    });
+
+    // Handle Papa parse errors - but skip errors for rows we already validated
+    if (results.errors.length > 0) {
+      results.errors.forEach((error) => {
+        // Only add parse errors if we don't already have an error for that row
+        const rowNum = error.row !== undefined ? error.row + 1 : 0;
+        const hasExistingError = errors.some((e) => e.row === rowNum);
+
+        if (!hasExistingError) {
+          errors.push({
+            row: rowNum,
+            message: error.message,
+          });
+        }
+      });
+    }
+  } else if (extension === 'json') {
+    // Parse JSON
+    try {
+      const data = JSON.parse(text);
+      const items = Array.isArray(data) ? data : [data];
+
+      items.forEach((item, index) => {
+        try {
+          if (!item.prompt || typeof item.prompt !== 'string') {
+            errors.push({
+              row: index + 1,
+              message: 'Item missing prompt string',
+              data: item,
+            });
+            return;
+          }
+
+          const batchRow: BatchRow = {
+            id: `row-${index + 1}`,
+            prompt: item.prompt.trim(),
+            model: item.model?.trim(),
+            system: item.system?.trim(),
+            temperature: typeof item.temperature === 'number' ? item.temperature : undefined,
+          };
+
+          // Validate temperature if provided
+          if (
+            batchRow.temperature !== undefined &&
+            (batchRow.temperature < 0 || batchRow.temperature > 2)
+          ) {
+            errors.push({
+              row: index + 1,
+              message: 'Temperature must be between 0 and 2',
+              data: item,
+            });
+            return;
+          }
+
+          rows.push(batchRow);
+        } catch (err) {
+          errors.push({
+            row: index + 1,
+            message: err instanceof Error ? err.message : 'Failed to parse item',
+            data: item,
+          });
+        }
+      });
+    } catch (err) {
+      errors.push({
+        row: 0,
+        message: err instanceof Error ? err.message : 'Invalid JSON format',
+      });
+    }
+  } else {
+    errors.push({
+      row: 0,
+      message: 'Unsupported file format. Please use CSV or JSON.',
+    });
+  }
+
+  return { rows, errors };
+}

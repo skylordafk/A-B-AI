@@ -1,12 +1,7 @@
-import ChatPage from './ChatPage';
-import { ChatProvider } from './contexts/ChatContext';
+import AppRouter from './AppRouter';
 
 function App() {
-  return (
-    <ChatProvider>
-      <ChatPage />
-    </ChatProvider>
-  );
+  return <AppRouter />;
 }
 
 export default App;

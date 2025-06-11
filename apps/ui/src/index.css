@@ -61,18 +61,38 @@
 }
 
 :root {
+  /* Typography & font smoothing (kept) */
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Design-token neutrals (light) */
+  --bg-primary: #f5f5f4; /* stone-100 */
+  --bg-secondary: #fafaf9; /* stone-50 */
+  --border: #d6d3d1; /* stone-300 */
+  --text-primary: #1c1917; /* stone-900 */
+  --text-secondary: #3f3f3f; /* stone-700 */
+  --text-muted: #57534e; /* stone-600 */
+}
+
+.dark {
+  /* Design-token neutrals (dark) */
+  --bg-primary: #292524; /* stone-800 */
+  --bg-secondary: #1c1917; /* stone-900 */
+  --border: #44403c; /* stone-700 */
+  --text-primary: #fafaf9; /* stone-50 */
+  --text-secondary: #d6d3d1; /* stone-300 */
+  --text-muted: #d6d3d1; /* stone-300 */
+}
+
+/* Remove default background & text colours – Tailwind classes/variables will take over */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 a {

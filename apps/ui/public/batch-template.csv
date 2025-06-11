@@ -1,0 +1,9 @@
+prompt,model,system,temperature
+"What is the capital of France?",openai/o3-2025-04-16,"You are a helpful assistant",0.7
+"Explain quantum computing in simple terms",openai/gpt-4.1-mini,"You are a science teacher explaining complex topics to beginners",0.5
+"Write a haiku about coding",anthropic/claude-opus-4-20250514,,1.0
+"What are the benefits of renewable energy?",anthropic/claude-3-haiku,"You are an environmental expert",0.8
+"Translate 'Hello world' to Spanish",gemini/models/gemini-2.5-pro-thinking,,0.3
+"List 5 interesting facts about space",gemini/models/gemini-2.5-flash-preview,"You are an astronomy enthusiast",0.6
+"What is machine learning?",grok/grok-3,"You are a technical educator",0.7
+"Give me a recipe for chocolate chip cookies",grok/grok-3-mini,"You are a friendly chef",0.9 

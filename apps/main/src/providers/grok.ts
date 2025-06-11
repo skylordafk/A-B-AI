@@ -31,7 +31,7 @@ export class GrokProvider implements BaseProvider {
     return this.MODELS;
   }
 
-  async chat(userPrompt: string): Promise<ChatResult> {
+  async chat(userPrompt: string, modelId?: string): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('grok');
     if (!apiKey) throw new Error('Grok API key missing');
 
@@ -40,8 +40,25 @@ export class GrokProvider implements BaseProvider {
     });
 
     try {
-      // Use grok-3-mini as default model
-      const model = xai('grok-3-mini');
+      // Determine which model to use
+      let modelName = 'grok-3-mini'; // Default to mini
+
+      if (modelId) {
+        // Extract just the model name if it includes provider prefix
+        const requestedModel = modelId.includes('/') ? modelId.split('/')[1] : modelId;
+
+        // Map to actual model names
+        if (
+          requestedModel === 'grok-3' ||
+          (requestedModel.includes('grok-3') && !requestedModel.includes('mini'))
+        ) {
+          modelName = 'grok-3';
+        } else if (requestedModel === 'grok-3-mini' || requestedModel.includes('mini')) {
+          modelName = 'grok-3-mini';
+        }
+      }
+
+      const model = xai(modelName);
 
       const { text, usage } = await generateText({
         model,

@@ -78,4 +78,65 @@ jobs:
             artifacts/**/SHA256SUMS.txt
           token: ${{ secrets.GITHUB_TOKEN }}
 
- 
+  deploy-download-page:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        with:
+          enablement: true
+        
+      - name: Get current version
+        id: current_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: v$VERSION"
+          echo "release_tag=v$VERSION" >> $GITHUB_OUTPUT
+        
+      - name: Prepare docs for deployment
+        env:
+          RELEASE_TAG: ${{ steps.current_version.outputs.release_tag }}
+        run: |
+          # Remove any existing artifact directories to avoid large file issues
+          rm -rf docs/latest
+          # Create a clean latest directory
+          mkdir -p docs/latest
+          # Create a simple redirect file with current release version
+          cat > docs/latest/index.html << EOF
+          <!doctype html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0;url=https://github.com/skylordafk/A-B-AI/releases/tag/${RELEASE_TAG}">
+            <title>Redirecting to Downloads</title>
+          </head>
+          <body>
+            <p>Redirecting to <a href="https://github.com/skylordafk/A-B-AI/releases/tag/${RELEASE_TAG}">download page</a>...</p>
+          </body>
+          </html>
+          EOF
+          
+          # Update the main download.html file with current release version
+          sed -i "s|releases/tag/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|releases/tag/${RELEASE_TAG}|g" docs/download.html
+          sed -i "s|download/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/A-B-AI-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|download/${RELEASE_TAG}/A-B-AI-${RELEASE_TAG}|g" docs/download.html
+          
+          echo "Download page updated for release ${RELEASE_TAG}"
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 

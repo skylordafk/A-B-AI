@@ -7,7 +7,7 @@ import ResultsTable from '../components/batch/ResultsTable';
 import ExportButtons from '../components/batch/ExportButtons';
 import DryRunModal from '../components/batch/DryRunModal';
 import TemplateBrowser from '../components/batch/TemplateBrowser';
-import TemplateEditor from '../components/batch/TemplateEditor';
+import SpreadsheetEditor from '../components/batch/SpreadsheetEditor';
 import { BatchProvider, useBatch } from '../contexts/BatchContext';
 import { parseInput } from '../lib/batch/parseInput';
 import { estimateCost } from '../lib/batch/estimateCost';
@@ -305,7 +305,7 @@ function BatchContent() {
       )}
 
       {showTemplateEditor && templateRows && (
-        <TemplateEditor
+        <SpreadsheetEditor
           rows={templateRows}
           onSave={handleTemplateSave}
           onCancel={() => setShowTemplateEditor(false)}

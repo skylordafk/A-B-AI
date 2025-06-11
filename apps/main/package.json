@@ -15,7 +15,7 @@
     "@google/genai": "^1.4.0",
     "ai": "^4.3.16",
     "electron": "^34.0.0",
-    "electron-store": "^10.0.1",
+    "electron-store": "8.1.0",
     "openai": "^5.1.1"
   },
   "devDependencies": {

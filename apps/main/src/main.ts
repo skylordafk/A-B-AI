@@ -221,7 +221,7 @@ app.whenReady().then(() => {
           label: 'Settings',
           accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
           click: () => {
-            win.webContents.send('open-settings');
+            win.webContents.send('menu:openSettings');
           },
         },
         { type: 'separator' },

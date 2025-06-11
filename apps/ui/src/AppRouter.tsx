@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ChatPage from './ChatPage';
 import Batch from './routes/Batch';
 import { ChatProvider } from './contexts/ChatContext';
@@ -6,7 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 
 function AppRouter() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <ThemeProvider>
         <Routes>
           <Route
@@ -21,7 +21,7 @@ function AppRouter() {
           <Route path="/" element={<Navigate to="/chat" replace />} />
         </Routes>
       </ThemeProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

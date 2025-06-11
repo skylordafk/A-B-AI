@@ -24,13 +24,18 @@ contextBridge.exposeInMainWorld('api', {
   sendPrompt: (prompt) => ipcRenderer.invoke('chat:send', prompt),
   // New multi-model prompt
   sendPrompts: (prompt, ids) => ipcRenderer.invoke('chat:multiSend', prompt, ids),
+  // Model-specific prompt for batch processing
+  sendToModel: (modelId, prompt, systemPrompt, temperature) =>
+    ipcRenderer.invoke('chat:sendToModel', modelId, prompt, systemPrompt, temperature),
   // Get available models
   getAvailableModels: () => ipcRenderer.invoke('models:getAvailable'),
+  // Count tokens for a text
+  countTokens: (text) => ipcRenderer.invoke('count-tokens', text),
 });
 
 contextBridge.exposeInMainWorld('ipc', {
   onOpenSettings: (cb) => {
-    ipcRenderer.on('open-settings', cb);
+    ipcRenderer.on('menu:openSettings', cb);
   },
   onInvalidKey: (cb) => {
     ipcRenderer.on('settings:invalidKey', (_, providerId) => cb(providerId));

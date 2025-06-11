@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Textarea } from './components/ui/textarea';
-import { Button } from './components/ui/button';
+import SplitButton from './components/ui/SplitButton';
 import SettingsModal from './components/SettingsModal';
 import ModelSelect from './components/ModelSelect';
 import ReactDiffViewer from 'react-diff-viewer-continued';
@@ -10,6 +11,9 @@ import mergeAdjacentCodeFences from './lib/markdown';
 import LoadingOverlay from './components/LoadingOverlay';
 import ChatSidebar from './components/ChatSidebar';
 import { useChat } from './contexts/ChatContext';
+import TerminalBlock from './components/TerminalBlock';
+import ThemeToggle from './components/ThemeToggle';
+import { useTheme } from './contexts/ThemeContext';
 
 // Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -72,6 +76,150 @@ const CopyButton = ({ text, className = '' }: { text: string; className?: string
   );
 };
 
+// Component to display two assistant messages with optional comparison & diff view
+const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }) => {
+  const { mode } = useTheme();
+  const [sideBySide, setSideBySide] = useState(true);
+  const [showDiff, setShowDiff] = useState(false);
+
+  // Helpers to render the two answers inside TerminalBlock
+  const renderAnswers = () => (
+    <div className={`grid gap-4 ${sideBySide ? 'md:grid-cols-2 grid-cols-1' : 'grid-cols-1'}`}>
+      {assistantMessages.map((msg, idx) => (
+        <div key={idx} className="max-w-full">
+          <div className="flex items-center gap-2 mb-1">
+            {msg.provider && (
+              <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">{msg.provider}</p>
+            )}
+            <CopyButton text={msg.answer || msg.content} />
+          </div>
+          <TerminalBlock>
+            <div className="prose prose-sm max-w-none prose-stone">
+              <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
+                {msg.answer || msg.content}
+              </ReactMarkdown>
+            </div>
+          </TerminalBlock>
+          {msg.costUSD !== undefined && (
+            <p className="text-xs text-stone-400 dark:text-stone-300 mt-1 ml-1">
+              Cost: ${msg.costUSD.toFixed(4)}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderDiff = () => (
+    <>
+      <div className="flex justify-between mb-2 text-sm text-stone-600 dark:text-stone-300">
+        <div className="flex items-center gap-2">
+          <span>
+            {assistantMessages[0].provider} - Cost: ${assistantMessages[0].costUSD?.toFixed(4)}
+          </span>
+          <CopyButton text={assistantMessages[0].answer || assistantMessages[0].content} />
+        </div>
+        <div className="flex items-center gap-2">
+          <span>
+            {assistantMessages[1].provider} - Cost: ${assistantMessages[1].costUSD?.toFixed(4)}
+          </span>
+          <CopyButton text={assistantMessages[1].answer || assistantMessages[1].content} />
+        </div>
+      </div>
+      <ReactDiffViewer
+        oldValue={assistantMessages[0].answer || assistantMessages[0].content}
+        newValue={assistantMessages[1].answer || assistantMessages[1].content}
+        splitView={true}
+        hideLineNumbers={true}
+        useDarkTheme={mode === 'dark'}
+        styles={
+          mode === 'light'
+            ? {
+                variables: {
+                  light: {
+                    diffViewerBackground: '#fafaf9',
+                    diffViewerColor: '#1c1917',
+                    addedBackground: '#dcfce7',
+                    addedColor: '#166534',
+                    removedBackground: '#fee2e2',
+                    removedColor: '#991b1b',
+                    wordAddedBackground: '#bbf7d0',
+                    wordRemovedBackground: '#fecaca',
+                    addedGutterBackground: '#d1fae5',
+                    removedGutterBackground: '#fed7d7',
+                    gutterBackground: '#f5f5f4',
+                    gutterBackgroundDark: '#e7e5e4',
+                    highlightBackground: '#fef3c7',
+                    highlightGutterBackground: '#fde68a',
+                    codeFoldGutterBackground: '#e0e7ff',
+                    codeFoldBackground: '#f0f9ff',
+                    emptyLineBackground: '#fafaf9',
+                    gutterColor: '#57534e',
+                    addedGutterColor: '#57534e',
+                    removedGutterColor: '#57534e',
+                    codeFoldContentColor: '#57534e',
+                    diffViewerTitleBackground: '#f5f5f4',
+                    diffViewerTitleColor: '#1c1917',
+                    diffViewerTitleBorderColor: '#d6d3d1',
+                  },
+                },
+                diffContainer: {
+                  fontSize: '14px',
+                  backgroundColor: '#fafaf9 !important',
+                  color: '#1c1917 !important',
+                },
+                diffRemoved: {
+                  backgroundColor: '#fee2e2 !important',
+                  color: '#991b1b !important',
+                },
+                diffAdded: {
+                  backgroundColor: '#dcfce7 !important',
+                  color: '#166534 !important',
+                },
+                lineNumber: {
+                  color: '#57534e !important',
+                  backgroundColor: '#f5f5f4 !important',
+                },
+                gutter: {
+                  backgroundColor: '#f5f5f4 !important',
+                  color: '#57534e !important',
+                },
+                line: {
+                  '&:hover': {
+                    backgroundColor: '#f5f5f4 !important',
+                  },
+                },
+                contentText: {
+                  color: '#1c1917 !important',
+                },
+              }
+            : undefined
+        }
+      />
+    </>
+  );
+
+  return (
+    <div className="border border-stone-300 dark:border-stone-600 rounded-lg p-4 bg-stone-200 dark:bg-stone-700 relative">
+      <div className="flex justify-end gap-2 mb-2">
+        <button
+          onClick={() => setSideBySide(!sideBySide)}
+          className="text-xs px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white border border-slate-600 rounded transition-colors"
+        >
+          {sideBySide ? 'Single column' : 'Compare side-by-side'}
+        </button>
+        <button
+          onClick={() => setShowDiff(!showDiff)}
+          className="text-xs px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white border border-slate-600 rounded transition-colors"
+        >
+          {showDiff ? 'Hide diff' : 'Show diff'}
+        </button>
+      </div>
+      {showDiff ? renderDiff() : renderAnswers()}
+    </div>
+  );
+};
+
 // Collapsible conversation round component
 const ConversationRound = ({
   userMessage,
@@ -87,22 +235,22 @@ const ConversationRound = ({
   const [isExpanded, setIsExpanded] = useState(isLatest);
 
   return (
-    <div className="border border-stone-200 rounded-lg mb-4 bg-stone-50">
+    <div className="border border-stone-200 rounded-lg mb-4 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-3 text-left flex items-center justify-between bg-stone-50 hover:bg-stone-100 transition-colors text-stone-900"
+        className="w-full p-3 text-left flex items-center justify-between bg-stone-50 dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-600 transition-colors text-stone-900 dark:text-stone-50"
       >
         <div className="flex-1">
-          <div className="font-medium text-stone-900 text-sm">
+          <div className="font-medium text-stone-900 dark:text-stone-50 text-sm">
             Round {roundIndex + 1}: {userMessage.content.substring(0, 60)}
             {userMessage.content.length > 60 ? '...' : ''}
           </div>
-          <div className="text-xs text-stone-700 mt-1">
+          <div className="text-xs text-stone-700 dark:text-stone-400 mt-1">
             {assistantMessages.length} response{assistantMessages.length !== 1 ? 's' : ''}
           </div>
         </div>
         <svg
-          className={`w-4 h-4 transition-transform text-stone-900 ${isExpanded ? 'rotate-90' : ''}`}
+          className={`w-4 h-4 transition-transform text-stone-900 dark:text-stone-50 ${isExpanded ? 'rotate-90' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -124,103 +272,20 @@ const ConversationRound = ({
 
           {/* Assistant responses */}
           {assistantMessages.length === 2 ? (
-            // Show diff view for 2 responses
-            <div className="border rounded-lg p-4 bg-stone-100 relative">
-              <div className="flex justify-between mb-2 text-sm text-stone-600">
-                <div className="flex items-center gap-2">
-                  <span>
-                    {assistantMessages[0].provider} - Cost: $
-                    {assistantMessages[0].costUSD?.toFixed(4)}
-                  </span>
-                  <CopyButton text={assistantMessages[0].answer || assistantMessages[0].content} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>
-                    {assistantMessages[1].provider} - Cost: $
-                    {assistantMessages[1].costUSD?.toFixed(4)}
-                  </span>
-                  <CopyButton text={assistantMessages[1].answer || assistantMessages[1].content} />
-                </div>
-              </div>
-              <div style={{ userSelect: 'text' }}>
-                <ReactDiffViewer
-                  oldValue={assistantMessages[0].answer || assistantMessages[0].content}
-                  newValue={assistantMessages[1].answer || assistantMessages[1].content}
-                  splitView={true}
-                  hideLineNumbers={true}
-                  useDarkTheme={false}
-                  styles={{
-                    variables: {
-                      light: {
-                        diffViewerBackground: '#fafaf9', // stone-50
-                        diffViewerColor: '#1c1917', // stone-900
-                        addedBackground: '#dcfce7', // green-100
-                        addedColor: '#166534', // green-800
-                        removedBackground: '#fee2e2', // red-100
-                        removedColor: '#991b1b', // red-800
-                        wordAddedBackground: '#bbf7d0', // green-200
-                        wordRemovedBackground: '#fecaca', // red-200
-                        addedGutterBackground: '#d1fae5', // green-100
-                        removedGutterBackground: '#fed7d7', // red-100
-                        gutterBackground: '#f5f5f4', // stone-100
-                        gutterBackgroundDark: '#e7e5e4', // stone-200
-                        highlightBackground: '#fef3c7', // amber-100
-                        highlightGutterBackground: '#fde68a', // amber-200
-                        codeFoldGutterBackground: '#e0e7ff', // indigo-100
-                        codeFoldBackground: '#f0f9ff', // sky-50
-                        emptyLineBackground: '#fafaf9', // stone-50
-                        gutterColor: '#57534e', // stone-600
-                        addedGutterColor: '#57534e', // stone-600
-                        removedGutterColor: '#57534e', // stone-600
-                        codeFoldContentColor: '#57534e', // stone-600
-                        diffViewerTitleBackground: '#f5f5f4', // stone-100
-                        diffViewerTitleColor: '#1c1917', // stone-900
-                        diffViewerTitleBorderColor: '#d6d3d1', // stone-300
-                      },
-                    },
-                    diffContainer: {
-                      fontSize: '14px',
-                      backgroundColor: '#fafaf9 !important',
-                      color: '#1c1917 !important',
-                    },
-                    diffRemoved: {
-                      backgroundColor: '#fee2e2 !important',
-                      color: '#991b1b !important',
-                    },
-                    diffAdded: {
-                      backgroundColor: '#dcfce7 !important',
-                      color: '#166534 !important',
-                    },
-                    lineNumber: {
-                      color: '#57534e !important',
-                      backgroundColor: '#f5f5f4 !important',
-                    },
-                    gutter: {
-                      backgroundColor: '#f5f5f4 !important',
-                      color: '#57534e !important',
-                    },
-                    line: {
-                      '&:hover': {
-                        backgroundColor: '#f5f5f4 !important',
-                      },
-                    },
-                    contentText: {
-                      color: '#1c1917 !important',
-                    },
-                  }}
-                />
-              </div>
-            </div>
+            <AssistantComparison assistantMessages={assistantMessages} />
           ) : (
-            // Show individual responses
             assistantMessages.map((msg, idx) => (
               <div key={idx} className="max-w-4xl">
                 <div className="flex items-center gap-2 mb-1">
-                  {msg.provider && <p className="text-xs text-stone-500 ml-1">{msg.provider}</p>}
+                  {msg.provider && (
+                    <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">
+                      {msg.provider}
+                    </p>
+                  )}
                   <CopyButton text={msg.content} />
                 </div>
                 <div
-                  className="inline-block p-3 bg-stone-50 border border-stone-200 rounded-lg relative text-stone-900"
+                  className="inline-block p-3 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg relative text-stone-900 dark:text-stone-50"
                   style={{ userSelect: 'text' }}
                 >
                   <div className="prose prose-sm max-w-none prose-stone">
@@ -230,7 +295,9 @@ const ConversationRound = ({
                   </div>
                 </div>
                 {msg.cost !== undefined && (
-                  <p className="text-xs text-stone-400 mt-1 ml-1">Cost: ${msg.cost.toFixed(4)}</p>
+                  <p className="text-xs text-stone-400 dark:text-stone-500 mt-1 ml-1">
+                    Cost: ${msg.cost.toFixed(4)}
+                  </p>
                 )}
               </div>
             ))
@@ -242,6 +309,7 @@ const ConversationRound = ({
 };
 
 export default function ChatPage() {
+  const navigate = useNavigate();
   const { currentChat, pushMessage, pushMessages, createNewChat } = useChat();
   const [prompt, setPrompt] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -285,7 +353,7 @@ export default function ChatPage() {
       'grok-3': 'grok',
       'grok-3-mini': 'grok',
       'models/gemini-2.5-pro-thinking': 'gemini',
-      'models/gemini-1.5-flash-fast': 'gemini',
+      'models/gemini-2.5-flash-preview': 'gemini',
     };
 
     const selectedProviders = [
@@ -352,136 +420,166 @@ export default function ChatPage() {
   const showModelSelect = messages.length === 0;
 
   return (
-    <div className="flex h-screen bg-stone-50">
-      <LoadingOverlay show={isLoading} message="Generating responses..." />
+    <div className="flex h-screen bg-[var(--bg-secondary)] text-[var(--text-primary)]">
+      <div className="flex flex-1 overflow-hidden flex-col">
+        <LoadingOverlay show={isLoading} message="Generating responses..." />
 
-      {/* Sidebar - removed mobile functionality */}
-      <ChatSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+        {/* Sidebar - removed mobile functionality */}
+        <ChatSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-stone-200 bg-stone-100">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
-
-            <div>
-              <h1 className="text-lg font-semibold text-stone-900">
-                {currentChat?.title || 'New Chat'}
-              </h1>
-              {messages.length > 0 && (
-                <p className="text-sm text-stone-600">
-                  {conversationRounds.length} round{conversationRounds.length !== 1 ? 's' : ''}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Invalid key toast */}
-        {invalidKeyError && (
-          <div className="mx-4 mt-4">
-            <div className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-              <span>{invalidKeyError}</span>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  setInvalidKeyError(null);
-                  setSettingsOpen(true);
-                }}
-                className="underline hover:no-underline"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
               >
-                Fix keys
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Model Selection for New Chats */}
-        {showModelSelect && (
-          <div className="p-4 border-b border-stone-200 bg-stone-100">
-            <h3 className="text-sm font-medium text-stone-800 mb-3">Select AI Models:</h3>
-            <ModelSelect selectedModels={selected} onSelectionChange={setSelected} />
-          </div>
-        )}
-
-        {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {conversationRounds.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="max-w-md">
-                <svg
-                  className="w-16 h-16 mx-auto text-stone-400 mb-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
                   />
                 </svg>
-                <h3 className="text-lg font-medium text-stone-800 mb-2">Start a conversation</h3>
-                <p className="text-stone-600">
-                  Select one or more AI models and send a message to get started.
-                </p>
+              </button>
+
+              <div>
+                <h1 className="text-lg font-semibold text-stone-900 dark:text-stone-50">
+                  {currentChat?.title || 'New Chat'}
+                </h1>
+                {messages.length > 0 && (
+                  <p className="text-sm text-stone-600 dark:text-stone-300">
+                    {conversationRounds.length} round{conversationRounds.length !== 1 ? 's' : ''}
+                  </p>
+                )}
               </div>
             </div>
-          ) : (
-            <div className="space-y-0">
-              {conversationRounds.map((round, index) => (
-                <ConversationRound
-                  key={index}
-                  userMessage={round.userMessage}
-                  assistantMessages={round.assistantMessages}
-                  roundIndex={index}
-                  isLatest={index === conversationRounds.length - 1}
-                />
-              ))}
+
+            {/* Theme toggle */}
+            <ThemeToggle />
+          </div>
+
+          {/* Invalid key toast */}
+          {invalidKeyError && (
+            <div className="mx-4 mt-4">
+              <div className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                <span>{invalidKeyError}</span>
+                <button
+                  onClick={() => {
+                    setInvalidKeyError(null);
+                    setSettingsOpen(true);
+                  }}
+                  className="underline hover:no-underline"
+                >
+                  Fix keys
+                </button>
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Input Area */}
-        <div className="border-t border-stone-200 p-4 bg-stone-100">
-          <div className="max-w-4xl mx-auto">
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === 'Enter' && !e.shiftKey && !isLoading && (e.preventDefault(), send())
-              }
-              placeholder="Ask something…"
-              className="resize-none mb-3 bg-stone-50 border-stone-300 focus:border-stone-400 focus:ring-stone-400"
-              disabled={isLoading}
-              rows={3}
-            />
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-stone-600">
-                Press Enter to send, Shift+Enter for new line
-              </p>
-              <Button
-                onClick={send}
-                className={`bg-slate-600 hover:bg-slate-700 text-white ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={selected.length === 0 || isLoading}
-              >
-                {isLoading
-                  ? 'Sending...'
-                  : `Send ${selected.length > 1 ? `to ${selected.length} models` : ''}`}
-              </Button>
+          {/* Model Selection for New Chats */}
+          {showModelSelect && (
+            <div className="p-4 border-b border-stone-200 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
+              <h3 className="text-sm font-medium text-stone-800 dark:text-stone-50 mb-3">
+                Select AI Models:
+              </h3>
+              <ModelSelect selectedModels={selected} onSelectionChange={setSelected} />
+            </div>
+          )}
+
+          {/* Chat Area */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {conversationRounds.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="max-w-md">
+                  <svg
+                    className="w-16 h-16 mx-auto text-stone-400 mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  <h3 className="text-lg font-medium text-stone-800 dark:text-stone-50 mb-2">
+                    Start a conversation
+                  </h3>
+                  <p className="text-stone-600 dark:text-stone-300">
+                    Select one or more AI models and send a message to get started.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-0">
+                {conversationRounds.map((round, index) => (
+                  <ConversationRound
+                    key={index}
+                    userMessage={round.userMessage}
+                    assistantMessages={round.assistantMessages}
+                    roundIndex={index}
+                    isLatest={index === conversationRounds.length - 1}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Input Area */}
+          <div className="border-t border-stone-200 p-4 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
+            <div className="max-w-4xl mx-auto">
+              <Textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) =>
+                  e.key === 'Enter' && !e.shiftKey && !isLoading && (e.preventDefault(), send())
+                }
+                placeholder="Ask something…"
+                className="resize-none mb-3 border-[var(--border)] focus:border-[var(--border)] focus:ring-slate-500 bg-[var(--bg-secondary)] text-[var(--text-primary)]"
+                disabled={isLoading}
+                rows={3}
+              />
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-stone-600">
+                  Press Enter to send, Shift+Enter for new line
+                </p>
+                <SplitButton
+                  primaryAction={{
+                    label:
+                      selected.length > 1 ? `Send to ${selected.length} models` : 'Send Prompt',
+                    onClick: send,
+                    disabled: selected.length === 0 || isLoading,
+                  }}
+                  dropdownActions={[
+                    {
+                      label: 'Open Batch Prompting...',
+                      onClick: () => navigate('/batch'),
+                      icon: (
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
+                        </svg>
+                      ),
+                    },
+                  ]}
+                  loading={isLoading}
+                />
+              </div>
             </div>
           </div>
         </div>

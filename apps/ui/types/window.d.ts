@@ -7,6 +7,10 @@ interface Window {
       id: 'openai' | 'anthropic' | 'grok' | 'gemini',
       key: string
     ) => Promise<void>;
+    getAllKeys: () => Promise<
+      Record<'openai' | 'anthropic' | 'grok' | 'gemini', { configured: boolean }>
+    >;
+    validateKey: (id: 'openai' | 'anthropic' | 'grok' | 'gemini') => Promise<boolean>;
     sendPrompt: (prompt: string) => Promise<{ answer: string; costUSD: number }>;
     sendPrompts: (
       prompt: string,
@@ -21,8 +25,10 @@ interface Window {
       }>
     >;
     getAvailableModels: () => Promise<Array<{ provider: string; models: ModelMeta[] }>>;
+    countTokens: (text: string) => Promise<number>;
   };
   ipc: {
     onOpenSettings: (callback: () => void) => void;
+    onInvalidKey: (callback: (providerId: string) => void) => void;
   };
 }

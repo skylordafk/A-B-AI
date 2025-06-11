@@ -1,15 +1,22 @@
 name: 📄 Deploy Download Page
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'docs/**'
+    inputs:
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
   pages: write
   id-token: write
   actions: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -25,26 +32,40 @@ jobs:
         with:
           enablement: true
         
+      - name: Get latest release
+        id: latest_release
+        run: |
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/skylordafk/A-B-AI/releases/latest | jq -r '.tag_name // "v1.1.0"')
+          echo "Latest release: $LATEST_RELEASE"
+          echo "release_tag=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+        
       - name: Prepare docs for deployment
+        env:
+          RELEASE_TAG: ${{ steps.latest_release.outputs.release_tag }}
         run: |
           # Remove any existing artifact directories to avoid large file issues
           rm -rf docs/latest
           # Create a clean latest directory
           mkdir -p docs/latest
-          # Create a simple redirect file
+          # Create a simple redirect file with dynamic release version
           cat > docs/latest/index.html << EOF
           <!doctype html>
           <html>
           <head>
             <meta charset="utf-8">
-            <meta http-equiv="refresh" content="0;url=https://github.com/skylordafk/A-B-AI/releases/tag/v1.0.0">
+            <meta http-equiv="refresh" content="0;url=https://github.com/skylordafk/A-B-AI/releases/tag/${RELEASE_TAG}">
             <title>Redirecting to Downloads</title>
           </head>
           <body>
-            <p>Redirecting to <a href="https://github.com/skylordafk/A-B-AI/releases/tag/v1.0.0">download page</a>...</p>
+            <p>Redirecting to <a href="https://github.com/skylordafk/A-B-AI/releases/tag/${RELEASE_TAG}">download page</a>...</p>
           </body>
           </html>
           EOF
+          
+          # Update the main download.html file with current release version
+          sed -i "s|releases/tag/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|releases/tag/${RELEASE_TAG}|g" docs/download.html
+          
+          echo "Deployment files prepared for release ${RELEASE_TAG}"
           
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

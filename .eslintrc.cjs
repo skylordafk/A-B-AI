@@ -31,5 +31,16 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'warn',
     'no-console': ['warn', { allow: ['warn', 'error'] }],
   },
-  ignorePatterns: ['dist', 'build', 'node_modules', '*.config.js', '*.config.ts', '**/preload.js'],
+  ignorePatterns: [
+    'dist',
+    'dist2',
+    'dist-old',
+    'build',
+    'node_modules',
+    'tests-out',
+    'test-results',
+    '*.config.js',
+    '*.config.ts',
+    '**/preload.js'
+  ],
 }; 

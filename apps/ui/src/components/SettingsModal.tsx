@@ -117,11 +117,11 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
           </DialogHeader>
-          <div className="space-y-8">
+          <div className="space-y-4">
             {/* ------------------- API KEYS SECTION ------------------- */}
             <div>
-              <h2 className="text-lg font-semibold mb-2">API Keys</h2>
-              <div className="space-y-4">
+              <h2 className="text-sm font-semibold mb-1.5">API Keys</h2>
+              <div className="space-y-2">
                 <div>
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium">OpenAI API Key</label>
@@ -176,7 +176,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
                 </div>
               </div>
               <Button
-                className="mt-4 w-full !bg-[var(--bg-primary)] !text-[var(--text-primary)] hover:!bg-[var(--bg-secondary)] border border-[var(--border)]"
+                className="mt-2 w-full !bg-[var(--bg-primary)] !text-[var(--text-primary)] hover:!bg-[var(--bg-secondary)] border border-[var(--border)]"
                 onClick={handleSave}
               >
                 Save Keys
@@ -185,15 +185,15 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
 
             {/* ------------------- THEME SECTION ------------------- */}
             <div>
-              <h2 className="text-lg font-semibold mb-2">Theme</h2>
+              <h2 className="text-sm font-semibold mb-1.5">Theme</h2>
 
               {/* Preset selection */}
-              <div className="mb-4">
+              <div className="mb-2">
                 <label className="text-sm font-medium mr-2">Preset:</label>
                 <select
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
-                  className="border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] px-2 py-1 rounded"
+                  className="border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] px-1.5 py-0.5 rounded-sm text-sm"
                 >
                   {Object.keys(presets).map((name) => (
                     <option key={name} value={name}>
@@ -210,7 +210,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
               </div>
 
               {/* Tokens editor */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {TOKENS.map((token) => (
                   <div key={token} className="flex items-center justify-between gap-2">
                     <label className="text-sm" htmlFor={token}>
@@ -228,7 +228,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
               </div>
 
               {/* Save as new preset */}
-              <div className="mt-4 flex items-end gap-2">
+              <div className="mt-2 flex items-end gap-2">
                 <div className="flex-1">
                   <label className="text-sm font-medium">Save current as new preset</label>
                   <Input

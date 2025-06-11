@@ -6,10 +6,12 @@ import BatchProgressToast from '../components/batch/BatchProgressToast';
 import ResultsTable from '../components/batch/ResultsTable';
 import ExportButtons from '../components/batch/ExportButtons';
 import DryRunModal from '../components/batch/DryRunModal';
+import TemplateBrowser from '../components/batch/TemplateBrowser';
 import { BatchProvider, useBatch } from '../contexts/BatchContext';
 import { parseInput } from '../lib/batch/parseInput';
 import { estimateCost } from '../lib/batch/estimateCost';
 import { JobQueue } from '../lib/batch/JobQueue';
+import { templateService, type Template } from '../lib/batch/templateService';
 import type { BatchResult } from '../types/batch';
 
 function BatchContent() {
@@ -21,6 +23,7 @@ function BatchContent() {
   const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
   const [results, setResults] = useState<BatchResult[]>([]);
   const [showDryRunModal, setShowDryRunModal] = useState(false);
+  const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
 
   const handleFileSelect = useCallback(
     async (selectedFile: File) => {
@@ -94,12 +97,26 @@ function BatchContent() {
     await queue.start();
   }, [state.rows, concurrency, isRunning, dispatch]);
 
+  const handleTemplateSelect = useCallback(
+    async (template: Template) => {
+      try {
+        const templateFile = await templateService.downloadTemplateAsFile(template);
+        await handleFileSelect(templateFile);
+      } catch (error) {
+        console.error('Failed to load template:', error);
+        // You could add toast notification here
+      }
+    },
+    [handleFileSelect]
+  );
+
   return (
     <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
       <BatchLayout
         concurrency={concurrency}
         onConcurrencyChange={setConcurrency}
         onNavigateToChat={() => navigate('/chat')}
+        onOpenTemplateBrowser={() => setShowTemplateBrowser(true)}
       />
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -163,6 +180,13 @@ function BatchContent() {
         estimation={state.estimation}
         rows={state.rows || []}
       />
+
+      {showTemplateBrowser && (
+        <TemplateBrowser
+          onTemplateSelect={handleTemplateSelect}
+          onClose={() => setShowTemplateBrowser(false)}
+        />
+      )}
     </div>
   );
 }

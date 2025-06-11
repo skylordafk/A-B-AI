@@ -1,0 +1,19 @@
+prompt,model,system,temperature
+"Analyze the relationship between urbanization and biodiversity loss in Southeast Asia over the past 30 years",gpt-4o,"You are a research analyst specializing in environmental science and urban development.",0.7
+"Evaluate the effectiveness of remote work policies implemented during 2020-2023 on employee productivity",claude-3-5-sonnet-20241022,"You are an organizational psychologist with expertise in workplace dynamics.",0.6
+"Compare and contrast the educational systems of Finland and Singapore",gpt-4o-mini,,0.5
+"Analyze the impact of social media on political discourse in democratic societies",claude-3-opus-20240229,"You are a political scientist focusing on digital communication and democracy.",0.8
+"Research the potential applications of quantum computing in drug discovery",gpt-4o,"You are a computational biologist with knowledge of quantum mechanics.",0.7
+"Examine the role of microbiomes in human health and disease prevention",claude-3-5-haiku-20241022,,0.6
+"Investigate the economic implications of universal basic income in developed nations",gpt-3.5-turbo,"You are an economist specializing in social welfare policies.",0.7
+"Analyze the linguistic evolution of internet slang and its impact on formal communication",claude-3-5-sonnet-20241022,"You are a sociolinguist studying digital communication patterns.",0.8
+"Research the psychological effects of space travel on astronauts",gpt-4o,,0.6
+"Evaluate the potential of vertical farming in addressing food security challenges",gpt-4o-mini,"You are an agricultural scientist focusing on sustainable farming methods.",0.7
+"Examine the influence of artificial intelligence on creative industries",claude-3-opus-20240229,"You are a cultural analyst studying the intersection of technology and creativity.",0.8
+"Analyze the historical patterns of pandemic responses and their effectiveness",gpt-4o,"You are a public health historian with expertise in epidemiology.",0.6
+"Research the impact of cryptocurrency on traditional banking systems",claude-3-5-sonnet-20241022,,0.7
+"Investigate the role of gut-brain axis in mental health disorders",gpt-3.5-turbo,"You are a neuroscientist specializing in psychosomatic medicine.",0.6
+"Evaluate the effectiveness of carbon capture technologies in climate change mitigation",claude-3-5-haiku-20241022,"You are an environmental engineer focusing on climate solutions.",0.7
+"Analyze the sociological implications of virtual reality on human relationships",gpt-4o,"You are a social psychologist studying technology's impact on human interaction.",0.8
+"Research the potential of gene editing in treating hereditary diseases",claude-3-opus-20240229,"You are a geneticist specializing in CRISPR technology.",0.6
+"Examine the economic and social factors contributing to housing affordability crisis",gpt-4o-mini,"You are an urban planner with expertise in housing policy.",0.7 

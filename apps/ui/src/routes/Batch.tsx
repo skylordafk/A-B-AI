@@ -44,6 +44,54 @@ function BatchContent() {
     [dispatch]
   );
 
+  const handleTemplateSelect = useCallback(
+    async (template: Template) => {
+      try {
+        // Download the template as a file
+        const file = await templateService.downloadTemplateAsFile(template);
+        handleFileSelect(file);
+        setShowTemplateBrowser(false);
+      } catch (error) {
+        console.error('Failed to load template:', error);
+      }
+    },
+    [handleFileSelect]
+  );
+
+  const handleDownloadSample = useCallback(async () => {
+    try {
+      // Get the basic template from the template service
+      const templates = await templateService.getTemplates();
+      const basicTemplate = templates.find((t) => t.id === 'basic-template') || templates[0];
+
+      if (basicTemplate) {
+        // Download the template content
+        const content = await templateService.downloadTemplate(basicTemplate);
+
+        // Create a blob and download link
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'batch-template.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Failed to download sample template:', error);
+      alert('Failed to download sample template. Please try again.');
+    }
+  }, []);
+
+  const handleClearFile = useCallback(() => {
+    setFile(null);
+    setEstimatedCost(null);
+    setResults([]);
+    dispatch({ type: 'RESET' });
+  }, [dispatch]);
+
   const handleDryRun = useCallback(async () => {
     if (!state.rows || state.rows.length === 0) return;
 
@@ -97,19 +145,6 @@ function BatchContent() {
     await queue.start();
   }, [state.rows, concurrency, isRunning, dispatch]);
 
-  const handleTemplateSelect = useCallback(
-    async (template: Template) => {
-      try {
-        const templateFile = await templateService.downloadTemplateAsFile(template);
-        await handleFileSelect(templateFile);
-      } catch (error) {
-        console.error('Failed to load template:', error);
-        // You could add toast notification here
-      }
-    },
-    [handleFileSelect]
-  );
-
   return (
     <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
       <BatchLayout
@@ -121,7 +156,32 @@ function BatchContent() {
 
       <div className="flex-1 overflow-y-auto p-6">
         {!file ? (
-          <BatchDropZone onFileSelect={handleFileSelect} />
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowTemplateBrowser(true)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+                Browse Templates
+              </button>
+            </div>
+
+            <div className="text-center text-[var(--text-secondary)] text-sm">Or</div>
+
+            <BatchDropZone
+              onFileSelect={handleFileSelect}
+              onTemplateBrowse={() => setShowTemplateBrowser(true)}
+              onDownloadSample={handleDownloadSample}
+            />
+          </div>
         ) : (
           <div className="space-y-6">
             <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-4">
@@ -138,6 +198,13 @@ function BatchContent() {
                   )}
                 </div>
                 <div className="flex gap-3">
+                  <button
+                    onClick={handleClearFile}
+                    className="px-4 py-2 bg-[var(--bg-primary)] border border-red-300 text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    disabled={isRunning}
+                  >
+                    Clear
+                  </button>
                   <button
                     onClick={handleDryRun}
                     className="px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors"

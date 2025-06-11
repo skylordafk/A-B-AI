@@ -44,6 +44,19 @@ class TemplateService {
       }
       return await response.text();
     } catch (error) {
+      // If it's a local URL and failed, try with the public folder
+      if (template.downloadUrl.startsWith('/templates/')) {
+        try {
+          const publicUrl = template.downloadUrl.replace('/templates/', '/');
+          const publicResponse = await fetch(publicUrl);
+          if (publicResponse.ok) {
+            return await publicResponse.text();
+          }
+        } catch (publicError) {
+          // Ignore and fall through to original error
+        }
+      }
+
       console.error('Failed to download template:', error);
       throw new Error('Failed to download template. Please try again later.');
     }
@@ -118,25 +131,51 @@ class TemplateService {
       return this.manifestCache;
     }
 
-    // Fetch fresh manifest
-    const response = await fetch(MANIFEST_URL, {
-      cache: 'no-cache',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
+    try {
+      // Try to fetch fresh manifest from GitHub
+      const response = await fetch(MANIFEST_URL, {
+        cache: 'no-cache',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch manifest: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch manifest: ${response.statusText}`);
+      }
+
+      const manifest: TemplateManifest = await response.json();
+
+      // Cache the manifest
+      this.manifestCache = manifest;
+      this.cacheExpiry = now + this.CACHE_DURATION;
+
+      return manifest;
+    } catch (error) {
+      // Try to load local manifest as fallback
+      console.log('Remote manifest fetch failed, trying local fallback...');
+
+      try {
+        const localResponse = await fetch('/templates/manifest.json');
+        if (localResponse.ok) {
+          const localManifest: TemplateManifest = await localResponse.json();
+
+          // Update download URLs to use local paths
+          localManifest.templates = localManifest.templates.map((template) => ({
+            ...template,
+            downloadUrl: `/templates/batch/${template.id}.csv`,
+          }));
+
+          this.manifestCache = localManifest;
+          this.cacheExpiry = now + this.CACHE_DURATION;
+          return localManifest;
+        }
+      } catch (localError) {
+        console.error('Failed to load local manifest:', localError);
+      }
+
+      throw error;
     }
-
-    const manifest: TemplateManifest = await response.json();
-
-    // Cache the manifest
-    this.manifestCache = manifest;
-    this.cacheExpiry = now + this.CACHE_DURATION;
-
-    return manifest;
   }
 
   private getFallbackTemplates(): Template[] {

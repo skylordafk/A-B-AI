@@ -7,14 +7,12 @@ import ResultsTable from '../components/batch/ResultsTable';
 import ExportButtons from '../components/batch/ExportButtons';
 import DryRunModal from '../components/batch/DryRunModal';
 import TemplateBrowser from '../components/batch/TemplateBrowser';
-import SpreadsheetEditor from '../components/batch/SpreadsheetEditor';
 import { BatchProvider, useBatch } from '../contexts/BatchContext';
 import { parseInput } from '../lib/batch/parseInput';
 import { estimateCost } from '../lib/batch/estimateCost';
 import { JobQueue } from '../lib/batch/JobQueue';
-import { templateService } from '../lib/batch/templateService';
-import type { BatchResult, BatchRow } from '../types/batch';
-import type { Template } from '../lib/batch/templateService';
+import { templateService, type Template } from '../lib/batch/templateService';
+import type { BatchResult } from '../types/batch';
 
 function BatchContent() {
   const navigate = useNavigate();
@@ -26,9 +24,6 @@ function BatchContent() {
   const [results, setResults] = useState<BatchResult[]>([]);
   const [showDryRunModal, setShowDryRunModal] = useState(false);
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
-  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
-  const [templateRows, setTemplateRows] = useState<BatchRow[] | null>(null);
-  const [templateFileName, setTemplateFileName] = useState<string | null>(null);
 
   const handleFileSelect = useCallback(
     async (selectedFile: File) => {
@@ -44,10 +39,6 @@ function BatchContent() {
         const estimation = await estimateCost(rows);
         setEstimatedCost(estimation.totalUSD);
         dispatch({ type: 'SET_ESTIMATION', payload: estimation });
-
-        // Set up for editing
-        setTemplateRows(rows);
-        setTemplateFileName(selectedFile.name);
       }
     },
     [dispatch]
@@ -65,30 +56,6 @@ function BatchContent() {
       }
     },
     [handleFileSelect]
-  );
-
-  const handleTemplateEdit = useCallback(() => {
-    if (state.rows) {
-      setTemplateRows(state.rows);
-      setShowTemplateEditor(true);
-    }
-  }, [state.rows]);
-
-  const handleTemplateSave = useCallback(
-    async (editedRows: BatchRow[]) => {
-      // Update the state with edited rows
-      dispatch({ type: 'SET_ROWS', payload: { rows: editedRows, errors: [] } });
-
-      // Re-estimate cost
-      if (editedRows.length > 0) {
-        const estimation = await estimateCost(editedRows);
-        setEstimatedCost(estimation.totalUSD);
-        dispatch({ type: 'SET_ESTIMATION', payload: estimation });
-      }
-
-      setShowTemplateEditor(false);
-    },
-    [dispatch]
   );
 
   const handleDownloadSample = useCallback(async () => {
@@ -120,8 +87,6 @@ function BatchContent() {
 
   const handleClearFile = useCallback(() => {
     setFile(null);
-    setTemplateRows(null);
-    setTemplateFileName(null);
     setEstimatedCost(null);
     setResults([]);
     dispatch({ type: 'RESET' });
@@ -186,6 +151,7 @@ function BatchContent() {
         concurrency={concurrency}
         onConcurrencyChange={setConcurrency}
         onNavigateToChat={() => navigate('/chat')}
+        onOpenTemplateBrowser={() => setShowTemplateBrowser(true)}
       />
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -240,21 +206,6 @@ function BatchContent() {
                     Clear
                   </button>
                   <button
-                    onClick={handleTemplateEdit}
-                    className="px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors flex items-center gap-2"
-                    disabled={isRunning || !state.rows || state.rows.length === 0}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    Edit Template
-                  </button>
-                  <button
                     onClick={handleDryRun}
                     className="px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors"
                     disabled={isRunning}
@@ -301,15 +252,6 @@ function BatchContent() {
         <TemplateBrowser
           onTemplateSelect={handleTemplateSelect}
           onClose={() => setShowTemplateBrowser(false)}
-        />
-      )}
-
-      {showTemplateEditor && templateRows && (
-        <SpreadsheetEditor
-          rows={templateRows}
-          onSave={handleTemplateSave}
-          onCancel={() => setShowTemplateEditor(false)}
-          fileName={templateFileName || undefined}
         />
       )}
     </div>

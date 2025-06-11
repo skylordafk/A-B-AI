@@ -37,8 +37,15 @@ files:
   - "!**/node_modules/concurrently/**/*"
   - "!**/node_modules/cross-env/**/*"
 
-asar: true
+# Include sub node_modules for monorepo
+includeSubNodeModules: true
+
+asar: false
 compression: maximum
+
+# Unpack ESM-only deps to avoid Node ERR_UNSUPPORTED_ESM_URL_SCHEME bug (electron-store triggers this)
+asarUnpack:
+  - "node_modules/electron-store/**/*"
 
 # Skip code signing for now
 forceCodeSigning: false
@@ -52,6 +59,7 @@ mac:
       arch: [x64, arm64]
   artifactName: ${productName}-${version}-${arch}.${ext}
   # icon: build/icon.icns  # TODO: Add icon file
+  # icon: build/icon.icns
 
 win:
   target:
@@ -60,13 +68,15 @@ win:
     - target: zip
       arch: [x64]
   artifactName: ${productName}-${version}-Setup.${ext}
-  # icon: build/icon.ico  # TODO: Add icon file
+  icon: build/icon.ico
   sign: null
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   artifactName: ${productName}-${version}-Setup.${ext}
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
 
 linux:
   target:

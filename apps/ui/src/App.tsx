@@ -1,11 +1,14 @@
 import ChatPage from './ChatPage';
 import { ChatProvider } from './contexts/ChatContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
   return (
-    <ChatProvider>
-      <ChatPage />
-    </ChatProvider>
+    <ThemeProvider>
+      <ChatProvider>
+        <ChatPage />
+      </ChatProvider>
+    </ThemeProvider>
   );
 }
 

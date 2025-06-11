@@ -22,7 +22,11 @@ interface DialogContentProps {
 }
 
 export function DialogContent({ children }: DialogContentProps) {
-  return <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">{children}</div>;
+  return (
+    <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+      {children}
+    </div>
+  );
 }
 
 interface DialogHeaderProps {
@@ -38,5 +42,5 @@ interface DialogTitleProps {
 }
 
 export function DialogTitle({ children }: DialogTitleProps) {
-  return <h2 className="text-xl font-semibold">{children}</h2>;
+  return <h2 className="text-xl font-semibold text-[var(--text-primary)]">{children}</h2>;
 }

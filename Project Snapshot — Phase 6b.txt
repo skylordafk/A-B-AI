@@ -1,0 +1,90 @@
+**Project Snapshot — Phase 6b (Packaging Fix & Public Release v1.0.2)**
+*Generated ≈ June 10 2025*
+
+---
+
+### 1️⃣ Executive Summary
+
+Phase 6b focused on salvaging the broken Phase 6 packaging work, restoring a clean build pipeline, and publishing the first publicly downloadable Windows installer. A cross-platform smoke-test layer was added, docs were reorganised, and release notes were formalised. The repo now sits at **tag `v1.0.2`** with **31 commits on `master`**. ([github.com][1])
+
+---
+
+### 2️⃣ Key Achievements
+
+| Area                   | Details                                                                                                                                                                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Packaging**          | • `electron-builder.yml` re-introduced with ASAR enabled and selective unpack rules.<br>• NSIS Windows target verified; installer size cut by \~35 %.<br>• macOS target scripted but currently disabled in CI pending notarisation. |
+| **CI/CD**              | • GitHub Actions matrix builds Node 18/20 on Windows & macOS.<br>• Artifacts uploaded per-run; “Download” table in README auto-updates via release action.                                                                          |
+| **Testing**            | • Playwright smoke test (`tests/smoke.spec.ts`) opens the packaged app and asserts window title.<br>• Vitest unit tests migrated to dedicated `tests/` folder.                                                                      |
+| **Release Management** | • Release notes now live in `/release-notes.md` and version-specific files (e.g. `release-notes-v1.0.2.md`).<br>• Step-by-step checklist captured in `GITHUB_RELEASE_STEPS.md`.                                                     |
+| **Documentation**      | • README rewritten with 30-second Quick-Start, download badges, and project diagram.<br>• Docs folder scaffolded for future in-depth guides (`docs/ROADMAP.md`, `USAGE.md`).                                                        |
+| **Binary Delivery**    | • Windows installer `A-BAI-Setup.exe` published with tag `v1.0.2` on Jun 11 2025. ([github.com][2])                                                                                                                                 |
+
+---
+
+### 3️⃣ Release v1.0.2 Changelog (abridged)
+
+See full text in `release-notes-v1.0.2.md`.
+
+* **Fixed** – Missing AI provider deps in packaged app, slow builds, oversized installers.
+* **Changed** – Enabled ASAR, normal compression, tighter file-exclusion glob patterns.
+* **Added** – Root-level provider deps, smoke-test, automated release workflow. ([github.com][2])
+
+---
+
+### 4️⃣ Repository Tree Diff (high-level)
+
+```
++ build/                       # Generated assets (git-ignored)
++ docs/
+    ├── ROADMAP.md
+    └── USAGE.md
++ tests/
+    └── smoke.spec.ts
++ electron-builder.yml
++ playwright.config.ts
++ release-notes-v1.0.2.md
+* README.md          (rewritten)
+* package.json       (provider deps consolidated)
+* .github/workflows/ci.yml (matrix build + artefact upload)
+```
+
+---
+
+### 5️⃣ Known Issues / Technical Debt
+
+1. **macOS DMG pipeline** disabled until notarisation and code-signing certificates are configured.
+2. **Settings dialog** placeholder only—API keys are stored but UI to edit them post-setup is TODO.
+3. **Model pricing JSON** is loaded at runtime; needs a cron update job or CI sync to keep rates fresh.
+4. **Automated updater** (Sparkle/NSIS) not yet integrated; users must manually download new versions.
+
+---
+
+### 6️⃣ Next Milestones (Phase 7 Draft)
+
+| #   | Task                                            | Est. Effort |
+| --- | ----------------------------------------------- | ----------- |
+| 7-1 | macOS signing & notarisation; enable DMG in CI  | 4 h         |
+| 7-2 | Settings UI & secure key-vault refactor         | 6 h         |
+| 7-3 | In-app auto-update (electron-updater)           | 3 h         |
+| 7-4 | Pricing manifest auto-refresh (GitHub Action)   | 2 h         |
+| 7-5 | First-run onboarding wizard & attribution modal | 2 h         |
+
+---
+
+### 7️⃣ How to Reproduce the Release Locally
+
+```bash
+git clone https://github.com/skylordafk/A-B-AI.git
+cd A-B-AI
+pnpm install --frozen-lockfile
+pnpm build && pnpm package          # creates dist/* installers
+pnpm test                           # runs Playwright + Vitest
+```
+
+---
+
+*End of snapshot. Save as* **“Project Snapshot (Phase 0-6b).txt”** *in ChatGPT project files.*
+
+[1]: https://github.com/skylordafk/A-B-AI "GitHub - skylordafk/A-B-AI"
+[2]: https://github.com/skylordafk/A-B-AI/releases "Releases · skylordafk/A-B-AI · GitHub"

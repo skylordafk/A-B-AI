@@ -40,6 +40,10 @@ files:
 asar: true
 compression: maximum
 
+# Unpack ESM-only deps to avoid Node ERR_UNSUPPORTED_ESM_URL_SCHEME bug (electron-store triggers this)
+asarUnpack:
+  - "node_modules/electron-store/**/*"
+
 # Skip code signing for now
 forceCodeSigning: false
 
@@ -61,9 +65,8 @@ win:
     - target: zip
       arch: [x64]
   artifactName: ${productName}-${version}-Setup.${ext}
-  icon: build/icon.ico  # TODO: Add icon file
-  sign: null
   icon: build/icon.ico
+  sign: null
 
 nsis:
   oneClick: false

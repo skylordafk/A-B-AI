@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { useState, useEffect } from 'react';
+import { useTheme, TOKENS } from '../contexts/ThemeContext';
 
 type ProviderId = 'openai' | 'anthropic' | 'grok' | 'gemini';
 type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -103,69 +104,154 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     }
   };
 
+  // Theme context helpers
+  const { mode, toggleMode, presetName, setPresetName, presets, updateToken, savePresetAs } =
+    useTheme();
+
+  const [newPresetName, setNewPresetName] = useState('');
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>API Keys</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">OpenAI API Key</label>
-              {getStatusBadge(validationStatus.openai)}
+        <div className="overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-8">
+            {/* ------------------- API KEYS SECTION ------------------- */}
+            <div>
+              <h2 className="text-lg font-semibold mb-2">API Keys</h2>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">OpenAI API Key</label>
+                    {getStatusBadge(validationStatus.openai)}
+                  </div>
+                  <Input
+                    placeholder="sk-..."
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    className="mt-1"
+                    type="password"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Anthropic API Key</label>
+                    {getStatusBadge(validationStatus.anthropic)}
+                  </div>
+                  <Input
+                    placeholder="sk-ant-..."
+                    value={anthropicKey}
+                    onChange={(e) => setAnthropicKey(e.target.value)}
+                    className="mt-1"
+                    type="password"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Grok API Key</label>
+                    {getStatusBadge(validationStatus.grok)}
+                  </div>
+                  <Input
+                    placeholder="xai-..."
+                    value={grokKey}
+                    onChange={(e) => setGrokKey(e.target.value)}
+                    className="mt-1"
+                    type="password"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Gemini API Key</label>
+                    {getStatusBadge(validationStatus.gemini)}
+                  </div>
+                  <Input
+                    placeholder="AIza..."
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    className="mt-1"
+                    type="password"
+                  />
+                </div>
+              </div>
+              <Button
+                className="mt-4 w-full !bg-[var(--bg-primary)] !text-[var(--text-primary)] hover:!bg-[var(--bg-secondary)] border border-[var(--border)]"
+                onClick={handleSave}
+              >
+                Save Keys
+              </Button>
             </div>
-            <Input
-              placeholder="sk-..."
-              value={openaiKey}
-              onChange={(e) => setOpenaiKey(e.target.value)}
-              className="mt-1"
-              type="password"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Anthropic API Key</label>
-              {getStatusBadge(validationStatus.anthropic)}
+
+            {/* ------------------- THEME SECTION ------------------- */}
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Theme</h2>
+
+              {/* Preset selection */}
+              <div className="mb-4">
+                <label className="text-sm font-medium mr-2">Preset:</label>
+                <select
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  className="border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] px-2 py-1 rounded"
+                >
+                  {Object.keys(presets).map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  className="ml-2 px-2 py-1 text-sm !bg-[var(--bg-primary)] !text-[var(--text-primary)] hover:!bg-[var(--bg-secondary)] border border-[var(--border)]"
+                  onClick={toggleMode}
+                >
+                  {mode === 'light' ? 'Switch to dark' : 'Switch to light'} mode
+                </Button>
+              </div>
+
+              {/* Tokens editor */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {TOKENS.map((token) => (
+                  <div key={token} className="flex items-center justify-between gap-2">
+                    <label className="text-sm" htmlFor={token}>
+                      {token}
+                    </label>
+                    <input
+                      id={token}
+                      type="color"
+                      value={presets[presetName][mode][token]}
+                      onChange={(e) => updateToken(token, e.target.value)}
+                      className="w-10 h-6 p-0 border border-[var(--border)] rounded"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Save as new preset */}
+              <div className="mt-4 flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium">Save current as new preset</label>
+                  <Input
+                    placeholder="Preset name"
+                    value={newPresetName}
+                    onChange={(e) => setNewPresetName(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  className="mt-1 !bg-[var(--bg-primary)] !text-[var(--text-primary)] hover:!bg-[var(--bg-secondary)] border border-[var(--border)]"
+                  onClick={() => {
+                    savePresetAs(newPresetName.trim());
+                    setNewPresetName('');
+                  }}
+                  disabled={!newPresetName.trim() || !!presets[newPresetName.trim()]}
+                >
+                  Save
+                </Button>
+              </div>
             </div>
-            <Input
-              placeholder="sk-ant-..."
-              value={anthropicKey}
-              onChange={(e) => setAnthropicKey(e.target.value)}
-              className="mt-1"
-              type="password"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Grok API Key</label>
-              {getStatusBadge(validationStatus.grok)}
-            </div>
-            <Input
-              placeholder="xai-..."
-              value={grokKey}
-              onChange={(e) => setGrokKey(e.target.value)}
-              className="mt-1"
-              type="password"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Gemini API Key</label>
-              {getStatusBadge(validationStatus.gemini)}
-            </div>
-            <Input
-              placeholder="AIza..."
-              value={geminiKey}
-              onChange={(e) => setGeminiKey(e.target.value)}
-              className="mt-1"
-              type="password"
-            />
           </div>
         </div>
-        <Button className="mt-4 w-full" onClick={handleSave}>
-          Save
-        </Button>
       </DialogContent>
     </Dialog>
   );

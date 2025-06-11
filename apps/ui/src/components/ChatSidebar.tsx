@@ -46,16 +46,16 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
   return (
     <div
       className={`
-        fixed top-0 left-0 h-full bg-stone-100 border-r border-stone-300 z-50
+        fixed top-0 left-0 h-full bg-stone-100 dark:bg-stone-900 border-r border-stone-300 dark:border-stone-700 z-50
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         w-80 flex flex-col
       `}
     >
       {/* Header */}
-      <div className="p-4 border-b border-stone-300">
+      <div className="p-4 border-b border-stone-300 dark:border-stone-700">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-stone-900">Chats</h2>
+          <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-50">Chats</h2>
           <button
             onClick={onToggle}
             className="p-1 rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
@@ -85,7 +85,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
         {chats.length === 0 ? (
-          <div className="p-4 text-center text-stone-600">
+          <div className="p-4 text-center text-stone-600 dark:text-stone-400">
             <p>No chats yet</p>
             <p className="text-sm">Start a new conversation!</p>
           </div>
@@ -101,8 +101,8 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
                     group relative p-3 mb-2 rounded-lg cursor-pointer transition-all duration-200
                     ${
                       currentChatId === chat.id
-                        ? 'bg-slate-200 border border-slate-300'
-                        : 'hover:bg-stone-200 border border-transparent'
+                        ? 'bg-slate-200 dark:bg-stone-800 border border-slate-300 dark:border-stone-700'
+                        : 'hover:bg-stone-200 dark:hover:bg-stone-800 border border-transparent'
                     }
                   `}
                 >
@@ -111,15 +111,17 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
                       <h3
                         className={`
                         font-medium text-sm truncate
-                        ${currentChatId === chat.id ? 'text-slate-900' : 'text-stone-900'}
+                        ${currentChatId === chat.id ? 'text-slate-900 dark:text-stone-50' : 'text-stone-900 dark:text-stone-50'}
                       `}
                       >
                         {chat.title}
                       </h3>
-                      <p className="text-xs text-stone-600 mt-1 line-clamp-2">
+                      <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 line-clamp-2">
                         {getLastMessage(chat.messages)}
                       </p>
-                      <p className="text-xs text-stone-500 mt-2">{formatTime(chat.updatedAt)}</p>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-2">
+                        {formatTime(chat.updatedAt)}
+                      </p>
                     </div>
 
                     {/* Delete button */}
@@ -127,7 +129,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
                       onClick={(e) => handleDeleteChat(chat.id, e)}
                       className="
                         opacity-0 group-hover:opacity-100 transition-opacity duration-200
-                        p-1 rounded hover:bg-red-100 text-stone-500 hover:text-red-600
+                        p-1 rounded hover:bg-red-100 dark:hover:bg-red-900 text-stone-500 dark:text-stone-400 hover:text-red-600
                         ml-2 flex-shrink-0
                       "
                       title="Delete chat"
@@ -150,7 +152,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
 
                   {/* Message count */}
                   {chat.messages.length > 0 && (
-                    <div className="mt-2 flex items-center text-xs text-stone-500">
+                    <div className="mt-2 flex items-center text-xs text-stone-500 dark:text-stone-400">
                       <svg
                         className="w-3 h-3 mr-1"
                         fill="none"
@@ -174,8 +176,10 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-stone-300">
-        <p className="text-xs text-stone-600 text-center">Session chats • Clear on app restart</p>
+      <div className="p-4 border-t border-stone-300 dark:border-stone-700">
+        <p className="text-xs text-stone-600 dark:text-stone-400 text-center">
+          Session chats • Clear on app restart
+        </p>
       </div>
     </div>
   );

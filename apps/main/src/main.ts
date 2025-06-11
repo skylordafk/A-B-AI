@@ -1,10 +1,12 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
 import path from 'path';
 import Store from 'electron-store';
 import { chatWithOpenAI } from './providers/openai';
 import { allProviders, ProviderId } from './providers';
 import { getAllKeys, setKey, getKey, validateKey } from './settings';
 import { get_encoding } from '@dqbd/tiktoken';
+import { checkLicence } from './licensing/checkLicence';
+import { append as appendHistory } from './history/append';
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -122,6 +124,15 @@ ipcMain.handle('count-tokens', async (_event, text: string) => {
   }
 });
 
+// Add IPC handler for logging history
+ipcMain.handle('history:log', async (_event, project: string, row: any) => {
+  try {
+    appendHistory(project, row);
+  } catch (error) {
+    console.error('Error logging history:', error);
+  }
+});
+
 // Model-specific chat handler for batch processing
 ipcMain.handle(
   'chat:sendToModel',
@@ -188,7 +199,22 @@ ipcMain.handle(
   }
 );
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Check license validity
+  try {
+    const isValid = await checkLicence(process.env.LICENCE_ENDPOINT || 'http://localhost:4100');
+    if (!isValid) {
+      dialog.showErrorBox('Licence Error', 'Your ABAI licence is invalid or expired.');
+      app.quit();
+      return;
+    }
+  } catch (error) {
+    console.error('License check failed:', error);
+    dialog.showErrorBox('Licence Error', 'Unable to validate licence. Please check your internet connection.');
+    app.quit();
+    return;
+  }
+
   const win = createWindow();
 
   const isMac = process.platform === 'darwin';

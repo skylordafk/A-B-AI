@@ -1,0 +1,129 @@
+# A-B/AI Project Snapshot -- Phase 8: Monetization Core Scaffold
+
+## Phase Overview
+Phase 8 introduces the monetization infrastructure for A-B/AI, including:
+- Stripe-based license activation system
+- Offline license validation with 72-hour cache
+- Metric registry for Prompt-Coach features
+- Usage history tracking per project
+- Multi-architecture builds (mac-arm64, mac-x64, win-x64)
+
+## New Features
+
+### 1. License Management System
+- **Development License Server**: Local Fastify server for testing (port 4100)
+- **License Validation**: Checks license on app startup with offline grace period
+- **Activation UI**: Email-based activation flow with Stripe integration
+- **Cache Management**: 72-hour offline license cache using electron-store
+
+### 2. Prompt-Coach Metrics
+- **Metric Registry**: Extensible system for tracking:
+  - Similarity scores between prompts
+  - Cost differentials
+  - Response latency
+- **Diff Viewer**: Visual comparison of prompt versions with colored metric badges
+
+### 3. Usage History
+- **Per-Project Tracking**: JSONL files stored in ~/.abai/history/
+- **Automatic Logging**: Records all batch processing results
+- **Data Captured**:
+  - Prompt and response pairs
+  - Token usage (in/out)
+  - Cost per request
+  - Latency metrics
+  - Model used
+
+### 4. Project Settings
+- **Per-Project Configuration**:
+  - API key management
+  - Metric toggle controls
+  - Request throttling (0-5000ms)
+- **Local Storage**: Settings persisted per project name
+
+### 5. Build Infrastructure
+- **Multi-Architecture Support**:
+  - macOS: DMG for x64 and arm64
+  - Windows: NSIS installer for x64
+- **CI/CD Updates**:
+  - License server service container
+  - Environment-based license bypass for testing
+
+## Technical Implementation
+
+### Dependencies Added
+- stripe: Payment processing
+- @stripe/stripe-js: Frontend Stripe integration
+- axios: HTTP client for license validation
+- uuid: License key generation
+- electron-store: Persistent storage for license cache
+- fastify: Development license server
+- tsx: TypeScript execution for scripts
+
+### File Structure
+```
+/apps/main/src/
+  licensing/
+    checkLicence.ts     # License validation logic
+  history/
+    append.ts           # Usage history logger
+    
+/apps/ui/src/
+  features/
+    licensing/
+      Activate.tsx      # License activation UI
+    metrics/
+      registry.ts       # Metric definitions
+      DiffViewer.tsx    # Prompt comparison view
+    settings/
+      ProjectSettings.tsx # Per-project configuration
+  shared/
+    stripe.ts           # Stripe configuration
+
+/scripts/
+  licence-server.ts     # Development license server
+```
+
+### Key Integration Points
+1. **Main Process**: License check on app.whenReady()
+2. **Batch Processing**: History logging via IPC after each row
+3. **Window API**: Extended with logHistory, similarity, costDelta, lastLatency
+4. **Development Mode**: Auto-bypass license check when NODE_ENV=development
+
+## Configuration
+
+### Environment Variables
+- `LICENCE_ENDPOINT`: License server URL (default: http://localhost:4100)
+- `STRIPE_PK`: Stripe publishable key
+- `STRIPE_PRICE_ID`: Stripe price identifier
+
+### Package.json Updates
+- Added license-server script
+- Updated dev script to run license server concurrently
+- Configured electron-builder for multi-arch builds
+
+## Usage
+
+### Development
+```bash
+pnpm dev  # Runs UI, Main, and License server
+```
+
+### Building
+```bash
+pnpm package        # Build for current platform
+pnpm package:mac    # Build for macOS (x64 + arm64)
+pnpm package:win    # Build for Windows (x64)
+```
+
+### License Testing
+1. Start dev environment: `pnpm dev`
+2. License server runs on http://localhost:4100
+3. Activation endpoint: POST /activate {email}
+4. Validation endpoint: POST /validate {key}
+
+## Next Steps
+- Implement full Stripe webhook handling
+- Add license management dashboard
+- Create usage analytics viewer
+- Implement metric computation for similarity
+- Add export functionality for usage history 

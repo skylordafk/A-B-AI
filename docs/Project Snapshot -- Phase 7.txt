@@ -1,0 +1,103 @@
+Below is an updated **Project Snapshot** that consolidates everything accomplished from Phase 0 through the brand-new **Phase 7 — Batch Prompting MVP**. Copy it straight into `/docs/PROJECT_SNAPSHOT.md` (and the ChatGPT project files) to keep the record current.
+
+---
+
+## Executive Summary
+
+Phase 7 delivers the first end-to-end **Batch Prompting** workflow: users can upload CSV or JSON files, estimate cost, execute prompts in parallel or sequentially, stream results row-by-row, and automatically export both a results CSV and a `.abaijob` manifest. Under the hood we adopted **Papa Parse** for fast client-side CSV ingestion ([papaparse.com][1], [deadsimplechat.com][2]), **tiktoken** for accurate token counting ([npmjs.com][3], [github.com][4]), and standard **Tailwind CSS dark-mode utilities** for visual parity in light and dark themes ([tailwindcss.com][5], [v2.tailwindcss.com][6]). File exports leverage **FileSaver.js** to write blobs from the Electron renderer process ([npmjs.com][7], [geeksforgeeks.org][8]). The result is a solid MVP with minimal surface area yet a clear growth path for evaluation hooks, plugin scripting, and richer analytics.
+
+---
+
+## Phase Timeline & Key Outcomes
+
+| Phase                                       | Date Range         | Milestones & Features (newest → oldest)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **7 — Batch Prompting MVP**                 | 2025-06-11         | • **Batch page & split-button trigger** within the existing Chat window.<br>• CSV/JSON upload with row-level quarantine for malformed entries.<br>• **Dry-run cost estimator** (tokenize → price lookup).<br>• **Global concurrency slider** (1-10) feeding a FIFO `JobQueue`.<br>• Live **progress toast** (% done & ETA) + color-coded row badges.<br>• Streaming results table (prompt, model, status, tokens\_in/out, cost).<br>• Auto-export `results-YYYYMMDD.csv` & `job-YYYYMMDD.abaijob`.<br>• Optional `afterEach(result){}` stub for post-processing.<br>• Unit tests for parsing, cost calc, and queue logic.<br>• Docs: `docs/batch.md` & sample template at `docs/batch-template.csv`. |
+| **6 — First Production Build**              | 2025-06-08 → 06-10 | • Windows installer fix (Electron-Builder).<br>• Auto-update pipeline via GitHub Releases.<br>• Logging & Sentry hooks.<br>• Style-guide established in `docs/style-guide.md`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **5 — Critical UI/UX & Docs Sprint**        | 2025-06-07         | • Redesigned chat interface with resizable panels.<br>• Intro wizard for API-key onboarding.<br>• Inline token-cost visibility per message.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **4 — Adapter Refactor & Pricing Manifest** | 2025-06-07         | • Unified adapter pattern for OpenAI o3, Anthropic Opus, Gemini 1.5, Grok 1.5.<br>• JSON pricing manifest consumed by cost calculator.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **3 — Core Settings + History**             | 2025-06-07         | • Settings modal storing encrypted API keys.<br>• Chat history persisted to SQLite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **2 — Prompt Diff & Rating**                | 2025-06-07         | • One-click “Improve Prompt” with diff viewer.<br>• 5-star rating widget feeding feedback DB.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **1 — Multi-Model Chat MVP**                | 2025-06-07         | • Basic chat against user-selected model via API key.<br>• Token estimator & cost per message.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **0 — Project Scaffold**                    | 2025-06-06         | • Electron + React codebase initialized.<br>• Continuous Integration with Vitest & ESLint.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+---
+
+## Technical Highlights (Phase 7)
+
+### Parsing & Validation
+
+* **Papa Parse** enables streaming, multi-threaded CSV parsing in the browser context, handling gigabyte-scale files and providing granular error objects for partial failures ([papaparse.com][1], [oneschema.co][9]).
+* Row-level quarantine records bad lines but keeps the job running; the final `.abaijob` manifest lists every skipped row for audit.
+
+### Tokenisation & Costing
+
+* **tiktoken** (JS/WASM build) counts input and anticipated output tokens with 3-6× faster performance than comparable tokenisers ([npmjs.com][3], [github.com][4]).
+* Prices are fetched from the existing `pricingManifest.json`. Users see an instant dry-run dollar estimate before committing a run.
+
+### Execution Engine
+
+* A lightweight FIFO `JobQueue` enforces the global “max in-flight” setting, simplifying rate-limit management across providers.
+* No automatic retries are attempted, surfacing provider or network errors immediately.
+
+### UI/UX Enhancements
+
+* **Tailwind dark-mode** classes keep the Batch tab visually consistent in both themes ([tailwindcss.com][5], [flowbite.com][10]).
+* Status column uses semantic color badges (green/amber/red) aligned with accessibility guidelines.
+* Non-blocking toast displays aggregate progress and ETA, freeing screen real estate.
+
+### File Export
+
+* Client-side download is powered by **FileSaver.js** ([npmjs.com][7], [npmjs.com][11]); in Electron we pass the Blob to `dialog.showSaveDialog` for native save prompts ([github.com][12], [geeksforgeeks.org][8]).
+
+---
+
+## Repository Overview
+
+| Area                  | Path                                   | Notes                                 |
+| --------------------- | -------------------------------------- | ------------------------------------- |
+| **Batch Page**        | `src/routes/Batch.tsx`                 | Entry component, route `/batch`       |
+| **Parsing**           | `src/lib/batch/parseInput.ts`          | CSV/JSON → ValidRow\[] / RowError\[]  |
+| **Cost Estimator**    | `src/lib/batch/estimateCost.ts`        | Token counts & price per row          |
+| **Queue**             | `src/lib/batch/JobQueue.ts`            | FIFO semaphore, emits progress events |
+| **Post-Process Stub** | `src/lib/batch/runRow.ts`              | Houses `afterEach()` hook             |
+| **UI**                | `src/components/batch/**`              | DropZone, ProgressToast, ResultsTable |
+| **Tests**             | `tests/batch/*.test.ts`                | Vitest coverage > 90 % line           |
+| **Docs**              | `docs/batch.md`, `docs/style-guide.md` | End-user & contributor guidance       |
+| **Samples**           | `docs/batch-template.csv`              | Blank template for users              |
+
+---
+
+## Known Issues & Future Work
+
+1. **No automatic retry / back-off** — transient 429 or 5xx errors terminate rows.
+2. **Provider-specific concurrency** — global semaphore may still under-utilise generous limits on OpenAI while respecting stricter Anthropic caps.
+3. **Plugin sandbox** — runtime JS scripts are disabled until a security review.
+4. **Analytics dashboard** — tokens\_in/out and latency\_ms are stored but not yet visualised.
+5. **macOS & Linux installers** — still pending; tracked under Phase 8 roadmap.
+
+---
+
+## Next Steps (Phase 8 Preview)
+
+* **Evaluation & Scoring** module: allow users to pick a rubric model and auto-score batch outputs.
+* **Visual Analytics**: charts for cost vs. quality; time-series usage dashboards.
+* **Plugin Marketplace Prototype**: gated folder with checksum verification and signed extensions.
+* **Cross-platform Builds**: notarised macOS `.dmg` and AppImage for Linux.
+
+---
+
+*This snapshot supersedes the previous Phase 6 document and is current as of commit tip on branch `batch-processing` (June 11 2025).*
+
+[1]: https://www.papaparse.com/?utm_source=chatgpt.com "Papa Parse - Powerful CSV Parser for JavaScript"
+[2]: https://deadsimplechat.com/blog/csv-files-with-nodejs-papaparse/?utm_source=chatgpt.com "CSV files with Node and PapaParse: The Complete Guide"
+[3]: https://www.npmjs.com/package/tiktoken?utm_source=chatgpt.com "tiktoken - NPM"
+[4]: https://github.com/openai/tiktoken?utm_source=chatgpt.com "tiktoken is a fast BPE tokeniser for use with OpenAI's models. - GitHub"
+[5]: https://tailwindcss.com/docs/dark-mode?utm_source=chatgpt.com "Dark mode - Core concepts - Tailwind CSS"
+[6]: https://v2.tailwindcss.com/docs/dark-mode?utm_source=chatgpt.com "Dark Mode - Tailwind CSS"
+[7]: https://www.npmjs.com/package/file-saver?utm_source=chatgpt.com "file-saver - NPM"
+[8]: https://www.geeksforgeeks.org/save-files-in-electronjs/?utm_source=chatgpt.com "Save Files in ElectronJS - GeeksforGeeks"
+[9]: https://www.oneschema.co/blog/top-5-javascript-csv-parsers?utm_source=chatgpt.com "Top 5 Javascript CSV Parsers - OneSchema"
+[10]: https://flowbite.com/docs/customize/dark-mode/?utm_source=chatgpt.com "Tailwind CSS Dark Mode - Flowbite"
+[11]: https://www.npmjs.com/package/%40types/file-saver?utm_source=chatgpt.com "types/file-saver - NPM"
+[12]: https://github.com/eligrey/FileSaver.js/issues/480?utm_source=chatgpt.com "Possible to modify the dialog title? · Issue #480 · eligrey/FileSaver.js"

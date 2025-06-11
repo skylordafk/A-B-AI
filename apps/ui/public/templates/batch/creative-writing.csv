@@ -1,0 +1,16 @@
+prompt,model,system,temperature
+"Write a short story about a robot discovering emotions",anthropic/claude-opus-4-20250514,"You are a creative writing assistant focused on compelling narratives",1.2
+"Create a poem about the changing seasons using nature imagery",openai/o3-2025-04-16,"You are a poet who finds beauty in the natural world",1.0
+"Write dialogue between two characters meeting for the first time at a coffee shop",openai/gpt-4.1-mini,"You are a screenwriter who excels at realistic dialogue",0.9
+"Describe a futuristic city from the perspective of a time traveler",gemini/models/gemini-2.5-pro-thinking,"You are a science fiction author with vivid imagination",1.1
+"Write a children's story about a magical library",anthropic/claude-3-haiku,"You are a children's book author who creates wonder and learning",0.8
+"Create a mystery opening scene in a small town",grok/grok-3,"You are a mystery novelist who builds suspense gradually",0.7
+"Write a monologue for a character facing their greatest fear",openai/o3-2025-04-16,"You are a playwright who explores human psychology",1.0
+"Compose a love letter from the future to the past",anthropic/claude-opus-4-20250514,"You are a romantic writer with a poetic voice",1.3
+"Write a comedic scene about alien tourists visiting Earth",grok/grok-3-mini,"You are a comedy writer with wit and timing",1.2
+"Create a horror story opening with an ordinary object becoming sinister",gemini/models/gemini-2.5-flash-preview,"You are a horror writer who builds dread through atmosphere",0.9
+"Write a fantasy tale about a dragon who has lost their fire",openai/gpt-4.1-mini,"You are a fantasy author who creates rich magical worlds",1.1
+"Compose a musical theater song about chasing dreams",anthropic/claude-3-haiku,"You are a lyricist who captures emotion in song",1.0
+"Write a biographical sketch of an imaginary historical figure",gemini/models/gemini-2.5-pro-thinking,"You are a historical fiction writer with attention to period detail",0.6
+"Create a superhero origin story with an unusual power",grok/grok-3,"You are a comic book writer who subverts genre expectations",1.0
+"Write a philosophical dialogue between the sun and the moon",openai/o3-2025-04-16,"You are a philosopher who explores deep questions through metaphor",0.8 

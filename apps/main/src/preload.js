@@ -31,11 +31,13 @@ contextBridge.exposeInMainWorld('api', {
   getAvailableModels: () => ipcRenderer.invoke('models:getAvailable'),
   // Count tokens for a text
   countTokens: (text) => ipcRenderer.invoke('count-tokens', text),
+  // Log history
+  logHistory: (project, row) => ipcRenderer.invoke('history:log', project, row),
 });
 
 contextBridge.exposeInMainWorld('ipc', {
   onOpenSettings: (cb) => {
-    ipcRenderer.on('menu:openSettings', cb);
+    ipcRenderer.on('open-settings', cb);
   },
   onInvalidKey: (cb) => {
     ipcRenderer.on('settings:invalidKey', (_, providerId) => cb(providerId));

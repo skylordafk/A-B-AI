@@ -17,6 +17,7 @@ jobs:
     
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LICENCE_ENDPOINT: http://localhost:4100
     
     steps:
       - name: Checkout repository
@@ -35,6 +36,12 @@ jobs:
       
       - name: Install dependencies
         run: pnpm install
+      
+      - name: Start license server
+        run: |
+          pnpm run license-server &
+          sleep 5
+        shell: bash
       
       - name: Run linter
         run: pnpm lint

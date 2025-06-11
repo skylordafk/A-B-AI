@@ -26,6 +26,23 @@ interface Window {
     >;
     getAvailableModels: () => Promise<Array<{ provider: string; models: ModelMeta[] }>>;
     countTokens: (text: string) => Promise<number>;
+    sendToModel: (modelId: string, prompt: string, systemPrompt?: string, temperature?: number) => Promise<{
+      answer: string;
+      promptTokens: number;
+      answerTokens: number;
+      costUSD: number;
+      usage: {
+        prompt_tokens: number;
+        completion_tokens: number;
+      };
+      cost: number;
+      provider: string;
+      model: string;
+    }>;
+    similarity?: (expected: string, actual: string) => Promise<number>;
+    costDelta?: () => Promise<number>;
+    lastLatency?: () => Promise<number>;
+    logHistory?: (project: string, row: any) => Promise<void>;
   };
   ipc: {
     onOpenSettings: (callback: () => void) => void;

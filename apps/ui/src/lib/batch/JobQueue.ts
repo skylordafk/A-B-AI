@@ -78,6 +78,22 @@ export class JobQueue extends EventEmitter {
       const result = await runRow(row);
       this.results.push(result);
       this.emit('row-done', result);
+      
+      // Log to history via IPC
+      if (window.api?.logHistory) {
+        const projectName = localStorage.getItem('abai_current_project') || 'default';
+        await window.api.logHistory(projectName, {
+          rowId: row.id,
+          prompt: row.prompt,
+          model: row.model,
+          response: result.response,
+          tokensIn: result.tokens_in,
+          tokensOut: result.tokens_out,
+          cost: result.cost_usd,
+          latency: result.latency_ms,
+          status: result.status,
+        });
+      }
     } catch (error) {
       const errorResult: BatchResult = {
         id: row.id,

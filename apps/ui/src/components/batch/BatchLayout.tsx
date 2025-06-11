@@ -36,15 +36,7 @@ export default function BatchLayout({
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <a
-            href="/batch-template.csv"
-            download="batch-template.csv"
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            Download sample template
-          </a>
-
+        <div className="flex items-center">
           <button
             onClick={onNavigateToChat}
             className="px-4 py-2 text-sm bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors"

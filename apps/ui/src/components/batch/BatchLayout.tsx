@@ -4,12 +4,14 @@ interface BatchLayoutProps {
   concurrency: number;
   onConcurrencyChange: (value: number) => void;
   onNavigateToChat: () => void;
+  onOpenTemplateBrowser: () => void;
 }
 
 export default function BatchLayout({
   concurrency,
   onConcurrencyChange,
   onNavigateToChat,
+  onOpenTemplateBrowser,
 }: BatchLayoutProps) {
   return (
     <div className="bg-[var(--bg-secondary)] border-b border-[var(--border)] px-6 py-4">
@@ -37,12 +39,19 @@ export default function BatchLayout({
         </div>
 
         <div className="flex items-center gap-4">
+          <button
+            onClick={onOpenTemplateBrowser}
+            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+          >
+            Browse Templates
+          </button>
+
           <a
             href="/batch-template.csv"
             download="batch-template.csv"
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
-            Download sample template
+            Download basic template
           </a>
 
           <button

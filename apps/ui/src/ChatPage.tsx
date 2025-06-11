@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Textarea } from './components/ui/textarea';
-import { Button } from './components/ui/button';
+import SplitButton from './components/ui/SplitButton';
 import SettingsModal from './components/SettingsModal';
 import ModelSelect from './components/ModelSelect';
 import ReactDiffViewer from 'react-diff-viewer-continued';
@@ -308,6 +309,7 @@ const ConversationRound = ({
 };
 
 export default function ChatPage() {
+  const navigate = useNavigate();
   const { currentChat, pushMessage, pushMessages, createNewChat } = useChat();
   const [prompt, setPrompt] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -351,7 +353,7 @@ export default function ChatPage() {
       'grok-3': 'grok',
       'grok-3-mini': 'grok',
       'models/gemini-2.5-pro-thinking': 'gemini',
-      'models/gemini-1.5-flash-fast': 'gemini',
+      'models/gemini-2.5-flash-preview': 'gemini',
     };
 
     const selectedProviders = [
@@ -547,15 +549,36 @@ export default function ChatPage() {
                 <p className="text-xs text-stone-600">
                   Press Enter to send, Shift+Enter for new line
                 </p>
-                <Button
-                  onClick={send}
-                  className={`bg-slate-600 hover:bg-slate-700 text-white ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={selected.length === 0 || isLoading}
-                >
-                  {isLoading
-                    ? 'Sending...'
-                    : `Send ${selected.length > 1 ? `to ${selected.length} models` : ''}`}
-                </Button>
+                <SplitButton
+                  primaryAction={{
+                    label:
+                      selected.length > 1 ? `Send to ${selected.length} models` : 'Send Prompt',
+                    onClick: send,
+                    disabled: selected.length === 0 || isLoading,
+                  }}
+                  dropdownActions={[
+                    {
+                      label: 'Open Batch Prompting...',
+                      onClick: () => navigate('/batch'),
+                      icon: (
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
+                        </svg>
+                      ),
+                    },
+                  ]}
+                  loading={isLoading}
+                />
               </div>
             </div>
           </div>

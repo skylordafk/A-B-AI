@@ -25,6 +25,36 @@ interface Window {
         costUSD: number;
       }[]
     >;
+    sendToModel(
+      modelId: string,
+      prompt: string,
+      systemPrompt?: string,
+      temperature?: number
+    ): Promise<{
+      answer: string;
+      promptTokens: number;
+      answerTokens: number;
+      costUSD: number;
+      usage: {
+        prompt_tokens: number;
+        completion_tokens: number;
+      };
+      cost: number;
+    }>;
+    getAvailableModels(): Promise<
+      Array<{
+        provider: string;
+        models: Array<{
+          id: string;
+          name: string;
+          description: string;
+          contextSize: number;
+          pricePrompt: number;
+          priceCompletion: number;
+        }>;
+      }>
+    >;
+    countTokens(text: string): Promise<number>;
   };
   ipc: {
     onOpenSettings(cb: () => void): void;

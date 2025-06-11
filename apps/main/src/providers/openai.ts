@@ -3,9 +3,19 @@ import { encoding_for_model } from '@dqbd/tiktoken';
 import { BaseProvider, ChatResult } from './base';
 import { ModelMeta } from '../types/model';
 
-const MODEL = 'o3-2025-04-16';
-const PRICE_PER_1K_INPUT = 0.01; // USD per 1k input tokens ($10 per 1M)
-const PRICE_PER_1K_OUTPUT = 0.04; // USD per 1k output tokens ($40 per 1M)
+const DEFAULT_MODEL = 'o3-2025-04-16';
+
+// Model pricing map
+const MODEL_PRICING = {
+  'o3-2025-04-16': {
+    input: 0.01, // $10 per 1M tokens
+    output: 0.04, // $40 per 1M tokens
+  },
+  'gpt-4.1-mini': {
+    input: 0.0000005, // $0.50 per 1M tokens
+    output: 0.0000015, // $1.50 per 1M tokens
+  },
+};
 
 export const openaiProvider: BaseProvider = {
   id: 'openai',
@@ -32,11 +42,29 @@ export const openaiProvider: BaseProvider = {
     ];
   },
 
-  async chat(userPrompt: string): Promise<ChatResult> {
+  async chat(userPrompt: string, modelId?: string): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('openai');
     if (!apiKey) throw new Error('OpenAI API key missing');
 
     const openai = new OpenAI({ apiKey });
+
+    // Determine which model to use
+    let model = DEFAULT_MODEL;
+    if (modelId) {
+      // Extract just the model name if it includes provider prefix
+      const modelName = modelId.includes('/') ? modelId.split('/')[1] : modelId;
+
+      // Map to actual model IDs
+      if (modelName === 'gpt-4.1-mini' || modelName.includes('mini')) {
+        model = 'gpt-4.1-mini';
+      } else if (modelName === 'o3-2025-04-16' || modelName.includes('o3')) {
+        model = 'o3-2025-04-16';
+      }
+    }
+
+    // Get pricing for the selected model
+    const pricing =
+      MODEL_PRICING[model as keyof typeof MODEL_PRICING] || MODEL_PRICING[DEFAULT_MODEL];
 
     // Note: o3 is a reasoning model - token encoding may differ from traditional models
     // Using gpt-4 encoding as approximation for now
@@ -47,7 +75,7 @@ export const openaiProvider: BaseProvider = {
     const promptTokens = enc.encode(userPrompt).length;
 
     const res = await openai.chat.completions.create({
-      model: MODEL,
+      model,
       messages: [{ role: 'user', content: userPrompt }],
       // Note: o3 models use max_completion_tokens instead of max_tokens
       max_completion_tokens: 4096,
@@ -56,33 +84,20 @@ export const openaiProvider: BaseProvider = {
     const answer = res.choices[0].message?.content || '';
     const answerTokens = enc.encode(answer).length;
 
-    // Calculate cost based on separate input/output pricing
-    const costUSD =
-      (promptTokens / 1000) * PRICE_PER_1K_INPUT + (answerTokens / 1000) * PRICE_PER_1K_OUTPUT;
+    // Calculate cost based on the model's pricing
+    const costUSD = (promptTokens / 1000) * pricing.input + (answerTokens / 1000) * pricing.output;
 
     return { answer, promptTokens, answerTokens, costUSD };
   },
 };
 
-// Keep the legacy function for backward compatibility if needed
-export async function chatWithOpenAI(apiKey: string, userPrompt: string, model = 'gpt-4o-mini') {
-  const openai = new OpenAI({ apiKey });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const enc = encoding_for_model(model as any);
-  // count prompt tokens
-  const promptTokens = enc.encode(userPrompt).length;
-
-  const res = await openai.chat.completions.create({
-    model,
-    messages: [{ role: 'user', content: userPrompt }],
-  });
-
-  const answer = res.choices[0].message?.content || '';
-  const answerTokens = enc.encode(answer).length;
-  const totalTokens = promptTokens + answerTokens;
-  // Using the original GPT-4o pricing for the legacy function
-  const LEGACY_PRICE_PER_1K = 0.01;
-  const costUSD = (totalTokens / 1000) * LEGACY_PRICE_PER_1K;
-
-  return { answer, promptTokens, answerTokens, costUSD };
+// Legacy function for backward compatibility
+export async function chatWithOpenAI(apiKey: string, userPrompt: string): Promise<ChatResult> {
+  const oldGetApiKey = (globalThis as any).getApiKey;
+  (globalThis as any).getApiKey = () => apiKey;
+  try {
+    return await openaiProvider.chat(userPrompt);
+  } finally {
+    (globalThis as any).getApiKey = oldGetApiKey;
+  }
 }

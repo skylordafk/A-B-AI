@@ -20,7 +20,7 @@
     "openai": "^5.1.1"
   },
   "scripts": {
-    "dev": "concurrently -k -n UI,MAIN \"pnpm --filter ./apps/ui dev\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 pnpm --filter ./apps/main dev\"",
+    "dev": "concurrently -k -n UI,MAIN \"pnpm --filter ./apps/ui dev\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5174 pnpm --filter ./apps/main dev\"",
     "build": "pnpm -r run build",
     "start:prod": "pnpm --filter ./apps/main exec electron .",
     "test": "vitest",

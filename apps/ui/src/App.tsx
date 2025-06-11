@@ -1,15 +1,7 @@
-import ChatPage from './ChatPage';
-import { ChatProvider } from './contexts/ChatContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import AppRouter from './AppRouter';
 
 function App() {
-  return (
-    <ThemeProvider>
-      <ChatProvider>
-        <ChatPage />
-      </ChatProvider>
-    </ThemeProvider>
-  );
+  return <AppRouter />;
 }
 
 export default App;

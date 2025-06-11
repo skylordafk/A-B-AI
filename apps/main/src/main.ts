@@ -4,6 +4,7 @@ import Store from 'electron-store';
 import { chatWithOpenAI } from './providers/openai';
 import { allProviders, ProviderId } from './providers';
 import { getAllKeys, setKey, getKey, validateKey } from './settings';
+import { get_encoding } from '@dqbd/tiktoken';
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -20,6 +21,9 @@ const store = new Store<{
 (globalThis as any).getApiKey = (id: ProviderId) => {
   return getKey(id);
 };
+
+// Initialize tiktoken encoder
+const tokenEncoder = get_encoding('cl100k_base');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -105,6 +109,84 @@ ipcMain.handle('models:getAvailable', async () => {
     models: provider.listModels(),
   }));
 });
+
+// Add IPC handler for token counting
+ipcMain.handle('count-tokens', async (_event, text: string) => {
+  try {
+    const tokens = tokenEncoder.encode(text);
+    return tokens.length;
+  } catch (error) {
+    console.error('Error counting tokens:', error);
+    // Fallback: rough estimate of 1 token per 4 characters
+    return Math.ceil(text.length / 4);
+  }
+});
+
+// Model-specific chat handler for batch processing
+ipcMain.handle(
+  'chat:sendToModel',
+  async (_, modelId: string, prompt: string, systemPrompt?: string, _temperature?: number) => {
+    // Parse provider from model ID
+    const [providerName, ...modelParts] = modelId.split('/');
+    const modelName = modelParts.join('/');
+
+    // Find the provider
+    const provider = allProviders.find((p) => p.id === providerName);
+    if (!provider) {
+      throw new Error(`Unknown provider: ${providerName}`);
+    }
+
+    // Check if API key exists
+    const apiKey = getKey(provider.id as ProviderId);
+    if (!apiKey) {
+      throw new Error(`Missing API key for provider: ${providerName}`);
+    }
+
+    try {
+      // Build full prompt with system message if provided
+      let fullPrompt = prompt;
+      if (systemPrompt) {
+        fullPrompt = `${systemPrompt}\n\n${prompt}`;
+      }
+
+      // Pass the model ID to the provider's chat method
+      const result = await provider.chat(fullPrompt, modelId);
+
+      // Get the specific model details
+      const models = provider.listModels();
+      const modelInfo = models.find((m) => modelId.includes(m.id) || m.id.includes(modelName));
+      const modelLabel = modelInfo ? modelInfo.name : provider.label;
+
+      return {
+        answer: result.answer,
+        promptTokens: result.promptTokens,
+        answerTokens: result.answerTokens,
+        costUSD: result.costUSD,
+        usage: {
+          prompt_tokens: result.promptTokens,
+          completion_tokens: result.answerTokens,
+        },
+        cost: result.costUSD,
+        provider: modelLabel,
+        model: modelId,
+      };
+    } catch (error: any) {
+      // Check for auth errors
+      if (
+        error.status === 401 ||
+        error.status === 403 ||
+        error.message?.includes('API key') ||
+        error.message?.includes('authentication')
+      ) {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win) {
+          win.webContents.send('settings:invalidKey', provider.id);
+        }
+      }
+      throw error;
+    }
+  }
+);
 
 app.whenReady().then(() => {
   const win = createWindow();

@@ -34,6 +34,32 @@ pnpm dev
 
 ---
 
+## 📊 Batch Prompting MVP
+
+Process multiple prompts efficiently with our new batch processing feature:
+
+- **CSV/JSON Import**: Upload files with multiple prompts
+- **Cost Estimation**: Preview costs before running
+- **Parallel Processing**: Adjust concurrency (1-10 requests)
+- **Progress Tracking**: Real-time updates with ETA
+- **Export Results**: Download CSV results and job manifests
+
+### Quick Example
+
+1. Click the dropdown arrow next to "Send" → "Open Batch Prompting..."
+2. Upload a CSV file with your prompts:
+   ```csv
+   prompt,model,system,temperature
+   "What is AI?",openai/gpt-4.1-mini,"You are a helpful assistant",0.7
+   "Explain ML",anthropic/claude-3-haiku,,0.5
+   ```
+3. Review cost estimate and click "Run Batch"
+4. Export results when complete
+
+See [Batch Documentation](docs/batch.md) for detailed instructions.
+
+---
+
 ## About
 
 A desktop application built with Electron, Vite, and React for AI model comparison and cost analysis.
@@ -141,6 +167,13 @@ GitHub Actions workflow runs on push/PR to:
 - Lint code
 - Build packages
 - Test on Windows and macOS with Node.js 18.x and 20.x
+
+## Documentation
+
+- [Release Process](./RELEASE.md) - Step-by-step guide for creating new releases
+- [Batch Processing Guide](./docs/batch.md) - Detailed documentation on batch processing features
+- [Usage Guide](./USAGE.md) - Complete application usage instructions
+- [Model & Pricing Updates](./docs/MODEL_PRICING_UPDATE_PROCESS.md) - How to update AI models and pricing
 
 ## Next Steps
 

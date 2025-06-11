@@ -17,7 +17,7 @@ const AVAILABLE_MODELS: { provider: string; models: ModelMeta[] }[] = [
     provider: 'OpenAI',
     models: [
       { id: 'o3-2025-04-16', name: 'O3 2025-04-16', pricePrompt: 0.002 },
-      { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', pricePrompt: 0.0005 },
+      { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', pricePrompt: 0.0004 },
     ],
   },
   {
@@ -37,8 +37,16 @@ const AVAILABLE_MODELS: { provider: string; models: ModelMeta[] }[] = [
   {
     provider: 'Gemini',
     models: [
-      { id: 'models/gemini-2.5-pro-thinking', name: 'Gemini 2.5 Pro Thinking', pricePrompt: 0.01 },
-      { id: 'models/gemini-1.5-flash-fast', name: 'Gemini 1.5 Flash Fast', pricePrompt: 0.0003 },
+      {
+        id: 'models/gemini-2.5-pro-thinking',
+        name: 'Gemini 2.5 Pro Thinking',
+        pricePrompt: 0.00125,
+      },
+      {
+        id: 'models/gemini-2.5-flash-preview',
+        name: 'Gemini 2.5 Flash Preview',
+        pricePrompt: 0.00035,
+      },
     ],
   },
 ];

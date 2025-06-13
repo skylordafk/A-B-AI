@@ -1,8 +1,8 @@
 import axios from 'axios';
 import Store from 'electron-store';
 
-const store = new Store<{cacheExpires: number, key: string}>({
-  defaults: {cacheExpires: 0, key: ''}
+const store = new Store<{ cacheExpires: number; key: string }>({
+  defaults: { cacheExpires: 0, key: '' },
 });
 
 export async function checkLicence(serverURL: string): Promise<boolean> {
@@ -12,15 +12,15 @@ export async function checkLicence(serverURL: string): Promise<boolean> {
   }
 
   const now = Date.now();
-  const {cacheExpires, key} = store.store;
-  
+  const { cacheExpires, key } = store.store;
+
   // Offline grace period
-  if (key && cacheExpires > now) { 
-    return true; 
+  if (key && cacheExpires > now) {
+    return true;
   }
 
   try {
-    const response = await axios.post(`${serverURL}/validate`, {key});
+    const response = await axios.post(`${serverURL}/validate`, { key });
     if (response.data.valid) {
       // Cache for 72 hours
       store.set('cacheExpires', now + 72 * 60 * 60 * 1000);
@@ -39,6 +39,6 @@ export async function checkLicence(serverURL: string): Promise<boolean> {
     }
     throw error;
   }
-  
+
   return false;
-} 
+}

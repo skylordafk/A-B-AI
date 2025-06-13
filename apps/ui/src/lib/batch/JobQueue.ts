@@ -78,7 +78,7 @@ export class JobQueue extends EventEmitter {
       const result = await runRow(row);
       this.results.push(result);
       this.emit('row-done', result);
-      
+
       // Log to history via IPC
       if (window.api?.logHistory) {
         const projectName = localStorage.getItem('abai_current_project') || 'default';

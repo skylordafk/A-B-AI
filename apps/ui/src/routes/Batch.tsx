@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BatchLayout from '../components/batch/BatchLayout';
 import BatchDropZone from '../components/batch/BatchDropZone';
@@ -7,6 +7,7 @@ import ResultsTable from '../components/batch/ResultsTable';
 import ExportButtons from '../components/batch/ExportButtons';
 import DryRunModal from '../components/batch/DryRunModal';
 import TemplateBrowser from '../components/batch/TemplateBrowser';
+import SettingsModal from '../components/SettingsModal';
 import { BatchProvider, useBatch } from '../contexts/BatchContext';
 import { parseInput } from '../lib/batch/parseInput';
 import { estimateCost } from '../lib/batch/estimateCost';
@@ -24,6 +25,13 @@ function BatchContent() {
   const [results, setResults] = useState<BatchResult[]>([]);
   const [showDryRunModal, setShowDryRunModal] = useState(false);
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Listen for settings menu events
+  useEffect(() => {
+    const handleMenuSettings = () => setSettingsOpen(true);
+    window.ipc.onOpenSettings(handleMenuSettings);
+  }, []);
 
   const handleFileSelect = useCallback(
     async (selectedFile: File) => {
@@ -254,6 +262,8 @@ function BatchContent() {
           onClose={() => setShowTemplateBrowser(false)}
         />
       )}
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

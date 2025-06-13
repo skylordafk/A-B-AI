@@ -5,7 +5,9 @@ interface Window {
       id: 'openai' | 'anthropic' | 'grok' | 'gemini',
       key: string
     ): Promise<void>;
-    getAllKeys(): Promise<Record<'openai' | 'anthropic' | 'grok' | 'gemini', string | undefined>>;
+    getAllKeys(): Promise<
+      Record<'openai' | 'anthropic' | 'grok' | 'gemini', { configured: boolean }>
+    >;
     validateKey(id: 'openai' | 'anthropic' | 'grok' | 'gemini'): Promise<boolean>;
     sendPrompt(prompt: string): Promise<{
       answer: string;
@@ -55,6 +57,12 @@ interface Window {
       }>
     >;
     countTokens(text: string): Promise<number>;
+    logHistory?: (project: string, row: any) => Promise<void>;
+    openHistoryFolder?: (project: string) => Promise<void>;
+    readHistory?: (project: string) => Promise<any[]>;
+    similarity?: (expected: string, actual: string) => Promise<number>;
+    costDelta?: () => Promise<number>;
+    lastLatency?: () => Promise<number>;
   };
   ipc: {
     onOpenSettings(cb: () => void): void;

@@ -19,7 +19,7 @@ export default function Activate() {
     try {
       // In production, redirect to Stripe checkout
       if (import.meta.env.PROD) {
-        const stripe = await import('@stripe/stripe-js').then(m => m.loadStripe(STRIPE_PK));
+        const stripe = await import('@stripe/stripe-js').then((m) => m.loadStripe(STRIPE_PK));
         if (!stripe) throw new Error('Failed to load Stripe');
 
         const { error } = await stripe.redirectToCheckout({
@@ -37,10 +37,10 @@ export default function Activate() {
         // In development, use the local license server
         const response = await axios.post('http://localhost:4100/activate', { email });
         const { licenceKey } = response.data;
-        
+
         // Store the key
         localStorage.setItem('abai_licence_key', licenceKey);
-        
+
         // Redirect to success page
         window.location.href = '/activate-success';
       }
@@ -55,9 +55,7 @@ export default function Activate() {
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Activate ABAI
-          </h2>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Activate ABAI</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Enter your email to activate your ABAI license
           </p>
@@ -80,9 +78,7 @@ export default function Activate() {
             />
           </div>
 
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
+          {error && <div className="text-red-600 text-sm text-center">{error}</div>}
 
           <button
             onClick={handleActivate}
@@ -95,4 +91,4 @@ export default function Activate() {
       </div>
     </div>
   );
-} 
+}

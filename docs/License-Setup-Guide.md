@@ -3,6 +3,7 @@
 This guide covers the complete setup process for the A-B/AI licensing system using Stripe for payment processing and Fastify for the license server.
 
 ## Table of Contents
+
 1. [Architecture Overview](#architecture-overview)
 2. [Development Setup](#development-setup)
 3. [Stripe Configuration](#stripe-configuration)
@@ -19,6 +20,7 @@ The A-B/AI licensing system consists of three main components:
 3. **Electron App** - Validates licenses on startup with offline caching
 
 ### License Flow
+
 ```mermaid
 graph TD
     A[User Launches App] --> B{License Valid?}
@@ -53,21 +55,21 @@ import Fastify from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 
 const app = Fastify();
-const keys = new Map<string, {created: number, seats: number}>();
+const keys = new Map<string, { created: number; seats: number }>();
 
 app.post('/activate', async (req, res) => {
-  const {email} = req.body as {email: string};
+  const { email } = req.body as { email: string };
   const key = uuidv4();
-  keys.set(key, {created: Date.now(), seats: 1});
-  return res.send({licenceKey: key});
+  keys.set(key, { created: Date.now(), seats: 1 });
+  return res.send({ licenceKey: key });
 });
 
 app.post('/validate', async (req, res) => {
-  const {key} = req.body as {key: string};
-  return res.send({valid: keys.has(key)});
+  const { key } = req.body as { key: string };
+  return res.send({ valid: keys.has(key) });
 });
 
-app.listen({port: 4100}, (err) => {
+app.listen({ port: 4100 }, (err) => {
   if (err) {
     console.error(err);
     process.exit(1);
@@ -97,6 +99,7 @@ The license server will be available at `http://localhost:4100`.
 1. Go to **Products** in the Stripe Dashboard
 2. Click **Add Product**
 3. Configure your product:
+
    - Name: "A-B/AI License"
    - Description: "Full access to A-B/AI desktop application"
    - Pricing model: Subscription or One-time
@@ -135,7 +138,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia'
+  apiVersion: '2024-12-18.acacia',
 });
 
 const app = Fastify();
@@ -147,19 +150,15 @@ const app = Fastify();
 app.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-  
+
   try {
-    const event = stripe.webhooks.constructEvent(
-      req.body as string,
-      sig as string,
-      endpointSecret
-    );
-    
+    const event = stripe.webhooks.constructEvent(req.body as string, sig as string, endpointSecret);
+
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object;
         const email = session.customer_email;
-        
+
         // Generate and store license key
         const key = uuidv4();
         // await db.licenses.create({
@@ -169,13 +168,13 @@ app.post('/webhook', async (req, res) => {
         //   stripePriceId: session.line_items?.data[0]?.price?.id,
         //   created: new Date()
         // });
-        
+
         // Send license key via email
         // await sendLicenseEmail(email, key);
         break;
     }
-    
-    return res.send({received: true});
+
+    return res.send({ received: true });
   } catch (err) {
     console.error('Webhook error:', err);
     return res.code(400).send(`Webhook Error: ${err.message}`);
@@ -184,17 +183,17 @@ app.post('/webhook', async (req, res) => {
 
 // Validate endpoint
 app.post('/validate', async (req, res) => {
-  const {key} = req.body as {key: string};
-  
+  const { key } = req.body as { key: string };
+
   // Check database for valid license
   // const license = await db.licenses.findOne({key});
   // return res.send({valid: !!license});
-  
+
   // Placeholder for demo
-  return res.send({valid: true});
+  return res.send({ valid: true });
 });
 
-app.listen({port: 4100}, '0.0.0.0', (err) => {
+app.listen({ port: 4100 }, '0.0.0.0', (err) => {
   if (err) {
     console.error(err);
     process.exit(1);
@@ -208,21 +207,23 @@ app.listen({port: 4100}, '0.0.0.0', (err) => {
 Options for deployment:
 
 #### Option A: Deploy to Vercel/Netlify Functions
+
 ```typescript
 // api/validate.ts
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({error: 'Method not allowed'});
+    return res.status(405).json({ error: 'Method not allowed' });
   }
-  
-  const {key} = req.body;
+
+  const { key } = req.body;
   // Validate against database
-  
-  res.json({valid: true});
+
+  res.json({ valid: true });
 }
 ```
 
 #### Option B: Deploy to VPS (DigitalOcean, AWS EC2, etc.)
+
 ```bash
 # On your server
 git clone https://github.com/skylordafk/A-B-AI.git
@@ -232,6 +233,7 @@ node production-license-server.js
 ```
 
 #### Option C: Use a managed service (Render, Railway, etc.)
+
 1. Connect your GitHub repository
 2. Set environment variables
 3. Deploy with one click
@@ -265,11 +267,13 @@ SMTP_PASS=...
 ### Development Testing
 
 1. **Start the development environment:**
+
    ```bash
    pnpm dev
    ```
 
 2. **Test activation flow:**
+
    - Launch the app
    - It should show the activation screen
    - Enter an email address
@@ -277,6 +281,7 @@ SMTP_PASS=...
    - In dev mode, it will generate a local license
 
 3. **Test validation:**
+
    - Restart the app
    - It should validate the stored license and start normally
 
@@ -288,15 +293,17 @@ SMTP_PASS=...
 ### Production Testing
 
 1. **Test Mode in Stripe:**
+
    - Use test API keys
    - Use test card numbers (e.g., `4242 4242 4242 4242`)
 
 2. **End-to-End Test:**
+
    ```bash
    # Set production environment
    export NODE_ENV=production
    export LICENCE_ENDPOINT=https://your-license-server.com
-   
+
    # Build and run
    pnpm build
    pnpm start:prod
@@ -313,31 +320,37 @@ SMTP_PASS=...
 ### Common Issues
 
 #### 1. License Server Not Reachable
+
 ```
 Error: Unable to validate licence. Please check your internet connection.
 ```
 
 **Solutions:**
+
 - Check if license server is running: `curl http://localhost:4100/validate`
 - Verify `LICENCE_ENDPOINT` environment variable
 - Check firewall settings
 
 #### 2. Stripe Checkout Fails
+
 ```
 Error: Failed to load Stripe
 ```
 
 **Solutions:**
+
 - Verify Stripe publishable key is correct
 - Check if Stripe.js is loading properly
 - Ensure price ID exists in your Stripe account
 
 #### 3. License Not Persisting
+
 ```
 Error: Your ABAI licence is invalid or expired.
 ```
 
 **Solutions:**
+
 - Check electron-store location: `~/Library/Application Support/abai-desktop/`
 - Verify write permissions
 - Clear cache and re-activate
@@ -384,11 +397,13 @@ store.clear();
 ## Next Steps
 
 1. **Add License Management Dashboard**
+
    - View active licenses
    - Revoke/suspend licenses
    - Usage analytics
 
 2. **Implement Team Licenses**
+
    - Multiple seats per license
    - License transfer between users
    - Usage tracking per seat
@@ -403,6 +418,7 @@ store.clear();
 According to a memory from a past conversation, when running on Windows, ensure you use the correct path format:
 
 ### Correct Path Format
+
 ```bash
 # Correct - Windows path format
 cd C:\Users\skyle\OneDrive\Desktop\ABAI && pnpm dev
@@ -412,6 +428,7 @@ cd /c:/Users/skyle/OneDrive/Desktop/ABAI && pnpm dev
 ```
 
 ### Windows Firewall
+
 The license server runs on port 4100. You may need to allow it through Windows Firewall:
 
 1. Open Windows Defender Firewall
@@ -420,7 +437,9 @@ The license server runs on port 4100. You may need to allow it through Windows F
 4. Or create a specific rule for port 4100
 
 ### Electron Store Location on Windows
+
 License cache is stored at:
+
 ```
 C:\Users\[USERNAME]\AppData\Roaming\abai-desktop\
 ```
@@ -428,6 +447,7 @@ C:\Users\[USERNAME]\AppData\Roaming\abai-desktop\
 ## Support
 
 For issues with the licensing system:
+
 1. Check the [GitHub Issues](https://github.com/skylordafk/A-B-AI/issues)
 2. Review server logs: `pm2 logs license-server`
-3. Contact support with your license key (not the secret key!) 
+3. Contact support with your license key (not the secret key!)

@@ -11,12 +11,12 @@ interface StoreSchema {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const store = new Store<StoreSchema>() as any;
 
-export function getAllKeys(): Record<ProviderId, string | undefined> {
+export function getAllKeys(): Record<ProviderId, { configured: boolean }> {
   return {
-    openai: store.get('openaiKey'),
-    anthropic: store.get('anthropicKey'),
-    grok: store.get('grokKey'),
-    gemini: store.get('geminiKey'),
+    openai: { configured: !!store.get('openaiKey') },
+    anthropic: { configured: !!store.get('anthropicKey') },
+    grok: { configured: !!store.get('grokKey') },
+    gemini: { configured: !!store.get('geminiKey') },
   };
 }
 

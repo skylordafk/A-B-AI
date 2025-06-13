@@ -1,5 +1,7 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
+import os from 'os';
+import fs from 'fs';
 import Store from 'electron-store';
 import { chatWithOpenAI } from './providers/openai';
 import { allProviders, ProviderId } from './providers';
@@ -133,6 +135,48 @@ ipcMain.handle('history:log', async (_event, project: string, row: any) => {
   }
 });
 
+// Add IPC handler for opening history folder
+ipcMain.handle('history:openFolder', async (_event, _project: string) => {
+  try {
+    const historyDir = path.join(os.homedir(), '.abai', 'history');
+    await shell.openPath(historyDir);
+  } catch (error) {
+    console.error('Error opening history folder:', error);
+  }
+});
+
+// Add IPC handler for reading history file
+ipcMain.handle('history:read', async (_event, project: string) => {
+  try {
+    const historyDir = path.join(os.homedir(), '.abai', 'history');
+    const historyFile = path.join(historyDir, `${project}.jsonl`);
+
+    if (!fs.existsSync(historyFile)) {
+      return [];
+    }
+
+    const content = fs.readFileSync(historyFile, 'utf-8');
+    const lines = content
+      .trim()
+      .split('\n')
+      .filter((line) => line.trim());
+
+    return lines
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch (error) {
+          console.error('Error parsing history line:', line, error);
+          return null;
+        }
+      })
+      .filter((entry) => entry !== null);
+  } catch (error) {
+    console.error('Error reading history file:', error);
+    return [];
+  }
+});
+
 // Model-specific chat handler for batch processing
 ipcMain.handle(
   'chat:sendToModel',
@@ -200,19 +244,24 @@ ipcMain.handle(
 );
 
 app.whenReady().then(async () => {
-  // Check license validity
-  try {
-    const isValid = await checkLicence(process.env.LICENCE_ENDPOINT || 'http://localhost:4100');
-    if (!isValid) {
-      dialog.showErrorBox('Licence Error', 'Your ABAI licence is invalid or expired.');
+  // Check license validity (skip in development)
+  if (!isDev) {
+    try {
+      const isValid = await checkLicence(process.env.LICENCE_ENDPOINT || 'http://localhost:4100');
+      if (!isValid) {
+        dialog.showErrorBox('Licence Error', 'Your ABAI licence is invalid or expired.');
+        app.quit();
+        return;
+      }
+    } catch (error) {
+      console.error('License check failed:', error);
+      dialog.showErrorBox(
+        'Licence Error',
+        'Unable to validate licence. Please check your internet connection.'
+      );
       app.quit();
       return;
     }
-  } catch (error) {
-    console.error('License check failed:', error);
-    dialog.showErrorBox('Licence Error', 'Unable to validate licence. Please check your internet connection.');
-    app.quit();
-    return;
   }
 
   const win = createWindow();

@@ -153,7 +153,7 @@ class TemplateService {
       return manifest;
     } catch (error) {
       // Try to load local manifest as fallback
-      console.log('Remote manifest fetch failed, trying local fallback...');
+      console.warn('Remote manifest fetch failed, trying local fallback...');
 
       try {
         const localResponse = await fetch('/templates/manifest.json');

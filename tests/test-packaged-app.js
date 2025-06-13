@@ -250,7 +250,7 @@ class PackagedAppTester {
 
   async testEnvironmentVariables() {
     // Test that production environment is set correctly
-    const testEnv = { ...process.env, NODE_ENV: 'production' };
+    const _testEnv = { ...process.env, NODE_ENV: 'production' };
 
     // In production, the app should have different behavior
     try {

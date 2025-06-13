@@ -32,59 +32,79 @@ function parsePriceToNumber(priceStr: string): number {
   return -1; // Unknown pricing
 }
 
+// Process raw pricing data into our format
+function processPricingData(rawData: Record<string, unknown>): PricingData {
+  const pricingData: PricingData = {};
+
+  // Convert the raw data to our format
+  for (const [provider, models] of Object.entries(rawData)) {
+    const providerKey = provider.toLowerCase();
+    pricingData[providerKey] = {};
+
+    for (const [modelName, pricing] of Object.entries(models as Record<string, unknown>)) {
+      let inputPrice = -1;
+      let outputPrice = -1;
+
+      const pricingObj = pricing as Record<string, unknown>;
+      if (
+        pricingObj.input_price &&
+        pricingObj.output_price &&
+        typeof pricingObj.input_price === 'string' &&
+        typeof pricingObj.output_price === 'string'
+      ) {
+        inputPrice = parsePriceToNumber(pricingObj.input_price);
+        outputPrice = parsePriceToNumber(pricingObj.output_price);
+      } else if (pricingObj.pricing) {
+        // Handle special pricing like gpt-4.1-mini
+        inputPrice = 0;
+        outputPrice = 0;
+      }
+
+      pricingData[providerKey][modelName] = {
+        prompt: inputPrice,
+        completion: outputPrice,
+      };
+    }
+  }
+
+  // Map Gemini models correctly
+  if (pricingData.google) {
+    pricingData.gemini = {
+      'models/gemini-2.5-flash-preview': pricingData.google['gemini-2.5-flash-preview'] || {
+        prompt: 0.00035,
+        completion: 0.00175,
+      },
+      'models/gemini-2.5-pro-thinking': pricingData.google['gemini-2.5-pro-thinking'] || {
+        prompt: 0.00125,
+        completion: 0.01,
+      },
+    };
+  }
+
+  return pricingData;
+}
+
 // Load pricing data from the JSON file
 export async function loadPricingData(): Promise<PricingData> {
   try {
-    // Try to load from the file system
+    // Check if we're in a Node.js environment (testing)
+    if (typeof window === 'undefined') {
+      // Node.js environment - use dynamic import
+      const path = await import('path');
+      const fs = await import('fs');
+      const filePath = path.resolve(process.cwd(), 'AI Model Pricing JSON.json');
+      const rawData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      return processPricingData(rawData);
+    }
+
+    // Browser environment - use fetch
     const response = await fetch('/AI Model Pricing JSON.json');
     if (!response.ok) {
       throw new Error('Failed to load pricing data');
     }
 
     const rawData = await response.json();
-    const pricingData: PricingData = {};
-
-    // Convert the raw data to our format
-    for (const [provider, models] of Object.entries(rawData)) {
-      const providerKey = provider.toLowerCase();
-      pricingData[providerKey] = {};
-
-      for (const [modelName, pricing] of Object.entries(models as any)) {
-        let inputPrice = -1;
-        let outputPrice = -1;
-
-        const pricingObj = pricing as any;
-        if (pricingObj.input_price && pricingObj.output_price) {
-          inputPrice = parsePriceToNumber(pricingObj.input_price);
-          outputPrice = parsePriceToNumber(pricingObj.output_price);
-        } else if (pricingObj.pricing) {
-          // Handle special pricing like gpt-4.1-mini
-          inputPrice = 0;
-          outputPrice = 0;
-        }
-
-        pricingData[providerKey][modelName] = {
-          prompt: inputPrice,
-          completion: outputPrice,
-        };
-      }
-    }
-
-    // Map Gemini models correctly
-    if (pricingData.google) {
-      pricingData.gemini = {
-        'models/gemini-2.5-flash-preview': pricingData.google['gemini-2.5-flash-preview'] || {
-          prompt: 0.00035,
-          completion: 0.00175,
-        },
-        'models/gemini-2.5-pro-thinking': pricingData.google['gemini-2.5-pro-thinking'] || {
-          prompt: 0.00125,
-          completion: 0.01,
-        },
-      };
-    }
-
-    return pricingData;
+    return processPricingData(rawData);
   } catch (error) {
     console.error('Failed to load pricing data, using defaults:', error);
 

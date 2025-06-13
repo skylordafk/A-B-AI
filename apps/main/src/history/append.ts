@@ -4,7 +4,7 @@ import path from 'path';
 
 const dir = path.join(os.homedir(), '.abai', 'history');
 
-export function append(project: string, row: any) {
+export function append(project: string, row: Record<string, unknown>) {
   // Ensure directory exists
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });

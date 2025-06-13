@@ -19,10 +19,15 @@ const store = new Store<{
   anthropicKey?: string;
   grokKey?: string;
   geminiKey?: string;
-}>() as any;
+}>() as unknown as Store<{
+  openaiKey?: string;
+  anthropicKey?: string;
+  grokKey?: string;
+  geminiKey?: string;
+}>;
 
 // Set up global API key getter
-(globalThis as any).getApiKey = (id: ProviderId) => {
+(globalThis as Record<string, unknown>).getApiKey = (id: ProviderId) => {
   return getKey(id);
 };
 
@@ -127,7 +132,7 @@ ipcMain.handle('count-tokens', async (_event, text: string) => {
 });
 
 // Add IPC handler for logging history
-ipcMain.handle('history:log', async (_event, project: string, row: any) => {
+ipcMain.handle('history:log', async (_event, project: string, row: Record<string, unknown>) => {
   try {
     appendHistory(project, row);
   } catch (error) {

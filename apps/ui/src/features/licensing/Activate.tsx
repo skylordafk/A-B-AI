@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { STRIPE_PRICE_ID, STRIPE_PK } from '@/shared/stripe';
+import { STRIPE_PRICE_ID, STRIPE_PK } from '../../shared/stripe';
+import { useNavigate } from 'react-router-dom';
 
 export default function Activate() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleActivate = async () => {
     if (!email) {
@@ -25,8 +27,8 @@ export default function Activate() {
         const { error } = await stripe.redirectToCheckout({
           lineItems: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
           mode: 'subscription',
-          successUrl: `${window.location.origin}/activate-success?email=${encodeURIComponent(email)}`,
-          cancelUrl: `${window.location.origin}/activate`,
+          successUrl: `${window.location.origin}/#/activate-success?email=${encodeURIComponent(email)}`,
+          cancelUrl: `${window.location.origin}/#/activate`,
           customerEmail: email,
         });
 
@@ -41,8 +43,8 @@ export default function Activate() {
         // Store the key
         localStorage.setItem('abai_licence_key', licenceKey);
 
-        // Redirect to success page
-        window.location.href = '/activate-success';
+        // Navigate within the SPA so the hash prefix is automatically handled by HashRouter
+        navigate('/activate-success');
       }
     } catch (err: any) {
       setError(err.message || 'Activation failed. Please try again.');

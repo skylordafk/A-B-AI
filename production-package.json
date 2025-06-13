@@ -1,0 +1,30 @@
+{
+  "name": "abai-license-server",
+  "version": "1.0.0",
+  "description": "A-B/AI Production License Server with Stripe Integration",
+  "main": "production-license-server.js",
+  "scripts": {
+    "start": "node production-license-server.js",
+    "dev": "nodemon production-license-server.js",
+    "test": "node test-production-server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.24.3",
+    "stripe": "^14.12.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "stripe",
+    "license",
+    "fastify",
+    "webhook"
+  ],
+  "author": "skylordafk",
+  "license": "MIT"
+} 

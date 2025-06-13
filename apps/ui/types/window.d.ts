@@ -50,6 +50,10 @@ interface Window {
     logHistory?: (project: string, row: Record<string, unknown>) => Promise<void>;
     openHistoryFolder?: (project: string) => Promise<void>;
     readHistory?: (project: string) => Promise<Record<string, unknown>[]>;
+    // License management
+    storeLicense?: (licenseKey: string) => Promise<boolean>;
+    getLicense?: () => Promise<string>;
+    clearLicense?: () => Promise<boolean>;
   };
   ipc: {
     onOpenSettings: (callback: () => void) => void;

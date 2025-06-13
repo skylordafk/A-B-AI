@@ -74,6 +74,37 @@ ipcMain.handle('settings:validateKey', async (_, id: ProviderId) => {
   return validateKey(id);
 });
 
+// License management handlers
+ipcMain.handle('license:store', (_, licenseKey: string) => {
+  const licenseStore = new Store<{ cacheExpires: number; key: string }>({
+    defaults: { cacheExpires: 0, key: '' },
+  });
+  
+  licenseStore.set('key', licenseKey);
+  licenseStore.set('cacheExpires', Date.now() + 72 * 60 * 60 * 1000); // 72 hours cache
+  
+  console.log('License key stored successfully');
+  return true;
+});
+
+ipcMain.handle('license:get', () => {
+  const licenseStore = new Store<{ cacheExpires: number; key: string }>({
+    defaults: { cacheExpires: 0, key: '' },
+  });
+  
+  return licenseStore.get('key');
+});
+
+ipcMain.handle('license:clear', () => {
+  const licenseStore = new Store<{ cacheExpires: number; key: string }>({
+    defaults: { cacheExpires: 0, key: '' },
+  });
+  
+  licenseStore.clear();
+  console.log('License cleared');
+  return true;
+});
+
 // Legacy single-model chat handler for backward compatibility
 ipcMain.handle('chat:send', async (_, prompt: string) => {
   const apiKey = store.get('openaiKey');
@@ -249,25 +280,289 @@ ipcMain.handle(
 );
 
 app.whenReady().then(async () => {
+  console.log('[Main] App is ready');
+  console.log('[Main] isDev:', isDev);
+  console.log('[Main] app.isPackaged:', app.isPackaged);
+  console.log('[Main] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
+  console.log('[Main] NODE_ENV:', process.env.NODE_ENV);
+  
   // Check license validity (skip in development)
   if (!isDev) {
+    console.log('[Main] Running license check...');
+    
     try {
-      const isValid = await checkLicence(
-        process.env.LICENCE_ENDPOINT || 'https://license.spventerprises.com'
-      );
+      const licenseEndpoint = process.env.LICENCE_ENDPOINT || 'https://license.spventerprises.com';
+      console.log('[Main] License endpoint:', licenseEndpoint);
+      
+      const isValid = await checkLicence(licenseEndpoint);
+      console.log('[Main] License check result:', isValid);
+      
       if (!isValid) {
-        dialog.showErrorBox('Licence Error', 'Your ABAI licence is invalid or expired.');
-        app.quit();
-        return;
+        console.log('[Main] No valid license - showing activation page');
+        // Don't quit the app - instead, load the UI and navigate to activation
+        const win = createWindow();
+        
+        // More robust navigation to activation page
+        let navigationAttempts = 0;
+        const maxAttempts = 5;
+        
+        const navigateToActivation = () => {
+          navigationAttempts++;
+          console.log(`[Main] Attempting to navigate to activation page (attempt ${navigationAttempts}/${maxAttempts})`);
+          
+          win.webContents.executeJavaScript(`
+            console.log('[Renderer] Current hash:', window.location.hash);
+            console.log('[Renderer] Navigating to activation page...');
+            window.location.hash = '#/activate';
+            console.log('[Renderer] New hash:', window.location.hash);
+            
+            // Force a re-render if using React Router
+            if (window.dispatchEvent) {
+              window.dispatchEvent(new HashChangeEvent('hashchange'));
+            }
+          `).then(() => {
+            console.log('[Main] Navigation script executed');
+            
+            // Check if we need to retry
+            if (navigationAttempts < maxAttempts) {
+              setTimeout(() => {
+                win.webContents.executeJavaScript(`window.location.hash`).then((hash) => {
+                  console.log(`[Main] Current hash after navigation: ${hash}`);
+                  if (hash !== '#/activate') {
+                    navigateToActivation();
+                  }
+                });
+              }, 500);
+            }
+          }).catch((err) => {
+            console.error('[Main] Navigation error:', err);
+          });
+        };
+        
+        // Wait for the app to fully load before navigating
+        win.webContents.once('did-finish-load', () => {
+          console.log('[Main] Window finished loading');
+          // Give React time to initialize
+          setTimeout(navigateToActivation, 1000);
+        });
+        
+        // Also try navigating when DOM is ready
+        win.webContents.once('dom-ready', () => {
+          console.log('[Main] DOM ready');
+        });
+        
+        // Set up the menu
+        const isMac = process.platform === 'darwin';
+        const template: Electron.MenuItemConstructorOptions[] = [
+          // macOS app menu
+          ...(isMac
+            ? [
+                {
+                  label: app.getName(),
+                  submenu: [
+                    { role: 'about' as const },
+                    { type: 'separator' as const },
+                    { role: 'services' as const },
+                    { type: 'separator' as const },
+                    { role: 'hide' as const },
+                    { role: 'hideOthers' as const },
+                    { role: 'unhide' as const },
+                    { type: 'separator' as const },
+                    { role: 'quit' as const },
+                  ],
+                },
+              ]
+            : []),
+          // File menu
+          {
+            label: 'File',
+            submenu: [
+              {
+                label: 'Settings',
+                accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
+                click: () => {
+                  win.webContents.send('menu:openSettings');
+                },
+              },
+              { type: 'separator' },
+              ...(isMac ? [] : [{ role: 'quit' as const }]),
+            ],
+          },
+          // Edit menu
+          {
+            label: 'Edit',
+            submenu: [
+              { role: 'undo' as const },
+              { role: 'redo' as const },
+              { type: 'separator' as const },
+              { role: 'cut' as const },
+              { role: 'copy' as const },
+              { role: 'paste' as const },
+              { role: 'pasteAndMatchStyle' as const },
+              { role: 'delete' as const },
+              { role: 'selectAll' as const },
+              ...(isMac
+                ? [
+                    { type: 'separator' as const },
+                    {
+                      label: 'Speech',
+                      submenu: [{ role: 'startSpeaking' as const }, { role: 'stopSpeaking' as const }],
+                    },
+                  ]
+                : []),
+            ],
+          },
+          // View menu
+          {
+            label: 'View',
+            submenu: [
+              { role: 'reload' as const },
+              { role: 'forceReload' as const },
+              { role: 'toggleDevTools' as const },
+              { type: 'separator' as const },
+              { role: 'resetZoom' as const },
+              { role: 'zoomIn' as const },
+              { role: 'zoomOut' as const },
+              { type: 'separator' as const },
+              { role: 'togglefullscreen' as const },
+            ],
+          },
+          // Window menu
+          {
+            label: 'Window',
+            submenu: [
+              { role: 'minimize' as const },
+              { role: 'close' as const },
+              ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : []),
+            ],
+          },
+        ];
+
+        const menu = Menu.buildFromTemplate(template);
+        Menu.setApplicationMenu(menu);
+        
+        return; // Exit early, don't create another window
       }
     } catch (error) {
       console.error('License check failed:', error);
-      dialog.showErrorBox(
-        'Licence Error',
-        'Unable to validate licence. Please check your internet connection.'
-      );
-      app.quit();
-      return;
+      // Only show error dialog if we have a cached license but can't validate it
+      // This indicates a real network/server issue, not just missing license
+      const Store = require('electron-store');
+      const store = new Store({ defaults: { cacheExpires: 0, key: '' } });
+      const { key } = store.store;
+      
+      if (key) {
+        // User has a license but can't validate it - show error
+        dialog.showErrorBox(
+          'Licence Error',
+          'Unable to validate licence. Please check your internet connection.'
+        );
+        app.quit();
+        return;
+      } else {
+        // No license found and server unreachable - show activation page
+        const win = createWindow();
+        
+        win.webContents.once('did-finish-load', () => {
+          win.webContents.executeJavaScript(`
+            if (window.location.hash !== '#/activate') {
+              window.location.hash = '#/activate';
+            }
+          `);
+        });
+        
+        // Set up the menu
+        const isMac = process.platform === 'darwin';
+        const template: Electron.MenuItemConstructorOptions[] = [
+          // macOS app menu
+          ...(isMac
+            ? [
+                {
+                  label: app.getName(),
+                  submenu: [
+                    { role: 'about' as const },
+                    { type: 'separator' as const },
+                    { role: 'services' as const },
+                    { type: 'separator' as const },
+                    { role: 'hide' as const },
+                    { role: 'hideOthers' as const },
+                    { role: 'unhide' as const },
+                    { type: 'separator' as const },
+                    { role: 'quit' as const },
+                  ],
+                },
+              ]
+            : []),
+          // File menu
+          {
+            label: 'File',
+            submenu: [
+              {
+                label: 'Settings',
+                accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
+                click: () => {
+                  win.webContents.send('menu:openSettings');
+                },
+              },
+              { type: 'separator' },
+              ...(isMac ? [] : [{ role: 'quit' as const }]),
+            ],
+          },
+          // Edit menu
+          {
+            label: 'Edit',
+            submenu: [
+              { role: 'undo' as const },
+              { role: 'redo' as const },
+              { type: 'separator' as const },
+              { role: 'cut' as const },
+              { role: 'copy' as const },
+              { role: 'paste' as const },
+              { role: 'pasteAndMatchStyle' as const },
+              { role: 'delete' as const },
+              { role: 'selectAll' as const },
+              ...(isMac
+                ? [
+                    { type: 'separator' as const },
+                    {
+                      label: 'Speech',
+                      submenu: [{ role: 'startSpeaking' as const }, { role: 'stopSpeaking' as const }],
+                    },
+                  ]
+                : []),
+            ],
+          },
+          // View menu
+          {
+            label: 'View',
+            submenu: [
+              { role: 'reload' as const },
+              { role: 'forceReload' as const },
+              { role: 'toggleDevTools' as const },
+              { type: 'separator' as const },
+              { role: 'resetZoom' as const },
+              { role: 'zoomIn' as const },
+              { role: 'zoomOut' as const },
+              { type: 'separator' as const },
+              { role: 'togglefullscreen' as const },
+            ],
+          },
+          // Window menu
+          {
+            label: 'Window',
+            submenu: [
+              { role: 'minimize' as const },
+              { role: 'close' as const },
+              ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : []),
+            ],
+          },
+        ];
+
+        const menu = Menu.buildFromTemplate(template);
+        Menu.setApplicationMenu(menu);
+        
+        return; // Exit early, don't create another window
+      }
     }
   }
 

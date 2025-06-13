@@ -37,6 +37,7 @@ const RATE_LIMITS = {
   '/validate': { window: 60 * 1000, max: 20 }, // 20 requests per minute
   '/activate': { window: 60 * 1000, max: 5 }, // 5 requests per minute
   '/webhook': { window: 60 * 1000, max: 100 }, // 100 webhooks per minute
+  '/retrieve-license': { window: 60 * 1000, max: 5 }, // 5 requests per minute
   default: { window: 60 * 1000, max: 30 }, // 30 requests per minute default
 };
 
@@ -441,6 +442,58 @@ app.post('/activate', async (request, reply) => {
   } catch (error) {
     console.error('Activation error:', error);
     return reply.code(500).send({ error: 'Activation failed' });
+  }
+});
+
+// Retrieve license by email endpoint
+app.post('/retrieve-license', async (request, reply) => {
+  const ip = request.ip || request.connection.remoteAddress || 'unknown';
+
+  // Rate limiting
+  if (!checkRateLimit(ip, '/retrieve-license')) {
+    return reply.code(429).send({ error: 'Rate limit exceeded. Please try again later.' });
+  }
+
+  try {
+    const { email } = request.body;
+
+    if (!email) {
+      return reply.code(400).send({ error: 'Email required' });
+    }
+
+    // Validate email format
+    if (!isValidEmail(email)) {
+      return reply.code(400).send({ error: 'Invalid email format' });
+    }
+
+    // Sanitize and normalize email
+    const sanitizedEmail = email.trim().toLowerCase();
+
+    // Find license by email
+    const licenses = Array.from(licensesCache.values()).filter(
+      (license) => license.email === sanitizedEmail && license.active
+    );
+
+    if (licenses.length === 0) {
+      console.log(`No license found for email: ${sanitizedEmail}`);
+      return reply.code(404).send({ error: 'No license found for this email' });
+    }
+
+    // Return the most recent license if multiple exist
+    const mostRecentLicense = licenses.sort((a, b) => 
+      new Date(b.created).getTime() - new Date(a.created).getTime()
+    )[0];
+
+    console.log(`Retrieved license for ${sanitizedEmail}: ${mostRecentLicense.key.substring(0, 8)}...`);
+
+    return reply.send({ 
+      licenseKey: mostRecentLicense.key,
+      created: mostRecentLicense.created,
+      active: mostRecentLicense.active
+    });
+  } catch (error) {
+    console.error('License retrieval error:', error);
+    return reply.code(500).send({ error: 'Failed to retrieve license' });
   }
 });
 

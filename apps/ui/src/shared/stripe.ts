@@ -1,7 +1,7 @@
 // Stripe Configuration for A-B/AI Licensing
 
-// ✅ Real Stripe Price ID from your Stripe Dashboard
-export const STRIPE_PRICE_ID = 'price_1RYlXqLLA1b43uwQ4d78XAsO';
+// ✅ $1 Test Product Price ID from Stripe Dashboard
+export const STRIPE_PRICE_ID = 'price_1RZXNvLLA1b43uwQtN3UhgRo';
 
 // ✅ Live publishable key (correct)
 export const STRIPE_PK =

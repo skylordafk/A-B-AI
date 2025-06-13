@@ -285,6 +285,76 @@ app.post('/activate', async (request, reply) => {
   }
 });
 
+// Retrieve license by email endpoint
+app.post('/retrieve-license', async (request, reply) => {
+  const clientIP = request.ip || request.connection.remoteAddress || 'unknown';
+
+  // Rate limiting
+  if (!checkRateLimit(clientIP)) {
+    return reply.code(429).send({ error: 'Rate limit exceeded. Please try again later.' });
+  }
+
+  try {
+    let bodyData;
+
+    // Handle different request body formats
+    if (Buffer.isBuffer(request.body)) {
+      try {
+        bodyData = JSON.parse(request.body.toString());
+      } catch (e) {
+        return reply.code(400).send({ error: 'Invalid JSON in request body' });
+      }
+    } else if (typeof request.body === 'object') {
+      bodyData = request.body;
+    } else if (typeof request.body === 'string') {
+      try {
+        bodyData = JSON.parse(request.body);
+      } catch (e) {
+        return reply.code(400).send({ error: 'Invalid JSON in request body' });
+      }
+    } else {
+      return reply.code(400).send({ error: 'Invalid request body' });
+    }
+
+    const { email } = bodyData;
+
+    if (!email || !isValidEmail(email)) {
+      return reply.code(400).send({ error: 'Valid email required' });
+    }
+
+    // Sanitize and normalize email
+    const sanitizedEmail = email.trim().toLowerCase();
+
+    // Find license by email
+    const licenses = Array.from(licensesCache.values()).filter(
+      (license) => license.email === sanitizedEmail && license.active
+    );
+
+    if (licenses.length === 0) {
+      console.log(`❌ No license found for email: ${sanitizedEmail}`);
+      return reply.code(404).send({ error: 'No license found for this email' });
+    }
+
+    // Return the most recent license if multiple exist
+    const mostRecentLicense = licenses.sort((a, b) => 
+      new Date(b.created).getTime() - new Date(a.created).getTime()
+    )[0];
+
+    console.log(`✅ Retrieved license for ${sanitizedEmail}: ${mostRecentLicense.key.substring(0, 8)}...`);
+
+    return reply.send({ 
+      licenseKey: mostRecentLicense.key,
+      created: mostRecentLicense.created,
+      active: mostRecentLicense.active
+    });
+  } catch (error) {
+    console.error('❌ License retrieval error:', error);
+    return reply.code(500).send({ error: 'Failed to retrieve license' });
+  }
+});
+
+// Get license info endpoint
+
 // Start the server
 async function start() {
   try {

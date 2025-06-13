@@ -37,6 +37,10 @@ contextBridge.exposeInMainWorld('api', {
   openHistoryFolder: (project) => ipcRenderer.invoke('history:openFolder', project),
   // Read history file
   readHistory: (project) => ipcRenderer.invoke('history:read', project),
+  // License management
+  storeLicense: (licenseKey) => ipcRenderer.invoke('license:store', licenseKey),
+  getLicense: () => ipcRenderer.invoke('license:get'),
+  clearLicense: () => ipcRenderer.invoke('license:clear'),
 });
 
 contextBridge.exposeInMainWorld('ipc', {

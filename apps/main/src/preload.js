@@ -33,11 +33,15 @@ contextBridge.exposeInMainWorld('api', {
   countTokens: (text) => ipcRenderer.invoke('count-tokens', text),
   // Log history
   logHistory: (project, row) => ipcRenderer.invoke('history:log', project, row),
+  // Open history folder
+  openHistoryFolder: (project) => ipcRenderer.invoke('history:openFolder', project),
+  // Read history file
+  readHistory: (project) => ipcRenderer.invoke('history:read', project),
 });
 
 contextBridge.exposeInMainWorld('ipc', {
   onOpenSettings: (cb) => {
-    ipcRenderer.on('open-settings', cb);
+    ipcRenderer.on('menu:openSettings', cb);
   },
   onInvalidKey: (cb) => {
     ipcRenderer.on('settings:invalidKey', (_, providerId) => cb(providerId));

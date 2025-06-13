@@ -12,12 +12,12 @@ export function append(project: string, row: any) {
 
   // Create filename based on project name
   const filename = path.join(dir, `${project}.jsonl`);
-  
+
   // Append row with timestamp
   const entry = {
     ...row,
-    ts: Date.now()
+    ts: Date.now(),
   };
-  
+
   fs.appendFileSync(filename, JSON.stringify(entry) + '\n');
-} 
+}

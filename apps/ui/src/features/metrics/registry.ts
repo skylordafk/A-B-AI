@@ -16,14 +16,14 @@ export const registry: Metric[] = [
       // Fallback to simple string comparison
       const maxLength = Math.max(expected.length, actual.length);
       if (maxLength === 0) return 1;
-      
+
       let matches = 0;
       const minLength = Math.min(expected.length, actual.length);
       for (let i = 0; i < minLength; i++) {
         if (expected[i] === actual[i]) matches++;
       }
       return matches / maxLength;
-    }
+    },
   },
   {
     id: 'cost',
@@ -34,7 +34,7 @@ export const registry: Metric[] = [
         return await window.api.costDelta();
       }
       return 0;
-    }
+    },
   },
   {
     id: 'latency',
@@ -45,6 +45,6 @@ export const registry: Metric[] = [
         return await window.api.lastLatency();
       }
       return 0;
-    }
+    },
   },
-]; 
+];

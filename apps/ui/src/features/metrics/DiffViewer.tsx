@@ -22,14 +22,14 @@ export default function DiffViewer({ diffs }: DiffViewerProps) {
       if (value >= 0.7) return 'bg-yellow-100 text-yellow-800';
       return 'bg-red-100 text-red-800';
     }
-    
+
     // For cost and latency, lower is better
     if (metricId === 'cost' || metricId === 'latency') {
       if (value <= 0.1) return 'bg-green-100 text-green-800';
       if (value <= 0.5) return 'bg-yellow-100 text-yellow-800';
       return 'bg-red-100 text-red-800';
     }
-    
+
     return 'bg-gray-100 text-gray-800';
   };
 
@@ -115,4 +115,4 @@ export default function DiffViewer({ diffs }: DiffViewerProps) {
       </table>
     </div>
   );
-} 
+}

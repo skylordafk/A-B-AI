@@ -26,7 +26,12 @@ interface Window {
     >;
     getAvailableModels: () => Promise<Array<{ provider: string; models: ModelMeta[] }>>;
     countTokens: (text: string) => Promise<number>;
-    sendToModel: (modelId: string, prompt: string, systemPrompt?: string, temperature?: number) => Promise<{
+    sendToModel: (
+      modelId: string,
+      prompt: string,
+      systemPrompt?: string,
+      temperature?: number
+    ) => Promise<{
       answer: string;
       promptTokens: number;
       answerTokens: number;
@@ -43,6 +48,8 @@ interface Window {
     costDelta?: () => Promise<number>;
     lastLatency?: () => Promise<number>;
     logHistory?: (project: string, row: any) => Promise<void>;
+    openHistoryFolder?: (project: string) => Promise<void>;
+    readHistory?: (project: string) => Promise<any[]>;
   };
   ipc: {
     onOpenSettings: (callback: () => void) => void;

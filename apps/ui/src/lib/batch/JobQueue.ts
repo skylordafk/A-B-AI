@@ -79,9 +79,12 @@ export class JobQueue extends EventEmitter {
       this.results.push(result);
       this.emit('row-done', result);
 
-      // Log to history via IPC
-      if (window.api?.logHistory) {
-        const projectName = localStorage.getItem('abai_current_project') || 'default';
+      // Log to history via IPC (only in browser environment)
+      if (typeof window !== 'undefined' && window.api?.logHistory) {
+        const projectName =
+          (typeof localStorage !== 'undefined'
+            ? localStorage.getItem('abai_current_project')
+            : null) || 'default';
         await window.api.logHistory(projectName, {
           rowId: row.id,
           prompt: row.prompt,

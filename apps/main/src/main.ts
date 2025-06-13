@@ -247,7 +247,9 @@ app.whenReady().then(async () => {
   // Check license validity (skip in development)
   if (!isDev) {
     try {
-      const isValid = await checkLicence(process.env.LICENCE_ENDPOINT || 'http://localhost:4100');
+      const isValid = await checkLicence(
+        process.env.LICENCE_ENDPOINT || 'https://license.spventerprises.com'
+      );
       if (!isValid) {
         dialog.showErrorBox('Licence Error', 'Your ABAI licence is invalid or expired.');
         app.quit();

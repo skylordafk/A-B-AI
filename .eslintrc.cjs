@@ -44,6 +44,7 @@ module.exports = {
     '**/preload.js',
     'production-license-server.js',
     'production-license-server-secure.js',
+    'production-license-server-fixed.js',
   ],
   overrides: [
     {

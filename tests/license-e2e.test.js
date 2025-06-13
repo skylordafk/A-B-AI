@@ -1,4 +1,5 @@
 // End-to-End License Workflow Tests
+// This is a Node.js script, not a Vitest test file
 // Run with: node tests/license-e2e.test.js
 
 const axios = require('axios');
@@ -85,9 +86,9 @@ class LicenseE2ETest {
     }
 
     try {
-      const response = await axios.post(`${SERVER_URL}/validate`, { key: licenseKey });
+      const _response = await axios.post(`${SERVER_URL}/validate`, { key: licenseKey });
 
-      if (response.data.valid === true) {
+      if (_response.data.valid === true) {
         await this.log('License Validation', 'PASS', 'Valid license accepted');
         return true;
       } else {
@@ -124,7 +125,7 @@ class LicenseE2ETest {
   async testOfflineBehavior() {
     // This test simulates what happens when license server is unreachable
     try {
-      const response = await axios.post(
+      const _response = await axios.post(
         'http://localhost:9999/validate',
         {
           key: 'test-key',
@@ -148,14 +149,14 @@ class LicenseE2ETest {
   // Test 5: Rate Limiting (if implemented)
   async testRateLimiting() {
     const requests = [];
-    const email = `ratetest-${Date.now()}@example.com`;
+    const _email = `ratetest-${Date.now()}@example.com`;
 
     try {
       // Send 10 rapid requests
       for (let i = 0; i < 10; i++) {
         requests.push(
           axios
-            .post(`${SERVER_URL}/activate`, { email: `${email}-${i}` })
+            .post(`${SERVER_URL}/activate`, { email: `${_email}-${i}` })
             .catch((error) => error.response || error)
         );
       }
@@ -229,7 +230,7 @@ class LicenseE2ETest {
   async testProductionSecurity() {
     try {
       // Test that direct activation is disabled in production
-      const response = await axios.post(
+      const _response = await axios.post(
         `${PROD_SERVER_URL}/activate`,
         {
           email: 'test@example.com',
@@ -237,10 +238,10 @@ class LicenseE2ETest {
         { validateStatus: () => true }
       );
 
-      if (response.status === 403) {
+      if (_response.status === 403) {
         await this.log('Production Security', 'PASS', 'Direct activation disabled in production');
         return true;
-      } else if (response.status === 200) {
+      } else if (_response.status === 200) {
         await this.log(
           'Production Security',
           'WARN',
@@ -248,7 +249,7 @@ class LicenseE2ETest {
         );
         return true;
       } else {
-        await this.log('Production Security', 'FAIL', `Unexpected response: ${response.status}`);
+        await this.log('Production Security', 'FAIL', `Unexpected response: ${_response.status}`);
         return false;
       }
     } catch (error) {
@@ -301,7 +302,7 @@ class LicenseE2ETest {
   async testBasicLoad() {
     const concurrency = 5;
     const requestsPerWorker = 3;
-    const email = `loadtest-${Date.now()}@example.com`;
+    const _email = `loadtest-${Date.now()}@example.com`;
 
     try {
       const workers = Array.from({ length: concurrency }, (_, i) =>

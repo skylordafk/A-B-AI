@@ -47,9 +47,9 @@ interface Window {
     similarity?: (expected: string, actual: string) => Promise<number>;
     costDelta?: () => Promise<number>;
     lastLatency?: () => Promise<number>;
-    logHistory?: (project: string, row: any) => Promise<void>;
+    logHistory?: (project: string, row: Record<string, unknown>) => Promise<void>;
     openHistoryFolder?: (project: string) => Promise<void>;
-    readHistory?: (project: string) => Promise<any[]>;
+    readHistory?: (project: string) => Promise<Record<string, unknown>[]>;
   };
   ipc: {
     onOpenSettings: (callback: () => void) => void;

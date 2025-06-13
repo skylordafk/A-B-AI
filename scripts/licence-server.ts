@@ -33,5 +33,5 @@ app.listen({ port: 4100, host: '0.0.0.0' }, (err) => {
     console.error(err);
     process.exit(1);
   }
-  console.log('License server running on port 4100, accessible from all interfaces');
+  process.stdout.write('License server running on port 4100, accessible from all interfaces\n');
 });

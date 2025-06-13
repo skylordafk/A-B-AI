@@ -23,7 +23,7 @@ export interface BatchResult {
 export interface RowError {
   row: number;
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export interface CostEstimation {

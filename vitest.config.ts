@@ -12,6 +12,7 @@ export default defineConfig({
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*',
       'tests/playwright/**',
+      'tests/license-e2e.test.js', // Standalone Node.js script, not a Vitest test
     ],
   },
   resolve: {

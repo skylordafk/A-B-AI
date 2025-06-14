@@ -225,14 +225,12 @@ const ConversationRound = ({
   userMessage,
   assistantMessages,
   roundIndex,
-  isLatest = false,
 }: {
   userMessage: any;
   assistantMessages: any[];
   roundIndex: number;
-  isLatest?: boolean;
 }) => {
-  const [isExpanded, setIsExpanded] = useState(isLatest);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return (
     <div className="border border-stone-200 rounded mb-2 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
@@ -318,6 +316,16 @@ export default function ChatPage() {
   const [invalidKeyError, setInvalidKeyError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Local messages state that immediately reflects updates
+  const [localMessages, setLocalMessages] = useState<any[]>([]);
+
+  // Sync local messages with currentChat, but preserve local updates
+  useEffect(() => {
+    if (currentChat?.messages) {
+      setLocalMessages(currentChat.messages);
+    }
+  }, [currentChat?.id, currentChat?.messages?.length]);
+
   // Debounced prompt for performance
   const debouncedPrompt = useDebounce(prompt, 150);
 
@@ -341,9 +349,23 @@ export default function ChatPage() {
   }, [currentChat]); // Removed createNewChat from dependencies to prevent infinite loop
 
   const send = async () => {
-    if (!debouncedPrompt.trim() || selected.length === 0 || isLoading) return;
+    if (!debouncedPrompt.trim() || selected.length === 0 || isLoading) {
+      return;
+    }
 
-    pushMessage({ role: 'user', content: debouncedPrompt });
+    // Create user message
+    const userMessage = {
+      role: 'user' as const,
+      content: debouncedPrompt,
+      id: `msg-${Date.now()}-user`,
+      timestamp: Date.now(),
+    };
+
+    // Immediately update local state for instant feedback
+    setLocalMessages((prev) => [...prev, userMessage]);
+
+    // Also update through context (for persistence)
+    pushMessage(userMessage);
     setIsLoading(true);
 
     // Map model IDs to provider IDs
@@ -363,26 +385,54 @@ export default function ChatPage() {
     ];
 
     try {
+      if (!window.api?.sendPrompts) {
+        throw new Error('window.api.sendPrompts is not available');
+      }
+
       const results = await window.api.sendPrompts(
         debouncedPrompt,
         selectedProviders as ('openai' | 'anthropic' | 'grok' | 'gemini')[]
       );
-      pushMessages(
-        results.map((r) => ({
-          role: 'assistant' as const,
-          content: r.answer,
-          cost: r.costUSD,
-          provider: r.provider,
-          answer: r.answer,
-          costUSD: r.costUSD,
-          tokens: {
-            input: r.promptTokens || 0,
-            output: r.answerTokens || 0,
-          },
-        }))
-      );
+
+      // Create assistant messages with proper content
+      const assistantMessages = results.map((r, idx) => ({
+        role: 'assistant' as const,
+        content: r.answer || '[No response]', // Ensure content is never undefined
+        cost: r.costUSD,
+        provider: r.provider,
+        answer: r.answer,
+        costUSD: r.costUSD,
+        tokens: {
+          input: r.promptTokens || 0,
+          output: r.answerTokens || 0,
+        },
+        id: `msg-${Date.now()}-assistant-${idx}`,
+        timestamp: Date.now() + idx,
+      }));
+
+      // Immediately update local state
+      setLocalMessages((prev) => [...prev, ...assistantMessages]);
+
+      // Also update through context
+      pushMessages(assistantMessages);
     } catch (err: any) {
+      const errorMessage = {
+        role: 'assistant' as const,
+        content: `Error: ${err.message}`,
+        cost: 0,
+        provider: 'System',
+        answer: `Error: ${err.message}`,
+        costUSD: 0,
+        tokens: { input: 0, output: 0 },
+        id: `msg-${Date.now()}-error`,
+        timestamp: Date.now(),
+      };
+
+      // Update local state with error
+      setLocalMessages((prev) => [...prev, errorMessage]);
+
       if (err.message.includes('API key')) setSettingsOpen(true);
+      pushMessages([errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -391,7 +441,8 @@ export default function ChatPage() {
   };
 
   // Get messages from current chat and organize into conversation rounds
-  const messages = currentChat?.messages || [];
+  const messages = localMessages; // Use local messages for immediate updates
+
   const conversationRounds = useMemo(() => {
     const rounds: Array<{ userMessage: any; assistantMessages: any[] }> = [];
     let currentUserMessage = null;
@@ -414,8 +465,8 @@ export default function ChatPage() {
       }
     }
 
-    // Add the last round if it exists
-    if (currentUserMessage && currentAssistantMessages.length > 0) {
+    // Add the last round even if there are no assistant messages yet (user just sent a message)
+    if (currentUserMessage) {
       rounds.push({ userMessage: currentUserMessage, assistantMessages: currentAssistantMessages });
     }
 
@@ -526,11 +577,10 @@ export default function ChatPage() {
               <div className="space-y-0">
                 {conversationRounds.map((round, index) => (
                   <ConversationRound
-                    key={index}
+                    key={round.userMessage.id || `round-${index}`}
                     userMessage={round.userMessage}
                     assistantMessages={round.assistantMessages}
                     roundIndex={index}
-                    isLatest={index === conversationRounds.length - 1}
                   />
                 ))}
               </div>

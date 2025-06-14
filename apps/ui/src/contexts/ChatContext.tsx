@@ -2,28 +2,20 @@ import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useProject, type ChatMessage, type ChatConversation } from './ProjectContext';
 
-interface Message {
+export interface Message {
   role: 'user' | 'assistant';
   content: string;
   cost?: number;
   provider?: string;
-  answer?: string;
-  costUSD?: number;
   tokens?: { input: number; output: number };
-}
-
-interface Chat {
-  id: string;
-  title: string;
-  messages: Message[];
-  createdAt: Date;
-  updatedAt: Date;
+  id?: string;
+  timestamp?: number;
 }
 
 interface ChatContextType {
-  chats: Chat[];
+  chats: ChatConversation[];
   currentChatId: string | null;
-  currentChat: Chat | null;
+  currentChat: ChatConversation | null;
   createNewChat: () => string;
   switchToChat: (chatId: string) => void;
   deleteChat: (chatId: string) => void;
@@ -47,7 +39,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   } = useProject();
 
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
-  const [messageUpdateTrigger, setMessageUpdateTrigger] = useState(0);
 
   // Sync current chat ID with project's current conversation
   useEffect(() => {
@@ -55,18 +46,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setCurrentChatId(currentProject?.currentConversationId || null);
     }
   }, [currentProject?.currentConversationId, currentChatId]);
-
-  // Force re-render when chatHistory changes
-  useEffect(() => {
-    if (currentProject?.chatHistory) {
-      // Force update when project changes
-      setMessageUpdateTrigger((prev) => prev + 1);
-    }
-  }, [
-    currentProject?.chatHistory?.length,
-    currentProject?.chatHistory?.map((c) => c.messages.length).join(','),
-    currentProject?.currentConversationId,
-  ]);
 
   const generateChatTitle = (messages: Message[]): string => {
     const firstUserMessage = messages.find((m) => m.role === 'user');
@@ -79,41 +58,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return 'New Chat';
   };
 
-  // Convert ChatMessage to Message for backward compatibility
-  const convertChatMessageToMessage = (chatMsg: ChatMessage): Message => {
-    const result = {
-      role: chatMsg.role,
-      content: chatMsg.content,
-      cost: chatMsg.cost,
-      provider: chatMsg.provider,
-      costUSD: chatMsg.cost,
-    };
-    return result;
-  };
-
   // Convert Message to ChatMessage for storage
-  const convertMessageToChatMessage = (msg: Message): Omit<ChatMessage, 'id' | 'timestamp'> => {
-    const result = {
-      role: msg.role,
-      content: msg.content,
-      provider: msg.provider,
-      cost: msg.cost || msg.costUSD,
-      tokens: msg.tokens,
-    };
-    return result;
-  };
-
-  // Convert ChatConversation to Chat for backward compatibility
-  const convertConversationToChat = (conv: ChatConversation): Chat => {
-    const result = {
-      id: conv.id,
-      title: conv.name,
-      messages: conv.messages.map(convertChatMessageToMessage),
-      createdAt: new Date(conv.createdAt),
-      updatedAt: new Date(conv.lastUsed),
-    };
-    return result;
-  };
+  const convertMessageToChatMessage = (msg: Message): Omit<ChatMessage, 'id' | 'timestamp'> => ({
+    role: msg.role,
+    content: msg.content,
+    provider: msg.provider,
+    cost: msg.cost,
+    tokens: msg.tokens,
+  });
 
   const createNewChat = (): string => {
     if (!currentProject) return '';
@@ -166,9 +118,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     addMessage(currentChatId, convertMessageToChatMessage(message));
 
-    // Force a re-render by updating the trigger
-    setMessageUpdateTrigger((prev) => prev + 1);
-
     // Auto-generate title from first user message
     const currentConv = getCurrentConversation();
     if (message.role === 'user' && currentConv && currentConv.messages.length === 1) {
@@ -185,9 +134,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     newMessages.forEach((msg) => {
       addMessage(currentChatId, convertMessageToChatMessage(msg));
     });
-
-    // Force a re-render by updating the trigger
-    setMessageUpdateTrigger((prev) => prev + 1);
   };
 
   const updateChatTitle = (chatId: string, title: string) => {
@@ -207,12 +153,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   };
 
   // Get chats from project history
-  const chats: Chat[] = useMemo(() => {
+  const chats: ChatConversation[] = useMemo(() => {
     if (!currentProject || !currentProject.chatHistory) return [];
 
-    // Use the messageUpdateTrigger to force recalculation when messages are added
-    return currentProject.chatHistory.map(convertConversationToChat);
-  }, [currentProject, currentProject?.chatHistory, messageUpdateTrigger]);
+    return currentProject.chatHistory;
+  }, [currentProject, currentProject?.chatHistory]);
 
   const currentChat = useMemo(() => {
     return chats.find((chat) => chat.id === currentChatId) || null;

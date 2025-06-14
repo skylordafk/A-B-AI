@@ -14,6 +14,7 @@ import { useChat } from './contexts/ChatContext';
 import TerminalBlock from './components/TerminalBlock';
 import ThemeToggle from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
+import type { Message } from './contexts/ChatContext';
 
 // Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -77,7 +78,7 @@ const CopyButton = ({ text, className = '' }: { text: string; className?: string
 };
 
 // Component to display two assistant messages with optional comparison & diff view
-const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }) => {
+const AssistantComparison = ({ assistantMessages }: { assistantMessages: Message[] }) => {
   const { mode } = useTheme();
   const [sideBySide, setSideBySide] = useState(true);
   const [showDiff, setShowDiff] = useState(false);
@@ -91,18 +92,18 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
             {msg.provider && (
               <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">{msg.provider}</p>
             )}
-            <CopyButton text={msg.answer || msg.content} />
+            <CopyButton text={msg.content} />
           </div>
           <TerminalBlock>
             <div className="prose prose-sm max-w-none prose-stone">
               <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
-                {msg.answer || msg.content}
+                {msg.content}
               </ReactMarkdown>
             </div>
           </TerminalBlock>
-          {msg.costUSD !== undefined && (
+          {msg.cost !== undefined && (
             <p className="text-xs text-stone-400 dark:text-stone-300 mt-1 ml-1">
-              Cost: ${msg.costUSD.toFixed(4)}
+              Cost: ${msg.cost.toFixed(4)}
             </p>
           )}
         </div>
@@ -115,20 +116,20 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
       <div className="flex justify-between mb-2 text-sm text-stone-600 dark:text-stone-300">
         <div className="flex items-center gap-2">
           <span>
-            {assistantMessages[0].provider} - Cost: ${assistantMessages[0].costUSD?.toFixed(4)}
+            {assistantMessages[0].provider} - Cost: ${assistantMessages[0].cost?.toFixed(4)}
           </span>
-          <CopyButton text={assistantMessages[0].answer || assistantMessages[0].content} />
+          <CopyButton text={assistantMessages[0].content} />
         </div>
         <div className="flex items-center gap-2">
           <span>
-            {assistantMessages[1].provider} - Cost: ${assistantMessages[1].costUSD?.toFixed(4)}
+            {assistantMessages[1].provider} - Cost: ${assistantMessages[1].cost?.toFixed(4)}
           </span>
-          <CopyButton text={assistantMessages[1].answer || assistantMessages[1].content} />
+          <CopyButton text={assistantMessages[1].content} />
         </div>
       </div>
       <ReactDiffViewer
-        oldValue={assistantMessages[0].answer || assistantMessages[0].content}
-        newValue={assistantMessages[1].answer || assistantMessages[1].content}
+        oldValue={assistantMessages[0].content}
+        newValue={assistantMessages[1].content}
         splitView={true}
         hideLineNumbers={true}
         useDarkTheme={mode === 'dark'}
@@ -226,8 +227,8 @@ const ConversationRound = ({
   assistantMessages,
   roundIndex,
 }: {
-  userMessage: any;
-  assistantMessages: any[];
+  userMessage: Message;
+  assistantMessages: Message[];
   roundIndex: number;
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -317,12 +318,23 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Local messages state that immediately reflects updates
-  const [localMessages, setLocalMessages] = useState<any[]>([]);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
 
   // Sync local messages with currentChat, but preserve local updates
   useEffect(() => {
     if (currentChat?.messages) {
-      setLocalMessages(currentChat.messages);
+      // Convert ChatMessages to Messages
+      const convertedMessages = currentChat.messages.map(
+        (msg): Message => ({
+          role: msg.role,
+          content: msg.content,
+          cost: msg.cost,
+          provider: msg.provider,
+          id: msg.id,
+          timestamp: msg.timestamp,
+        })
+      );
+      setLocalMessages(convertedMessages);
     }
   }, [currentChat?.id, currentChat?.messages?.length]);
 
@@ -400,7 +412,6 @@ export default function ChatPage() {
         content: r.answer || '[No response]', // Ensure content is never undefined
         cost: r.costUSD,
         provider: r.provider,
-        answer: r.answer,
         costUSD: r.costUSD,
         tokens: {
           input: r.promptTokens || 0,
@@ -415,13 +426,13 @@ export default function ChatPage() {
 
       // Also update through context
       pushMessages(assistantMessages);
-    } catch (err: any) {
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       const errorMessage = {
         role: 'assistant' as const,
-        content: `Error: ${err.message}`,
+        content: `Error: ${errorMsg}`,
         cost: 0,
         provider: 'System',
-        answer: `Error: ${err.message}`,
         costUSD: 0,
         tokens: { input: 0, output: 0 },
         id: `msg-${Date.now()}-error`,
@@ -431,7 +442,7 @@ export default function ChatPage() {
       // Update local state with error
       setLocalMessages((prev) => [...prev, errorMessage]);
 
-      if (err.message.includes('API key')) setSettingsOpen(true);
+      if (errorMsg.includes('API key')) setSettingsOpen(true);
       pushMessages([errorMessage]);
     } finally {
       setIsLoading(false);
@@ -444,9 +455,9 @@ export default function ChatPage() {
   const messages = localMessages; // Use local messages for immediate updates
 
   const conversationRounds = useMemo(() => {
-    const rounds: Array<{ userMessage: any; assistantMessages: any[] }> = [];
-    let currentUserMessage = null;
-    let currentAssistantMessages: any[] = [];
+    const rounds: Array<{ userMessage: Message; assistantMessages: Message[] }> = [];
+    let currentUserMessage: Message | null = null;
+    let currentAssistantMessages: Message[] = [];
 
     for (const message of messages) {
       if (message.role === 'user') {
@@ -505,7 +516,7 @@ export default function ChatPage() {
 
               <div>
                 <h1 className="text-base font-semibold text-stone-900 dark:text-stone-50">
-                  {currentChat?.title || 'New Chat'}
+                  {currentChat?.name || 'New Chat'}
                 </h1>
                 {messages.length > 0 && (
                   <p className="text-xs text-stone-600 dark:text-stone-300">

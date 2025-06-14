@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { Button } from './ui/button';
 import { useChat } from '../contexts/ChatContext';
+import type { ChatMessage } from '../contexts/ProjectContext';
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -10,9 +11,10 @@ interface ChatSidebarProps {
 const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
   const { chats, currentChatId, createNewChat, switchToChat, deleteChat } = useChat();
 
-  const formatTime = (date: Date) => {
+  const formatTime = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = now.getTime() - dateObj.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
@@ -21,10 +23,10 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    return dateObj.toLocaleDateString();
   };
 
-  const getLastMessage = (messages: any[]) => {
+  const getLastMessage = (messages: ChatMessage[]) => {
     const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
     if (!lastUserMessage) return 'No messages yet';
     return (
@@ -92,7 +94,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
         ) : (
           <div className="p-1">
             {chats
-              .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+              .sort((a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime())
               .map((chat) => (
                 <div
                   key={chat.id}
@@ -114,13 +116,13 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
                         ${currentChatId === chat.id ? 'text-slate-900 dark:text-stone-50' : 'text-stone-900 dark:text-stone-50'}
                       `}
                       >
-                        {chat.title}
+                        {chat.name}
                       </h3>
                       <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 line-clamp-2">
                         {getLastMessage(chat.messages)}
                       </p>
                       <p className="text-xs text-stone-500 dark:text-stone-400 mt-2">
-                        {formatTime(chat.updatedAt)}
+                        {formatTime(chat.lastUsed)}
                       </p>
                     </div>
 

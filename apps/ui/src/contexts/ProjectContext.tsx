@@ -189,7 +189,11 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     saveProjects(updatedProjects);
 
     if (currentProject && currentProject.id === projectId) {
-      setCurrentProject({ ...currentProject, ...updates, lastUsed: new Date().toISOString() });
+      // Always update currentProject to ensure React detects the change
+      const updatedProject = updatedProjects.find((p) => p.id === projectId);
+      if (updatedProject) {
+        setCurrentProject({ ...updatedProject });
+      }
     }
   };
 
@@ -267,7 +271,9 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   };
 
   const addMessage = (conversationId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!currentProject) return;
+    if (!currentProject) {
+      return;
+    }
 
     const newMessage: ChatMessage = {
       ...message,

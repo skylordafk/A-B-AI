@@ -240,7 +240,7 @@ ipcMain.handle('license:store', (_, licenseKey: string) => {
   licenseStore.set('key', licenseKey);
   licenseStore.set('cacheExpires', Date.now() + 72 * 60 * 60 * 1000); // 72 hours cache
 
-  console.log('License key stored successfully');
+  console.info('License key stored successfully');
   return true;
 });
 
@@ -258,7 +258,7 @@ ipcMain.handle('license:clear', () => {
   });
 
   licenseStore.clear();
-  console.log('License cleared');
+  console.info('License cleared');
   return true;
 });
 
@@ -366,7 +366,7 @@ ipcMain.handle('count-tokens', async (_event, text: string, modelId?: string) =>
           return await (anthropicProvider as any).countTokens(text);
         }
       } catch (error) {
-        console.log(
+        console.info(
           '[Token Count] Native Claude counting failed, falling back to tiktoken:',
           error
         );
@@ -604,25 +604,25 @@ ipcMain.handle(
 );
 
 app.whenReady().then(async () => {
-  console.log('[Main] App is ready');
-  console.log('[Main] isDev:', isDev);
-  console.log('[Main] app.isPackaged:', app.isPackaged);
-  console.log('[Main] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
-  console.log('[Main] NODE_ENV:', process.env.NODE_ENV);
+  console.info('[Main] App is ready');
+  console.info('[Main] isDev:', isDev);
+  console.info('[Main] app.isPackaged:', app.isPackaged);
+  console.info('[Main] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
+  console.info('[Main] NODE_ENV:', process.env.NODE_ENV);
 
   // Check license validity (skip in development)
   if (!isDev) {
-    console.log('[Main] Running license check...');
+    console.info('[Main] Running license check...');
 
     try {
       const licenseEndpoint = process.env.LICENCE_ENDPOINT || 'https://license.spventerprises.com';
-      console.log('[Main] License endpoint:', licenseEndpoint);
+      console.info('[Main] License endpoint:', licenseEndpoint);
 
       const isValid = await checkLicence(licenseEndpoint);
-      console.log('[Main] License check result:', isValid);
+      console.info('[Main] License check result:', isValid);
 
       if (!isValid) {
-        console.log('[Main] No valid license - showing activation page');
+        console.info('[Main] No valid license - showing activation page');
         // Don't quit the app - instead, load the UI and navigate to activation
         const win = createWindow();
 
@@ -632,17 +632,17 @@ app.whenReady().then(async () => {
 
         const navigateToActivation = () => {
           navigationAttempts++;
-          console.log(
+          console.info(
             `[Main] Attempting to navigate to activation page (attempt ${navigationAttempts}/${maxAttempts})`
           );
 
           win.webContents
             .executeJavaScript(
               `
-            console.log('[Renderer] Current hash:', window.location.hash);
-            console.log('[Renderer] Navigating to activation page...');
+            console.info('[Renderer] Current hash:', window.location.hash);
+            console.info('[Renderer] Navigating to activation page...');
             window.location.hash = '#/activate';
-            console.log('[Renderer] New hash:', window.location.hash);
+            console.info('[Renderer] New hash:', window.location.hash);
             
             // Force a re-render if using React Router
             if (window.dispatchEvent) {
@@ -651,13 +651,13 @@ app.whenReady().then(async () => {
           `
             )
             .then(() => {
-              console.log('[Main] Navigation script executed');
+              console.info('[Main] Navigation script executed');
 
               // Check if we need to retry
               if (navigationAttempts < maxAttempts) {
                 setTimeout(() => {
                   win.webContents.executeJavaScript(`window.location.hash`).then((hash) => {
-                    console.log(`[Main] Current hash after navigation: ${hash}`);
+                    console.info(`[Main] Current hash after navigation: ${hash}`);
                     if (hash !== '#/activate') {
                       navigateToActivation();
                     }
@@ -672,14 +672,14 @@ app.whenReady().then(async () => {
 
         // Wait for the app to fully load before navigating
         win.webContents.once('did-finish-load', () => {
-          console.log('[Main] Window finished loading');
+          console.info('[Main] Window finished loading');
           // Give React time to initialize
           setTimeout(navigateToActivation, 1000);
         });
 
         // Also try navigating when DOM is ready
         win.webContents.once('dom-ready', () => {
-          console.log('[Main] DOM ready');
+          console.info('[Main] DOM ready');
         });
 
         // Set up the menu

@@ -2,9 +2,9 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
 // Bootstrap file for Electron with TypeScript
-console.log('[Bootstrap] Starting...');
-console.log('[Bootstrap] Current directory:', __dirname);
-console.log('[Bootstrap] Loading ts-node...');
+console.info('[Bootstrap] Starting...');
+console.info('[Bootstrap] Current directory:', __dirname);
+console.info('[Bootstrap] Loading ts-node...');
 
 require('ts-node').register({
   transpileOnly: true,
@@ -13,12 +13,12 @@ require('ts-node').register({
   },
 });
 
-console.log('[Bootstrap] ts-node loaded, requiring main.ts...');
+console.info('[Bootstrap] ts-node loaded, requiring main.ts...');
 
 try {
   // Load the actual main file
   require('./main.ts');
-  console.log('[Bootstrap] main.ts loaded successfully');
+  console.info('[Bootstrap] main.ts loaded successfully');
 } catch (error) {
   console.error('[Bootstrap] Error loading main.ts:', error);
 }

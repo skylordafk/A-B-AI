@@ -6,30 +6,30 @@ const store = new Store<{ cacheExpires: number; key: string }>({
 });
 
 export async function checkLicence(serverURL: string): Promise<boolean> {
-  console.log('[License] Checking license with server:', serverURL);
-  console.log('[License] NODE_ENV:', process.env.NODE_ENV);
+  console.info('[License] Checking license with server:', serverURL);
+  console.info('[License] NODE_ENV:', process.env.NODE_ENV);
 
   // Skip license check in development/test environments
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !serverURL) {
-    console.log('[License] Skipping license check (dev/test mode or no server URL)');
+    console.info('[License] Skipping license check (dev/test mode or no server URL)');
     return true;
   }
 
   const now = Date.now();
   const { cacheExpires, key } = store.store;
 
-  console.log('[License] Current license key:', key ? key.substring(0, 8) + '...' : 'none');
-  console.log('[License] Cache expires:', new Date(cacheExpires).toISOString());
+  console.info('[License] Current license key:', key ? key.substring(0, 8) + '...' : 'none');
+  console.info('[License] Cache expires:', new Date(cacheExpires).toISOString());
 
   // If no license key exists, return false immediately (should show activation page)
   if (!key) {
-    console.log('[License] No license key found - should show activation');
+    console.info('[License] No license key found - should show activation');
     return false;
   }
 
   // Offline grace period - if we have a cached license and it's still valid
   if (key && cacheExpires > now) {
-    console.log(
+    console.info(
       '[License] Using cached license (valid until',
       new Date(cacheExpires).toISOString(),
       ')'
@@ -38,17 +38,17 @@ export async function checkLicence(serverURL: string): Promise<boolean> {
   }
 
   try {
-    console.log('[License] Validating license with server...');
+    console.info('[License] Validating license with server...');
     const response = await axios.post(`${serverURL}/validate`, { key });
     if (response.data.valid) {
       // Cache for 72 hours
       store.set('cacheExpires', now + 72 * 60 * 60 * 1000);
-      console.log('[License] License validated successfully');
+      console.info('[License] License validated successfully');
       return true;
     }
-    console.log('[License] License validation failed - invalid license');
+    console.info('[License] License validation failed - invalid license');
   } catch (error) {
-    console.log(
+    console.info(
       '[License] Error validating license:',
       error instanceof Error ? error.message : String(error)
     );

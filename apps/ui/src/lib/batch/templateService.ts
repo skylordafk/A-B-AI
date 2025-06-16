@@ -62,7 +62,7 @@ class TemplateService {
     }
   }
 
-  async downloadTemplateAsFile(template: Template): Promise<File> {
+  async downloadTemplateAsFile(template: Template): Promise<globalThis.File> {
     const content = await this.downloadTemplate(template);
     const blob = new Blob([content], { type: 'text/csv' });
     return new File([blob], `${template.id}.csv`, { type: 'text/csv' });
@@ -135,10 +135,8 @@ class TemplateService {
       // Try to fetch fresh manifest from GitHub
       const response = await fetch(MANIFEST_URL, {
         cache: 'no-cache',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
+        headers: { Accept: 'application/json' },
+      } as RequestInit);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch manifest: ${response.statusText}`);

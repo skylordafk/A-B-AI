@@ -105,11 +105,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run npm audit
-        run: |
-          # Convert pnpm lockfile to package-lock.json for npm audit
-          pnpm install --lockfile-only
-          npm audit --production
+      - name: Run pnpm audit
+        run: pnpm audit --recursive
         continue-on-error: true  # Log but don't fail for now
 
       - name: Check for exposed secrets

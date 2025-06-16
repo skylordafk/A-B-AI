@@ -41,7 +41,7 @@ function processPricingData(rawData: Record<string, unknown>): PricingData {
     const providerKey = provider.toLowerCase();
     pricingData[providerKey] = {};
 
-    for (const [modelName, pricing] of Object.entries(models as Record<string, unknown>)) {
+    for (const [modelName, pricing] of Object.entries(models as Record<string, any>)) {
       let inputPrice = -1;
       let outputPrice = -1;
 

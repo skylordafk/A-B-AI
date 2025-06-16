@@ -14,7 +14,7 @@ interface TemplateManifest {
 }
 
 const MANIFEST_URL =
-  'https://raw.githubusercontent.com/skylordafk/A-B-AI/main/templates/manifest.json';
+  'https://raw.githubusercontent.com/skylordafk/A-B-AI/master/templates/manifest.json';
 
 class TemplateService {
   private manifestCache: TemplateManifest | null = null;
@@ -45,9 +45,9 @@ class TemplateService {
       return await response.text();
     } catch (error) {
       // If it's a local URL and failed, try with the public folder
-      if (template.downloadUrl.startsWith('/templates/')) {
+      if (template.downloadUrl.startsWith('templates/')) {
         try {
-          const publicUrl = template.downloadUrl.replace('/templates/', '/');
+          const publicUrl = template.downloadUrl;
           const publicResponse = await fetch(publicUrl);
           if (publicResponse.ok) {
             return await publicResponse.text();
@@ -154,14 +154,14 @@ class TemplateService {
       console.warn('Remote manifest fetch failed, trying local fallback...');
 
       try {
-        const localResponse = await fetch('/templates/manifest.json');
+        const localResponse = await fetch('templates/manifest.json');
         if (localResponse.ok) {
           const localManifest: TemplateManifest = await localResponse.json();
 
           // Update download URLs to use local paths
           localManifest.templates = localManifest.templates.map((template) => ({
             ...template,
-            downloadUrl: `/templates/batch/${template.id}.csv`,
+            downloadUrl: `templates/batch/${template.id}.csv`,
           }));
 
           this.manifestCache = localManifest;
@@ -184,7 +184,7 @@ class TemplateService {
         name: 'Basic Template',
         description: 'Simple starter template with various models and prompts',
         category: 'general',
-        downloadUrl: '/batch-template.csv', // Fallback to local file
+        downloadUrl: 'batch-template.csv', // Fallback to local file
         rowCount: 8,
         lastUpdated: new Date().toISOString(),
       },

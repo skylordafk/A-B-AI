@@ -2,10 +2,10 @@
   "name": "abai-license-server",
   "version": "1.0.0",
   "description": "A-B/AI Production License Server with Stripe Integration",
-  "main": "production-license-server.js",
+  "main": "servers/server.js",
   "scripts": {
-    "start": "node production-license-server.js",
-    "dev": "nodemon production-license-server.js",
+    "start": "node servers/server.js",
+    "dev": "nodemon servers/server.js",
     "test": "node test-production-server.js"
   },
   "dependencies": {

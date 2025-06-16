@@ -7,7 +7,7 @@ Since the automated script didn't work from Windows, let's deploy manually:
 ### Option A: Using SCP (if you have it)
 
 ```bash
-scp production-license-server.js root@159.223.155.150:/root/
+scp servers/server.js root@159.223.155.150:/root/
 scp production-package.json root@159.223.155.150:/root/package.json
 ```
 
@@ -29,10 +29,10 @@ scp production-package.json root@159.223.155.150:/root/package.json
 3. **Create the new server file:**
 
    ```bash
-   nano production-license-server.js
+   nano servers/server.js
    ```
 
-   Then copy-paste the entire contents of your local `production-license-server.js` file
+   Then copy-paste the entire contents of your local `servers/server.js` file
 
 4. **Create package.json:**
 
@@ -65,7 +65,7 @@ scp production-package.json root@159.223.155.150:/root/package.json
 
 7. **Start the new server:**
    ```bash
-   node production-license-server.js
+   node servers/server.js
    ```
 
 If it starts successfully (you'll see the startup messages), then:
@@ -73,7 +73,7 @@ If it starts successfully (you'll see the startup messages), then:
 8. **Set up PM2:**
    ```bash
    # Stop the test run (Ctrl+C)
-   pm2 start production-license-server.js --name "abai-license-server"
+   pm2 start servers/server.js --name "abai-license-server"
    pm2 save
    pm2 startup
    ```

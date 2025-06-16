@@ -36,7 +36,7 @@ pm2 restart abai-license-server
 ```bash
 ssh root@159.223.155.150
 cd /root/abai-license-server
-cp production-license-server.js production-license-server-secure.js
+cp servers/server.js servers/server-secure.js
 pm2 restart abai-license-server
 ```
 

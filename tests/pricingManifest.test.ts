@@ -6,7 +6,8 @@ import { grokProvider } from '../apps/main/src/providers/grok';
 import { geminiProvider } from '../apps/main/src/providers/gemini';
 
 describe('Model Pricing Manifest', () => {
-  const pricingManifest = JSON.parse(readFileSync('./modelPricing.json', 'utf-8'));
+  // Dataset moved to /data for cleaner repo structure
+  const pricingManifest = JSON.parse(readFileSync('./data/model-pricing.json', 'utf-8'));
 
   const providers = [
     { name: 'openai', provider: openaiProvider },

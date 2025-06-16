@@ -1,4 +1,4 @@
-# A-B/AI v1.1.0 Release Notes
+# A-B/AI v1.2.0 Release Notes
 
 ## 🚀 Major New Feature: Batch Processing
 

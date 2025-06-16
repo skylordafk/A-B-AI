@@ -9,8 +9,6 @@ coverage/
 
 # Production builds
 dist/
-dist2/
-dist-old/
 build/
 build-temp/
 out/
@@ -122,3 +120,12 @@ electron-builder.json5
 # Playwright compiled output (legacy) and artefacts
 tests-out/
 test-results/ 
+
+# Developer-tool artefacts
+.cursor/
+.history/
+*.orig
+neline -*
+
+
+docs/latest/

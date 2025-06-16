@@ -42,9 +42,9 @@ module.exports = {
     '*.config.js',
     '*.config.ts',
     '**/preload.js',
-    'production-license-server.js',
-    'production-license-server-secure.js',
-    'production-license-server-fixed.js',
+    'servers/server.js',
+    'servers/server-secure.js',
+    'servers/server-fixed.js',
   ],
   overrides: [
     {

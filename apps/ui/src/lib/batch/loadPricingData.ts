@@ -92,7 +92,7 @@ export async function loadPricingData(): Promise<PricingData> {
       // Node.js environment - use dynamic import
       const path = await import('path');
       const fs = await import('fs');
-      const filePath = path.resolve(process.cwd(), 'AI Model Pricing JSON.json');
+      const filePath = path.resolve(process.cwd(), 'data', 'ai-model-pricing.json');
       const rawData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       return processPricingData(rawData);
     }

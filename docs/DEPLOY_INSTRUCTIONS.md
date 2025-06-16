@@ -16,7 +16,7 @@ First, upload the deployment files to your server:
 ```bash
 # From your local machine, copy files to server
 scp server-deployment-script.sh root@license.spventerprises.com:/root/
-scp server.js root@license.spventerprises.com:/root/
+scp servers/server.js root@license.spventerprises.com:/root/
 ```
 
 ## 🔧 Step 2: Run Deployment Script
@@ -52,8 +52,8 @@ This script will:
 cd /root/abai-license-server
 
 # Copy the server file (if not already there)
-# You should have uploaded server.js in step 1
-cp /root/server.js ./server.js
+# You should have uploaded servers/server.js in step 1
+cp /root/server.js ./servers/server.js
 ```
 
 ## 🔑 Step 4: Configure Environment Variables

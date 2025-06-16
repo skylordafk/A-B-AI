@@ -13,7 +13,7 @@ on:
       - '**/pnpm-lock.yaml'
       - '.github/workflows/security.yml'
       - 'scripts/licence-server.ts'
-      - 'production-license-server.js'
+      - 'servers/server.js'
       - '**/*security*.js'
       - '**/*license*.js'
 
@@ -127,8 +127,8 @@ jobs:
           # Check for security headers in server code
           SERVER_FILES=(
             "scripts/licence-server.ts"
-            "production-license-server.js"
-            "production-license-server-secure.js"
+            "servers/server.js"
+            "servers/server-secure.js"
           )
           
           for file in "${SERVER_FILES[@]}"; do

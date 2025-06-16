@@ -229,7 +229,7 @@ export default async function handler(req, res) {
 git clone https://github.com/skylordafk/A-B-AI.git
 cd A-B-AI
 pnpm install --production
-node production-license-server.js
+node servers/server.js
 ```
 
 #### Option C: Use a managed service (Render, Railway, etc.)

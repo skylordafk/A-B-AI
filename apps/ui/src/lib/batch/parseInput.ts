@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 import type { BatchRow, RowError } from '../../types/batch';
 
-type ParsedCsvRow = Record<string, string | undefined>;
+type _ParsedCsvRow = Record<string, string | undefined>;
 
 export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors: RowError[] }> {
   const rows: BatchRow[] = [];

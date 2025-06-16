@@ -107,7 +107,11 @@ export class JobQueue extends EventEmitter {
   }
 
   // Resume from saved state
-  static async resume(batchId: string, maxInFlight: number = 3, api?: JobQueueAPI): Promise<JobQueue> {
+  static async resume(
+    batchId: string,
+    maxInFlight: number = 3,
+    api?: JobQueueAPI
+  ): Promise<JobQueue> {
     const queue = new JobQueue(maxInFlight, batchId, api);
     const state = await queue.loadState();
 

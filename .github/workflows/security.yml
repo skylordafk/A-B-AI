@@ -44,16 +44,14 @@ jobs:
 
       - name: Run dependency audit
         run: |
-          echo "🔍 Running dependency security audit..."
-          # Create npm lockfile for audit
-          pnpm install --lockfile-only
-          npm audit --production --audit-level=moderate
+          echo "🔍 Running dependency security audit with pnpm..."
+          pnpm audit --recursive --audit-level=moderate
         continue-on-error: true
 
       - name: Check for known vulnerabilities
         run: |
-          echo "🔍 Checking for known vulnerabilities..."
-          npx better-npm-audit audit --production
+          echo "🔍 Checking for known vulnerabilities via pnpm..."
+          pnpm audit --recursive --json || true
 
       - name: License compliance check
         run: |

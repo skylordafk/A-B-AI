@@ -27,8 +27,7 @@ const mockPricingData = {
   Google: {
     'gemini-2.5-pro-thinking': {
       input_price: '$1.25 per 1M tokens for <200K tokens, $2.50 per 1M tokens for >200K tokens',
-      output_price:
-        '$10.00 per 1M tokens for <200K tokens, $15.00 per 1M tokens for >200K tokens',
+      output_price: '$10.00 per 1M tokens for <200K tokens, $15.00 per 1M tokens for >200K tokens',
     },
     'gemini-2.5-flash-preview': {
       input_price: '$0.35 per 1M tokens',
@@ -52,7 +51,7 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn(() => JSON.stringify(mockPricingData)),
 }));
 
-// Mock fetch for browser environment  
+// Mock fetch for browser environment
 global.fetch = vi.fn().mockResolvedValue({
   ok: true,
   json: async () => mockPricingData,

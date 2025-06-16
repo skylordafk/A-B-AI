@@ -87,7 +87,12 @@ export async function runRow(
       });
     } else {
       // Send message using the standard model handler
-      response = await (window as any).api.sendToModel(model, processedPrompt, row.system, row.temperature);
+      response = await (window as any).api.sendToModel(
+        model,
+        processedPrompt,
+        row.system,
+        row.temperature
+      );
     }
 
     // Get token counts
@@ -143,7 +148,10 @@ export async function runRow(
       errorMessage.includes('rate limit') ||
       errorMessage.includes('quota') ||
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (typeof error === 'object' && error !== null && 'status' in error && (error as any).status >= 400); // More robust status check
+      (typeof error === 'object' &&
+        error !== null &&
+        'status' in error &&
+        (error as any).status >= 400); // More robust status check
 
     return {
       id: row.id,

@@ -205,3 +205,20 @@ Templates use various AI models optimized for different tasks:
 If no model is specified, the default (`openai/o3-2025-04-16`) will be used.
 
 See the sample template for examples of each model in use.
+
+### 🧩 Template Variables (`{{var}}`)
+
+You can reference any column in your CSV/JSON by wrapping its name in double curly braces.
+
+Example CSV row:
+
+```csv
+prompt,model,temperature,variable1,variable2
+"What are the best {{variable1}} to do in {{variable2}}?",gpt-4o,0.7,activities,Japan
+```
+
+ABAI substitutes `{{variable1}} → activities` and `{{variable2}} → Japan`.  
+If a variable is missing or empty, that row fails with  
+`Missing values for: <var>` and is highlighted in the results table.
+
+_Future roadmap_: optional advanced templating (`{{#if}}`, `{{#each}}`) behind an "Advanced Mode" toggle.

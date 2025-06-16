@@ -7,7 +7,7 @@ export default function ActivateSuccess() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [licenseKey, setLicenseKey] = useState<string | null>(null);
-  
+
   const email = searchParams.get('email');
 
   useEffect(() => {
@@ -77,18 +77,14 @@ export default function ActivateSuccess() {
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4">
-            Activation Failed
-          </h1>
-          <p className="text-[var(--text-secondary)] mb-6">
-            {error}
-          </p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Activation Failed</h1>
+          <p className="text-[var(--text-secondary)] mb-6">{error}</p>
           <p className="text-sm text-[var(--text-secondary)] mb-6">
-            Your payment was successful, but we couldn't activate your license automatically.
-            Please contact support with your email: {email}
+            Your payment was successful, but we couldn't activate your license automatically. Please
+            contact support with your email: {email}
           </p>
           <button
-            onClick={() => window.location.hash = '/activate'}
+            onClick={() => (window.location.hash = '/activate')}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             Try Again
@@ -102,9 +98,7 @@ export default function ActivateSuccess() {
     <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
       <div className="text-center">
         <div className="text-green-500 text-6xl mb-4">✅</div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4">
-          License Activated!
-        </h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4">License Activated!</h1>
         <p className="text-[var(--text-secondary)] mb-4">
           Your A-B/AI license has been successfully activated.
         </p>
@@ -122,4 +116,4 @@ export default function ActivateSuccess() {
       </div>
     </div>
   );
-} 
+}

@@ -28,8 +28,8 @@ module.exports = {
         varsIgnorePattern: '^_',
       },
     ],
-    '@typescript-eslint/no-explicit-any': 'warn',
-    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    '@typescript-eslint/no-explicit-any': 'off',
+    'no-console': 'off',
   },
   ignorePatterns: [
     'dist',

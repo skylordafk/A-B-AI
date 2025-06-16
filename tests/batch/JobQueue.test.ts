@@ -25,8 +25,19 @@ vi.mock('../../apps/ui/src/lib/batch/runRow', () => ({
 describe('JobQueue', () => {
   let queue: JobQueue;
 
+  // Mock API for testing
+  const mockApi = {
+    getEnablePromptCaching: vi.fn(async () => false),
+    getPromptCacheTTL: vi.fn(async () => '5m' as const),
+    saveJobQueueState: vi.fn(async () => {}),
+    loadJobQueueState: vi.fn(async () => null),
+    clearJobQueueState: vi.fn(async () => {}),
+    getStateDirectory: vi.fn(async () => '/tmp'),
+    listFiles: vi.fn(async () => []),
+  };
+
   beforeEach(() => {
-    queue = new JobQueue(3);
+    queue = new JobQueue(3, undefined, mockApi);
   });
 
   it('should respect maxInFlight limit', async () => {

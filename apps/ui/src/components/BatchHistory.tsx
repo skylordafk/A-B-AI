@@ -190,7 +190,7 @@ export default function BatchHistory() {
                     <div className="text-sm text-[var(--text-secondary)] space-y-1">
                       <p>{formatDate(entry.ts)}</p>
 
-                      {entry.cost && <p>Cost: ${entry.cost.toFixed(4)}</p>}
+                      {entry.cost && <p>Cost: ${entry.cost.toFixed(8)}</p>}
 
                       {entry.latency && <p>Response time: {entry.latency}ms</p>}
 

@@ -78,7 +78,7 @@ export default function ResultsTable({ results }: ResultsTableProps) {
                   {result.tokens_out || '-'}
                 </td>
                 <td className="px-4 py-3 text-sm text-right text-[var(--text-primary)]">
-                  {result.cost_usd !== undefined ? `$${result.cost_usd.toFixed(4)}` : '-'}
+                  {result.cost_usd !== undefined ? `$${result.cost_usd.toFixed(8)}` : '-'}
                 </td>
               </tr>
             ))}

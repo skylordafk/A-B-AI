@@ -218,7 +218,7 @@ export default function ChatHistory() {
                         </div>
                         {message.cost && (
                           <div className="text-xs text-[var(--text-muted)] mt-2">
-                            Cost: ${message.cost.toFixed(4)}
+                            Cost: ${message.cost.toFixed(8)}
                             {message.tokens &&
                               ` • Tokens: ${message.tokens.input}/${message.tokens.output}`}
                           </div>

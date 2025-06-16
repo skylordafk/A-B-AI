@@ -108,23 +108,35 @@ export async function loadPricingData(): Promise<PricingData> {
   } catch (error) {
     console.error('Failed to load pricing data, using defaults:', error);
 
-    // Return default pricing if loading fails
+    // Return default pricing if loading fails (values in per-1K tokens)
     return {
       openai: {
-        'o3-2025-04-16': { prompt: 2, completion: 8 },
-        'gpt-4.1-mini': { prompt: 0.4, completion: 1.6 },
+        'gpt-4.1': { prompt: 0.002, completion: 0.008 },
+        'gpt-4.1-mini': { prompt: 0.0004, completion: 0.0016 },
+        'gpt-4.1-nano': { prompt: 0.0001, completion: 0.0004 },
+        'gpt-4o': { prompt: 0.0025, completion: 0.005 },
+        'gpt-4o-mini': { prompt: 0.0006, completion: 0.0024 },
+        'gpt-3.5-turbo': { prompt: 0.0005, completion: 0.0015 },
+        'o3-2025-04-16': { prompt: 0.002, completion: 0.008 },
       },
       anthropic: {
-        'claude-opus-4-20250514': { prompt: 15, completion: 75 },
-        'claude-3-haiku': { prompt: 0.8, completion: 4 },
+        'claude-opus-4-20250514': { prompt: 0.015, completion: 0.075 },
+        'claude-sonnet-4': { prompt: 0.003, completion: 0.015 },
+        'claude-3-5-sonnet-20241022': { prompt: 0.003, completion: 0.015 },
+        'claude-3-5-haiku': { prompt: 0.0008, completion: 0.004 },
+        'claude-3-7-sonnet': { prompt: 0.003, completion: 0.015 },
+        'claude-3-haiku-20240307': { prompt: 0.00025, completion: 0.00125 },
+        'claude-3-opus-20240229': { prompt: 0.015, completion: 0.075 },
+        'claude-3-sonnet-20240229': { prompt: 0.003, completion: 0.015 },
+        'claude-3-haiku': { prompt: 0.0008, completion: 0.004 },
       },
       grok: {
-        'grok-3': { prompt: 3, completion: 15 },
-        'grok-3-mini': { prompt: 0.3, completion: 0.5 },
+        'grok-3': { prompt: 0.003, completion: 0.015 },
+        'grok-3-mini': { prompt: 0.0003, completion: 0.0005 },
       },
       gemini: {
-        'models/gemini-2.5-flash-preview': { prompt: 0.35, completion: 1.75 },
-        'models/gemini-2.5-pro-thinking': { prompt: 1.25, completion: 10 },
+        'models/gemini-2.5-flash-preview': { prompt: 0.00035, completion: 0.00175 },
+        'models/gemini-2.5-pro-thinking': { prompt: 0.00125, completion: 0.01 },
       },
     };
   }

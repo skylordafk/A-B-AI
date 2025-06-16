@@ -2,6 +2,26 @@ import { EventEmitter } from 'eventemitter3';
 import type { BatchRow, BatchResult, BatchProgress } from '../../types/batch';
 import { runRow } from './runRow';
 
+export interface JobQueueState {
+  queue: BatchRow[];
+  results: BatchResult[];
+  processedRows: number;
+  totalRows: number;
+  startTime: number;
+  batchId: string;
+  timestamp: string;
+}
+
+interface JobQueueAPI {
+  getEnablePromptCaching?: () => Promise<boolean>;
+  getPromptCacheTTL?: () => Promise<string>;
+  saveJobQueueState?: (batchId: string, state: JobQueueState) => Promise<void>;
+  loadJobQueueState?: (batchId: string) => Promise<JobQueueState | null>;
+  clearJobQueueState?: (batchId: string) => Promise<void>;
+  getStateDirectory?: () => Promise<string>;
+  listFiles?: (dir: string) => Promise<string[]>;
+}
+
 export class JobQueue extends EventEmitter {
   private queue: BatchRow[] = [];
   private inFlight = 0;
@@ -11,10 +31,16 @@ export class JobQueue extends EventEmitter {
   private results: BatchResult[] = [];
   private startTime: number | null = null;
   private isRunning = false;
+  private isStopping = false;
+  private batchId: string;
+  private stateFile: string | null = null;
+  private api: JobQueueAPI;
 
-  constructor(maxInFlight: number = 3) {
+  constructor(maxInFlight: number = 3, batchId?: string, api?: JobQueueAPI) {
     super();
     this.maxInFlight = Math.max(1, Math.min(10, maxInFlight));
+    this.batchId = batchId || `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.api = api || (typeof window !== 'undefined' ? window.api : {});
   }
 
   enqueue(row: BatchRow): void {
@@ -28,25 +54,105 @@ export class JobQueue extends EventEmitter {
     }
 
     this.isRunning = true;
-    this.startTime = Date.now();
-    this.processedRows = 0;
-    this.results = [];
+    this.isStopping = false;
+    this.startTime = this.startTime || Date.now(); // Preserve start time on resume
+
+    // Save initial state
+    await this.saveState();
 
     // Start processing
     await this.processNext();
 
     // Wait for all in-flight jobs to complete
-    while (this.inFlight > 0) {
+    while (this.inFlight > 0 && !this.isStopping) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
     this.isRunning = false;
-    this.emit('complete');
+
+    if (!this.isStopping) {
+      // Only emit completion if we weren't stopped
+      this.emitBatchSummary();
+      this.emit('complete');
+      await this.clearState(); // Clean up state file on completion
+    }
+
     return this.results;
   }
 
+  // Graceful shutdown - stops accepting new work but completes in-flight jobs
+  async stop(saveState: boolean = true): Promise<void> {
+    console.warn('[JobQueue] Initiating graceful shutdown...');
+    this.isStopping = true;
+    this.isRunning = false;
+    this.queue = []; // Clear pending queue
+
+    // Wait for in-flight jobs to complete
+    while (this.inFlight > 0) {
+      console.warn(`[JobQueue] Waiting for ${this.inFlight} in-flight jobs to complete...`);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    if (saveState) {
+      await this.saveState();
+      console.warn(`[JobQueue] Batch state saved. You can resume with batch ID: ${this.batchId}`);
+    }
+
+    this.emit('stopped', {
+      batchId: this.batchId,
+      processedRows: this.processedRows,
+      totalRows: this.totalRows,
+    });
+    console.warn('[JobQueue] Graceful shutdown complete');
+  }
+
+  // Resume from saved state
+  static async resume(batchId: string, maxInFlight: number = 3, api?: JobQueueAPI): Promise<JobQueue> {
+    const queue = new JobQueue(maxInFlight, batchId, api);
+    const state = await queue.loadState();
+
+    if (!state) {
+      throw new Error(`No saved state found for batch ID: ${batchId}`);
+    }
+
+    queue.queue = state.queue;
+    queue.results = state.results;
+    queue.processedRows = state.processedRows;
+    queue.totalRows = state.totalRows;
+    queue.startTime = state.startTime;
+
+    console.warn(
+      `[JobQueue] Resumed batch ${batchId}: ${state.processedRows}/${state.totalRows} rows completed`
+    );
+    return queue;
+  }
+
+  // Get list of resumable batches
+  static async getResumableBatches(api?: JobQueueAPI): Promise<string[]> {
+    try {
+      const jobQueueAPI = api || (typeof window !== 'undefined' ? window.api : {});
+      const stateDir = await jobQueueAPI.getStateDirectory?.();
+      if (!stateDir) return [];
+
+      const files = await jobQueueAPI.listFiles?.(stateDir);
+      return (
+        files
+          ?.filter((f: string) => f.endsWith('.jobqueue'))
+          .map((f: string) => f.replace('.jobqueue', '')) || []
+      );
+    } catch (error) {
+      console.error('Error getting resumable batches:', error);
+      return [];
+    }
+  }
+
   private async processNext(): Promise<void> {
-    while (this.queue.length > 0 && this.inFlight < this.maxInFlight && this.isRunning) {
+    while (
+      this.queue.length > 0 &&
+      this.inFlight < this.maxInFlight &&
+      this.isRunning &&
+      !this.isStopping
+    ) {
       const row = this.queue.shift();
       if (!row) continue;
 
@@ -60,13 +166,18 @@ export class JobQueue extends EventEmitter {
             data: row,
           });
         })
-        .finally(() => {
+        .finally(async () => {
           this.inFlight--;
           this.processedRows++;
           this.updateProgress();
 
-          // Process next item if available
-          if (this.queue.length > 0 && this.isRunning) {
+          // Save state periodically (every 10 rows or when stopped)
+          if (this.processedRows % 10 === 0 || this.isStopping) {
+            await this.saveState();
+          }
+
+          // Process next item if available and not stopping
+          if (this.queue.length > 0 && this.isRunning && !this.isStopping) {
             this.processNext();
           }
         });
@@ -75,28 +186,17 @@ export class JobQueue extends EventEmitter {
 
   private async processRow(row: BatchRow): Promise<void> {
     try {
-      const result = await runRow(row);
+      // Get caching settings
+      const enablePromptCaching = (await this.api.getEnablePromptCaching?.()) ?? false;
+      const cacheTTL = ((await this.api.getPromptCacheTTL?.()) as '5m' | '1h') ?? '5m';
+
+      const result = await runRow(row, {
+        enablePromptCaching,
+        cacheTTL,
+        cacheSystemPrompt: true, // Cache system prompts by default
+      });
       this.results.push(result);
       this.emit('row-done', result);
-
-      // Log to history via IPC (only in browser environment)
-      if (typeof window !== 'undefined' && window.api?.logHistory) {
-        const projectName =
-          (typeof localStorage !== 'undefined'
-            ? localStorage.getItem('abai_current_project')
-            : null) || 'default';
-        await window.api.logHistory(projectName, {
-          rowId: row.id,
-          prompt: row.prompt,
-          model: row.model,
-          response: result.response,
-          tokensIn: result.tokens_in,
-          tokensOut: result.tokens_out,
-          cost: result.cost_usd,
-          latency: result.latency_ms,
-          status: result.status,
-        });
-      }
     } catch (error) {
       const errorResult: BatchResult = {
         id: row.id,
@@ -130,8 +230,89 @@ export class JobQueue extends EventEmitter {
     this.emit('progress', progress);
   }
 
-  stop(): void {
-    this.isRunning = false;
-    this.queue = [];
+  private emitBatchSummary(): void {
+    const endTime = Date.now();
+    const duration = this.startTime ? endTime - this.startTime : 0;
+
+    // Calculate summary statistics
+    const successCount = this.results.filter((r) => r.status === 'success').length;
+    const errorCount = this.results.filter((r) => r.status !== 'success').length;
+    const totalCost = this.results.reduce((sum, r) => sum + (r.cost_usd || 0), 0);
+    const averageLatency =
+      this.results.length > 0
+        ? this.results.reduce((sum, r) => sum + (r.latency_ms || 0), 0) / this.results.length
+        : 0;
+
+    // Get unique models used
+    const modelsUsed = [...new Set(this.results.map((r) => r.model))];
+
+    const summary = {
+      batchId: this.batchId,
+      totalRows: this.totalRows,
+      successCount,
+      errorCount,
+      totalCost,
+      averageLatency,
+      duration,
+      modelsUsed,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.emit('batch-summary', summary);
+  }
+
+  private async saveState(): Promise<void> {
+    if (!this.startTime) return;
+
+    const state: JobQueueState = {
+      queue: this.queue,
+      results: this.results,
+      processedRows: this.processedRows,
+      totalRows: this.totalRows,
+      startTime: this.startTime,
+      batchId: this.batchId,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      await this.api.saveJobQueueState?.(this.batchId, state);
+    } catch (error) {
+      console.error('Error saving job queue state:', error);
+    }
+  }
+
+  private async loadState(): Promise<JobQueueState | null> {
+    try {
+      return (await window.api.loadJobQueueState?.(this.batchId)) || null;
+    } catch (error) {
+      console.error('Error loading job queue state:', error);
+      return null;
+    }
+  }
+
+  private async clearState(): Promise<void> {
+    try {
+      await this.api.clearJobQueueState?.(this.batchId);
+    } catch (error) {
+      console.error('Error clearing job queue state:', error);
+    }
+  }
+
+  // Getters for monitoring
+  get id(): string {
+    return this.batchId;
+  }
+  get running(): boolean {
+    return this.isRunning;
+  }
+  get stopping(): boolean {
+    return this.isStopping;
+  }
+  get progress(): { processed: number; total: number; percentage: number } {
+    return {
+      processed: this.processedRows,
+      total: this.totalRows,
+      percentage: this.totalRows > 0 ? Math.round((this.processedRows / this.totalRows) * 100) : 0,
+    };
   }
 }

@@ -21,19 +21,29 @@ export default function ExportButtons({ results, inputFileName, estimation }: Ex
   };
 
   const handleExportCSV = () => {
-    // Prepare data for CSV
-    const csvData = results.map((result) => ({
-      id: result.id,
-      prompt: result.prompt,
-      model: result.model,
-      status: result.status,
-      response: result.response || '',
-      tokens_in: result.tokens_in || 0,
-      tokens_out: result.tokens_out || 0,
-      cost_usd: result.cost_usd || 0,
-      latency_ms: result.latency_ms || 0,
-      error: result.error || '',
-    }));
+    // Prepare data for CSV - merge original data with processing results
+    const csvData = results.map((result) => {
+      // Start with original data if available
+      const baseData = result.data ? { ...result.data } : {};
+
+      // Add/override with processing results
+      const resultData = {
+        ...baseData,
+        // Processing results (these override any conflicting original columns)
+        id: result.id,
+        prompt: result.prompt,
+        model: result.model,
+        status: result.status,
+        response: result.response || '',
+        tokens_in: result.tokens_in || 0,
+        tokens_out: result.tokens_out || 0,
+        cost_usd: result.cost_usd || 0,
+        latency_ms: result.latency_ms || 0,
+        error: result.error || '',
+      };
+
+      return resultData;
+    });
 
     // Convert to CSV
     const csv = Papa.unparse(csvData);

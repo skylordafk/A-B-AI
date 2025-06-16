@@ -1,4 +1,4 @@
-import { BaseProvider, ChatResult } from './base';
+import { BaseProvider, ChatResult, ChatMessage } from './base';
 import { ModelMeta } from '../types/model';
 
 /** Adapter for Google AI Gemini API */
@@ -37,6 +37,11 @@ export class GeminiProvider implements BaseProvider {
   }
 
   async chat(userPrompt: string, modelId?: string): Promise<ChatResult> {
+    // Convert single prompt to messages format and use the new method
+    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId);
+  }
+
+  async chatWithHistory(messages: ChatMessage[], modelId?: string): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('gemini');
     if (!apiKey) throw new Error('Gemini API key missing');
 
@@ -71,17 +76,24 @@ export class GeminiProvider implements BaseProvider {
         }
       }
 
+      // Convert conversation history to a single prompt for Gemini
+      // Gemini API doesn't support full conversation history in the same way as OpenAI
+      const conversationPrompt = messages
+        .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n\n');
+
       // Use the models API interface
       const response = await genAI.models.generateContent({
         model: modelName,
-        contents: userPrompt,
+        contents: conversationPrompt,
       });
 
       const answer = response.text || '';
 
       // Estimate token counts (Gemini doesn't provide exact token counts in basic API)
       // Using rough approximation: 1 token ≈ 4 characters
-      const promptTokens = Math.ceil(userPrompt.length / 4);
+      const allMessageText = messages.map((m) => m.content).join('\n');
+      const promptTokens = Math.ceil(allMessageText.length / 4);
       const answerTokens = Math.ceil(answer.length / 4);
 
       // Calculate cost based on the selected model's pricing

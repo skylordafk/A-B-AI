@@ -1,7 +1,9 @@
 # 🧪 Comprehensive Stripe & License Testing Checklist
 
 ## **Current Status**
+
 ✅ **Already Completed:**
+
 - Basic server integration tests (5/5 passing)
 - Production deployment working
 - Webhook endpoint configured
@@ -13,6 +15,7 @@
 ### **1. Server-Side Testing**
 
 #### **A. End-to-End License Flow**
+
 ```bash
 # Run comprehensive E2E tests
 node tests/license-e2e.test.js
@@ -23,6 +26,7 @@ LICENSE_SERVER_URL=https://license.spventerprises.com node tests/license-e2e.tes
 ```
 
 **Tests Coverage:**
+
 - [ ] License activation with valid email
 - [ ] License validation with valid key
 - [ ] Invalid license rejection
@@ -35,6 +39,7 @@ LICENSE_SERVER_URL=https://license.spventerprises.com node tests/license-e2e.tes
 - [ ] License key format validation (UUID v4)
 
 #### **B. Stripe Webhook Testing**
+
 ```bash
 # Test webhook scenarios
 STRIPE_WEBHOOK_SECRET=your_webhook_secret node test-stripe-webhooks.js
@@ -44,6 +49,7 @@ WEBHOOK_SERVER_URL=https://license.spventerprises.com STRIPE_WEBHOOK_SECRET=whse
 ```
 
 **Webhook Scenarios:**
+
 - [ ] Valid webhook signature acceptance
 - [ ] Invalid webhook signature rejection
 - [ ] Missing signature rejection
@@ -62,6 +68,7 @@ WEBHOOK_SERVER_URL=https://license.spventerprises.com STRIPE_WEBHOOK_SECRET=whse
 #### **A. Electron App License Flow**
 
 **Development Mode Testing:**
+
 ```bash
 # Start dev environment
 pnpm dev
@@ -70,6 +77,7 @@ pnpm dev
 ```
 
 **Manual Tests:**
+
 - [ ] **Fresh Install**: Delete license data, launch app → should show activation screen
 - [ ] **Email Validation**: Test empty, invalid, and valid email addresses
 - [ ] **Development Activation**: Should create license and store locally
@@ -79,6 +87,7 @@ pnpm dev
 - [ ] **Cache Expiry**: Manually expire cache (set date in past), test revalidation
 
 **Production Mode Testing:**
+
 ```bash
 # Build and test production
 pnpm build
@@ -87,6 +96,7 @@ pnpm package
 ```
 
 **Manual Tests:**
+
 - [ ] **Stripe Redirect**: Should redirect to Stripe checkout (not direct activation)
 - [ ] **Checkout Flow**: Complete actual payment flow
 - [ ] **Success Return**: Should return to app and activate license
@@ -96,6 +106,7 @@ pnpm package
 #### **B. Network Resilience Testing**
 
 **Offline Scenarios:**
+
 - [ ] **No Internet**: Launch app offline with valid cached license
 - [ ] **Server Down**: License server unreachable, should use cache
 - [ ] **Slow Network**: High latency, should timeout gracefully
@@ -103,6 +114,7 @@ pnpm package
 - [ ] **DNS Issues**: License server domain unreachable
 
 **Error Handling:**
+
 - [ ] **400 Errors**: Malformed requests handled gracefully
 - [ ] **500 Errors**: Server errors don't crash app
 - [ ] **Network Timeout**: Long delays handled with user feedback
@@ -113,6 +125,7 @@ pnpm package
 ### **3. Security Testing**
 
 #### **A. Input Validation**
+
 - [ ] **SQL Injection**: Email field with SQL injection attempts
 - [ ] **XSS Attempts**: Email field with script tags
 - [ ] **Long Inputs**: Extremely long email addresses
@@ -120,6 +133,7 @@ pnpm package
 - [ ] **Empty/Null**: Null, undefined, empty string handling
 
 #### **B. License Key Security**
+
 - [ ] **Key Enumeration**: Can't guess valid license keys
 - [ ] **Key Reuse**: Same key can't be used from multiple locations
 - [ ] **Key Expiration**: Expired keys properly rejected
@@ -127,6 +141,7 @@ pnpm package
 - [ ] **Brute Force**: Rate limiting prevents key guessing
 
 #### **C. Webhook Security**
+
 - [ ] **Signature Validation**: Only signed webhooks accepted
 - [ ] **Timestamp Validation**: Old webhooks rejected
 - [ ] **Replay Attacks**: Duplicate webhooks handled
@@ -137,6 +152,7 @@ pnpm package
 ### **4. Edge Cases & Error Scenarios**
 
 #### **A. Stripe Integration Edge Cases**
+
 - [ ] **Partial Payments**: Handle incomplete payment flows
 - [ ] **Multiple Subscriptions**: Same email, multiple subscriptions
 - [ ] **Subscription Changes**: Upgrades, downgrades, plan changes
@@ -145,6 +161,7 @@ pnpm package
 - [ ] **Account Suspension**: Handle suspended Stripe accounts
 
 #### **B. License Server Edge Cases**
+
 - [ ] **Database Corruption**: Handle corrupted license database
 - [ ] **Disk Full**: Handle storage failures gracefully
 - [ ] **Memory Limits**: Handle high memory usage
@@ -152,6 +169,7 @@ pnpm package
 - [ ] **Clock Skew**: Handle time synchronization issues
 
 #### **C. Electron App Edge Cases**
+
 - [ ] **Multiple Instances**: Prevent multiple app instances
 - [ ] **Permission Issues**: Handle file system permission errors
 - [ ] **Storage Corruption**: Handle corrupted electron-store data
@@ -163,11 +181,12 @@ pnpm package
 ### **5. Performance Testing**
 
 #### **A. Load Testing**
+
 ```bash
 # Test concurrent license validations
 node -e "
 const axios = require('axios');
-const promises = Array.from({length: 50}, (_, i) => 
+const promises = Array.from({length: 50}, (_, i) =>
   axios.post('https://license.spventerprises.com/validate', {key: 'test-key-' + i})
     .catch(err => err.response)
 );
@@ -179,6 +198,7 @@ Promise.all(promises).then(results => {
 ```
 
 **Performance Metrics:**
+
 - [ ] **Response Time**: < 2 seconds for license validation
 - [ ] **Concurrent Users**: Handle 10+ simultaneous validations
 - [ ] **Memory Usage**: Server memory remains stable
@@ -186,6 +206,7 @@ Promise.all(promises).then(results => {
 - [ ] **Cache Efficiency**: Effective use of 72-hour cache
 
 #### **B. Stress Testing**
+
 - [ ] **High Volume**: 100+ webhooks in short time
 - [ ] **Large Payloads**: Maximum webhook payload size
 - [ ] **Resource Exhaustion**: Handle resource limits gracefully
@@ -196,6 +217,7 @@ Promise.all(promises).then(results => {
 ### **6. User Experience Testing**
 
 #### **A. Activation Flow UX**
+
 - [ ] **Clear Instructions**: User understands activation process
 - [ ] **Loading States**: Appropriate loading indicators
 - [ ] **Error Messages**: Clear, actionable error messages
@@ -203,6 +225,7 @@ Promise.all(promises).then(results => {
 - [ ] **Progress Indicators**: User knows where they are in flow
 
 #### **B. Error Recovery UX**
+
 - [ ] **Network Errors**: User can retry failed operations
 - [ ] **Invalid Input**: Clear validation messages
 - [ ] **Expired License**: Clear renewal instructions
@@ -213,12 +236,14 @@ Promise.all(promises).then(results => {
 ### **7. Integration Testing**
 
 #### **A. Stripe Dashboard Integration**
+
 - [ ] **Webhook Logs**: Webhooks appear in Stripe dashboard
 - [ ] **Event Processing**: All events processed successfully
 - [ ] **Error Tracking**: Failed webhooks logged and retried
 - [ ] **Customer Data**: Customer emails properly recorded
 
 #### **B. Production Environment**
+
 - [ ] **HTTPS**: All connections use HTTPS
 - [ ] **Environment Variables**: All secrets properly configured
 - [ ] **Monitoring**: Server health monitoring working
@@ -230,11 +255,13 @@ Promise.all(promises).then(results => {
 ### **8. Cross-Platform Testing**
 
 #### **A. Operating Systems**
+
 - [ ] **Windows 10/11**: Full license flow works
-- [ ] **macOS**: Full license flow works  
+- [ ] **macOS**: Full license flow works
 - [ ] **Linux**: Full license flow works (if supported)
 
 #### **B. Different Network Conditions**
+
 - [ ] **Corporate Firewalls**: Works behind corporate networks
 - [ ] **Proxy Servers**: Works through HTTP/HTTPS proxies
 - [ ] **VPN Connections**: Works over VPN
@@ -245,6 +272,7 @@ Promise.all(promises).then(results => {
 ### **9. Monitoring & Alerting**
 
 #### **A. Server Monitoring**
+
 - [ ] **Uptime Monitoring**: Alert if server goes down
 - [ ] **Response Time**: Alert if responses > 5 seconds
 - [ ] **Error Rate**: Alert if error rate > 5%
@@ -252,6 +280,7 @@ Promise.all(promises).then(results => {
 - [ ] **License Creation**: Monitor license creation rate
 
 #### **B. Business Metrics**
+
 - [ ] **Activation Rate**: Track successful activations
 - [ ] **Conversion Rate**: Track payment completion rate
 - [ ] **Churn Rate**: Track subscription cancellations
@@ -262,22 +291,26 @@ Promise.all(promises).then(results => {
 ## **🚀 Test Execution Plan**
 
 ### **Phase 1: Automated Testing (2-3 hours)**
+
 1. Run `node tests/license-e2e.test.js`
 2. Run `node test-stripe-webhooks.js`
 3. Fix any failing tests
 
 ### **Phase 2: Manual Testing (4-6 hours)**
+
 1. Test development activation flow
 2. Test production activation flow (with real payment)
 3. Test all error scenarios
 4. Test offline/network failure scenarios
 
 ### **Phase 3: Load Testing (1-2 hours)**
+
 1. Test concurrent license validations
 2. Test webhook load handling
 3. Monitor server performance
 
 ### **Phase 4: User Acceptance Testing (2-3 hours)**
+
 1. Fresh user perspective on activation flow
 2. Test with real credit card (small amount)
 3. Test complete customer journey
@@ -306,6 +339,7 @@ node test-production-integration.js     # Your existing test
 ## **🔧 Tools for Testing**
 
 ### **Stripe CLI (Recommended)**
+
 ```bash
 # Install Stripe CLI
 # Listen to live webhooks
@@ -318,11 +352,13 @@ stripe trigger invoice.payment_failed
 ```
 
 ### **Postman/Insomnia**
+
 - Create collection for license server endpoints
 - Test various webhook payloads
 - Automate repetitive API tests
 
 ### **Network Simulation**
+
 - Use browser dev tools to simulate slow/offline network
 - Test with VPN/proxy
 - Use tools like Charles Proxy for network manipulation
@@ -357,9 +393,10 @@ If you encounter issues during testing:
 **🎯 Focus Areas Based on Your Current Success:**
 
 Since you've already got the basic flow working, prioritize:
+
 1. **Edge case testing** (network failures, malformed data)
 2. **Security testing** (input validation, webhook security)
 3. **Performance testing** (concurrent users, load handling)
 4. **User experience testing** (error messages, loading states)
 
-This comprehensive testing will ensure your Stripe and License workflow is production-ready and can handle real-world scenarios robustly! 
+This comprehensive testing will ensure your Stripe and License workflow is production-ready and can handle real-world scenarios robustly!

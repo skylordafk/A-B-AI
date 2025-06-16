@@ -58,25 +58,25 @@ Our security model implements multiple layers of protection:
 We achieve PCI DSS compliance through:
 
 #### 1. **No Direct Card Processing**
+
 - **Implementation**: All payment processing handled by Stripe (PCI Level 1 certified)
 - **Evidence**: No credit card data touches our servers (verified in code review)
 - **Benefit**: Reduces PCI compliance scope to SAQ-A
 
 #### 2. **Secure Webhook Validation**
+
 ```javascript
 // Production implementation
 const signature = request.headers['stripe-signature'];
-const event = stripe.webhooks.constructEvent(
-  rawBody, 
-  signature, 
-  webhookSecret
-);
+const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
 ```
+
 - **Implementation**: HMAC-SHA256 signature validation on all webhooks
 - **Evidence**: Test results show 100% rejection of unsigned/invalid webhooks
 - **Benefit**: Prevents payment fraud and unauthorized license creation
 
 #### 3. **TLS 1.3 Encryption**
+
 - **Implementation**: All API endpoints use HTTPS with TLS 1.3
 - **Evidence**: SSL Labs A+ rating (testable at ssllabs.com)
 - **Benefit**: Encrypted data in transit
@@ -92,12 +92,14 @@ const event = stripe.webhooks.constructEvent(
 ### API Key Authentication
 
 #### Implementation
+
 ```javascript
 // 256-bit cryptographically secure random keys
 const ADMIN_API_KEY = crypto.randomBytes(32).toString('hex');
 ```
 
 #### Security Properties
+
 - **Key Length**: 256 bits (64 hex characters)
 - **Entropy**: Cryptographically secure random generation
 - **Storage**: Environment variables only (never in code)
@@ -105,11 +107,11 @@ const ADMIN_API_KEY = crypto.randomBytes(32).toString('hex');
 
 ### Role-Based Access Control (RBAC)
 
-| Role | Permissions | Authentication |
-|------|------------|----------------|
-| Public User | License validation only | License key |
-| Admin | Full system access | API key + IP whitelist |
-| System | Internal operations | Service account |
+| Role        | Permissions             | Authentication         |
+| ----------- | ----------------------- | ---------------------- |
+| Public User | License validation only | License key            |
+| Admin       | Full system access      | API key + IP whitelist |
+| System      | Internal operations     | Service account        |
 
 ### Authentication Flow
 
@@ -126,32 +128,34 @@ sequenceDiagram
 
 ### Input Validation Matrix
 
-| Attack Type | Protection Method | Test Coverage |
-|-------------|------------------|---------------|
-| SQL Injection | Parameterized queries, Input sanitization | ✅ 100% |
-| XSS | HTML encoding, Content-Type headers | ✅ 100% |
-| Command Injection | Shell character stripping | ✅ 100% |
-| Path Traversal | Directory operator removal | ✅ 100% |
-| Buffer Overflow | Length limits (255 chars) | ✅ 100% |
-| Unicode Attacks | UTF-8 normalization | ✅ 100% |
+| Attack Type       | Protection Method                         | Test Coverage |
+| ----------------- | ----------------------------------------- | ------------- |
+| SQL Injection     | Parameterized queries, Input sanitization | ✅ 100%       |
+| XSS               | HTML encoding, Content-Type headers       | ✅ 100%       |
+| Command Injection | Shell character stripping                 | ✅ 100%       |
+| Path Traversal    | Directory operator removal                | ✅ 100%       |
+| Buffer Overflow   | Length limits (255 chars)                 | ✅ 100%       |
+| Unicode Attacks   | UTF-8 normalization                       | ✅ 100%       |
 
 ### Email Validation Implementation
 
 ```javascript
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return typeof email === 'string' && 
-         email.length > 0 && 
-         email.length < 255 && 
-         emailRegex.test(email) &&
-         !email.includes('<') &&    // XSS prevention
-         !email.includes('>') &&    // XSS prevention
-         !email.includes('"') &&    // Injection prevention
-         !email.includes("'") &&    // SQL injection prevention
-         !email.includes('&') &&    // Command injection
-         !email.includes(';') &&    // Command injection
-         !email.includes('\\') &&   // Path traversal
-         !email.includes('/');      // Path traversal
+  return (
+    typeof email === 'string' &&
+    email.length > 0 &&
+    email.length < 255 &&
+    emailRegex.test(email) &&
+    !email.includes('<') && // XSS prevention
+    !email.includes('>') && // XSS prevention
+    !email.includes('"') && // Injection prevention
+    !email.includes("'") && // SQL injection prevention
+    !email.includes('&') && // Command injection
+    !email.includes(';') && // Command injection
+    !email.includes('\\') && // Path traversal
+    !email.includes('/')
+  ); // Path traversal
 }
 ```
 
@@ -172,12 +176,12 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 ### Endpoint-Specific Limits
 
-| Endpoint | Limit | Window | Justification |
-|----------|-------|--------|---------------|
-| `/validate` | 20 req/min | 60s | Normal usage: 5-10 req/min |
-| `/activate` | 5 req/min | 60s | One-time operation |
-| `/webhook` | 100 req/min | 60s | Stripe webhook frequency |
-| `/admin/*` | 30 req/min | 60s | Administrative operations |
+| Endpoint    | Limit       | Window | Justification              |
+| ----------- | ----------- | ------ | -------------------------- |
+| `/validate` | 20 req/min  | 60s    | Normal usage: 5-10 req/min |
+| `/activate` | 5 req/min   | 60s    | One-time operation         |
+| `/webhook`  | 100 req/min | 60s    | Stripe webhook frequency   |
+| `/admin/*`  | 30 req/min  | 60s    | Administrative operations  |
 
 ### Implementation Details
 
@@ -186,7 +190,7 @@ const RATE_LIMITS = {
   '/validate': { window: 60000, max: 20 },
   '/activate': { window: 60000, max: 5 },
   '/webhook': { window: 60000, max: 100 },
-  'default': { window: 60000, max: 30 }
+  default: { window: 60000, max: 30 },
 };
 ```
 
@@ -222,23 +226,24 @@ const RATE_LIMITS = {
 ### Request Logging
 
 Every request logged with:
+
 ```
 timestamp | method | endpoint | IP | response_code | response_time
 ```
 
 ### Security Event Tracking
 
-| Event Type | Logged Data | Retention |
-|------------|-------------|-----------|
-| Failed Auth | IP, timestamp, attempted key | 90 days |
-| Rate Limit | IP, endpoint, timestamp | 30 days |
-| Invalid Input | IP, payload hash, timestamp | 30 days |
-| Admin Access | IP, action, timestamp | 1 year |
+| Event Type    | Logged Data                  | Retention |
+| ------------- | ---------------------------- | --------- |
+| Failed Auth   | IP, timestamp, attempted key | 90 days   |
+| Rate Limit    | IP, endpoint, timestamp      | 30 days   |
+| Invalid Input | IP, payload hash, timestamp  | 30 days   |
+| Admin Access  | IP, action, timestamp        | 1 year    |
 
 ### Real-time Monitoring
 
 - **Health checks**: Every 60 seconds
-- **Alert thresholds**: 
+- **Alert thresholds**:
   - Error rate > 5%
   - Response time > 2s
   - Failed auth > 10/min
@@ -248,18 +253,22 @@ timestamp | method | endpoint | IP | response_code | response_time
 ### Response Plan
 
 1. **Detection** (0-5 minutes)
+
    - Automated alerts trigger
    - Initial assessment begins
 
 2. **Containment** (5-30 minutes)
+
    - Isolate affected systems
    - Enable emergency rate limits
 
 3. **Investigation** (30-120 minutes)
+
    - Analyze logs and patterns
    - Identify attack vectors
 
 4. **Remediation** (2-24 hours)
+
    - Deploy patches
    - Update security rules
 
@@ -278,6 +287,7 @@ timestamp | method | endpoint | IP | response_code | response_time
 See [COMPLIANCE.md](./COMPLIANCE.md) for detailed compliance information.
 
 ### Summary
+
 - ✅ PCI DSS Ready (SAQ-A)
 - ✅ GDPR Compliant
 - ✅ SOC 2 Type II Ready
@@ -332,11 +342,11 @@ npm run test:compliance
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 2.0 | ${new Date().toISOString().split('T')[0]} | Complete security overhaul |
-| 1.0 | 2024-01-01 | Initial security framework |
+| Version | Date                                      | Changes                    |
+| ------- | ----------------------------------------- | -------------------------- |
+| 2.0     | ${new Date().toISOString().split('T')[0]} | Complete security overhaul |
+| 1.0     | 2024-01-01                                | Initial security framework |
 
 ---
 
-*This document is regularly updated. For questions or concerns, contact our security team.* 
+_This document is regularly updated. For questions or concerns, contact our security team._

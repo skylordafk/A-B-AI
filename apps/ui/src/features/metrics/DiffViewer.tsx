@@ -38,7 +38,7 @@ export default function DiffViewer({ diffs }: DiffViewerProps) {
       return `${(value * 100).toFixed(1)}%`;
     }
     if (metricId === 'cost') {
-      return `$${value.toFixed(4)}`;
+      return `$${value.toFixed(8)}`;
     }
     if (metricId === 'latency') {
       return `${value.toFixed(0)}ms`;

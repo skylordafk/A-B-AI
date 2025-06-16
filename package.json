@@ -79,7 +79,7 @@
   },
   "build": {
     "appId": "ai.ab.desktop",
-    "productName": "A-B/AI",
+    "productName": "A-B-AI",
     "copyright": "Copyright © 2024 skylordafk",
     "directories": {
       "output": "dist",

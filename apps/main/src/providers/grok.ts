@@ -1,4 +1,4 @@
-import { BaseProvider, ChatResult } from './base';
+import { BaseProvider, ChatResult, ChatMessage } from './base';
 import { ModelMeta } from '../types/model';
 import { createXai } from '@ai-sdk/xai';
 import { generateText } from 'ai';
@@ -32,6 +32,11 @@ export class GrokProvider implements BaseProvider {
   }
 
   async chat(userPrompt: string, modelId?: string): Promise<ChatResult> {
+    // Convert single prompt to messages format and use the new method
+    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId);
+  }
+
+  async chatWithHistory(messages: ChatMessage[], modelId?: string): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('grok');
     if (!apiKey) throw new Error('Grok API key missing');
 
@@ -60,9 +65,15 @@ export class GrokProvider implements BaseProvider {
 
       const model = xai(modelName);
 
+      // Convert our messages to the format expected by the AI SDK
+      // For prompt-based models, we'll combine the conversation into a single prompt
+      const conversationPrompt = messages
+        .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n\n');
+
       const { text, usage } = await generateText({
         model,
-        prompt: userPrompt,
+        prompt: conversationPrompt,
       });
 
       // Grok uses flat pricing, so we'll estimate based on message count

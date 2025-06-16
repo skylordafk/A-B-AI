@@ -9,6 +9,7 @@ import DryRunModal from '../components/batch/DryRunModal';
 import TemplateBrowser from '../components/batch/TemplateBrowser';
 import SettingsModal from '../components/SettingsModal';
 import { BatchProvider, useBatch } from '../contexts/BatchContext';
+import { useChat } from '../contexts/ChatContext';
 import { parseInput } from '../lib/batch/parseInput';
 import { estimateCost } from '../lib/batch/estimateCost';
 import { JobQueue } from '../lib/batch/JobQueue';
@@ -18,6 +19,7 @@ import type { BatchResult } from '../types/batch';
 function BatchContent() {
   const navigate = useNavigate();
   const { state, dispatch } = useBatch();
+  const { pushBatchSummary } = useChat();
   const [concurrency, setConcurrency] = useState(3);
   const [file, setFile] = useState<File | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -30,7 +32,8 @@ function BatchContent() {
   // Listen for settings menu events
   useEffect(() => {
     const handleMenuSettings = () => setSettingsOpen(true);
-    window.ipc.onOpenSettings(handleMenuSettings);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).ipc.onOpenSettings(handleMenuSettings);
   }, []);
 
   const handleFileSelect = useCallback(
@@ -108,11 +111,14 @@ function BatchContent() {
     setShowDryRunModal(true);
   }, [state.rows, dispatch]);
 
+  const [currentQueue, setCurrentQueue] = useState<JobQueue | null>(null);
+
   const handleRunBatch = useCallback(async () => {
     if (!state.rows || state.rows.length === 0 || isRunning) return;
 
     setIsRunning(true);
     const queue = new JobQueue(concurrency);
+    setCurrentQueue(queue);
 
     const startTime = Date.now();
     const results: BatchResult[] = [];
@@ -132,6 +138,19 @@ function BatchContent() {
       dispatch({ type: 'ADD_ERROR', payload: error });
     });
 
+    queue.on('batch-summary', (summary) => {
+      // Add batch summary to chat history
+      pushBatchSummary(summary);
+    });
+
+    queue.on('stopped', (info) => {
+      console.warn(
+        `Batch ${info.batchId} stopped gracefully: ${info.processedRows}/${info.totalRows} completed`
+      );
+      setIsRunning(false);
+      setCurrentQueue(null);
+    });
+
     queue.on('complete', () => {
       const endTime = Date.now();
       dispatch({
@@ -142,6 +161,7 @@ function BatchContent() {
         },
       });
       setIsRunning(false);
+      setCurrentQueue(null);
     });
 
     // Enqueue all rows
@@ -150,8 +170,64 @@ function BatchContent() {
     }
 
     // Start processing
-    await queue.start();
-  }, [state.rows, concurrency, isRunning, dispatch]);
+    try {
+      await queue.start();
+    } catch (error) {
+      console.error('Batch processing error:', error);
+      setIsRunning(false);
+      setCurrentQueue(null);
+    }
+  }, [state.rows, concurrency, isRunning, dispatch, pushBatchSummary]);
+
+  const handleStopBatch = useCallback(async () => {
+    if (currentQueue && isRunning) {
+      console.warn('Initiating graceful shutdown...');
+      await currentQueue.stop(true); // Save state for resume
+    }
+  }, [currentQueue, isRunning]);
+
+  const _handleResumeBatch = useCallback(
+    async (batchId: string) => {
+      if (isRunning) return;
+
+      try {
+        setIsRunning(true);
+        const queue = await JobQueue.resume(batchId, concurrency);
+        setCurrentQueue(queue);
+
+        const _startTime = Date.now();
+        const results: BatchResult[] = [];
+
+        // Subscribe to events (same as handleRunBatch)
+        queue.on('progress', (progress) => {
+          dispatch({ type: 'UPDATE_PROGRESS', payload: progress });
+        });
+
+        queue.on('row-done', (result) => {
+          results.push(result);
+          setResults((prev) => [...prev, result]);
+          dispatch({ type: 'ADD_RESULT', payload: result });
+        });
+
+        queue.on('complete', () => {
+          setIsRunning(false);
+          setCurrentQueue(null);
+        });
+
+        queue.on('stopped', () => {
+          setIsRunning(false);
+          setCurrentQueue(null);
+        });
+
+        await queue.start();
+      } catch (error) {
+        console.error('Failed to resume batch:', error);
+        setIsRunning(false);
+        setCurrentQueue(null);
+      }
+    },
+    [concurrency, isRunning, dispatch]
+  );
 
   return (
     <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
@@ -159,7 +235,6 @@ function BatchContent() {
         concurrency={concurrency}
         onConcurrencyChange={setConcurrency}
         onNavigateToChat={() => navigate('/chat')}
-        onOpenTemplateBrowser={() => setShowTemplateBrowser(true)}
       />
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -198,7 +273,7 @@ function BatchContent() {
                   <h3 className="text-lg font-semibold text-[var(--text-primary)]">{file.name}</h3>
                   {estimatedCost !== null && (
                     <p className="text-[var(--text-secondary)] mt-1">
-                      Input token cost: ${estimatedCost.toFixed(2)}
+                      Input token cost: ${estimatedCost.toFixed(8)}
                     </p>
                   )}
                   {state.errors && state.errors.length > 0 && (
@@ -220,13 +295,22 @@ function BatchContent() {
                   >
                     Dry-Run Estimate
                   </button>
-                  <button
-                    onClick={handleRunBatch}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    disabled={isRunning || !state.rows || state.rows.length === 0}
-                  >
-                    {isRunning ? 'Running...' : 'Run Batch'}
-                  </button>
+                  {isRunning ? (
+                    <button
+                      onClick={handleStopBatch}
+                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                    >
+                      Stop Batch
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleRunBatch}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      disabled={!state.rows || state.rows.length === 0}
+                    >
+                      Run Batch
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

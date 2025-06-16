@@ -39,11 +39,11 @@ export async function estimateCost(rows: BatchRow[]): Promise<CostEstimation> {
     if (pricing[provider] && pricing[provider][model]) {
       const modelPricing = pricing[provider][model];
       promptPrice = modelPricing.prompt;
-    } else {
-      // Fallback to default model pricing
-      const defaultPricing = pricing.openai['o3-2025-04-16'];
-      promptPrice = defaultPricing.prompt;
-    }
+      } else {
+    // Fallback to default model pricing
+    const defaultPricing = pricing.openai['o3-2025-04-16'];
+    promptPrice = defaultPricing.prompt;
+  }
 
     // Skip if pricing is -1 (unavailable)
     if (promptPrice === -1) {

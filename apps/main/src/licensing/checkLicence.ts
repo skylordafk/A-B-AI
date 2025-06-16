@@ -8,7 +8,7 @@ const store = new Store<{ cacheExpires: number; key: string }>({
 export async function checkLicence(serverURL: string): Promise<boolean> {
   console.log('[License] Checking license with server:', serverURL);
   console.log('[License] NODE_ENV:', process.env.NODE_ENV);
-  
+
   // Skip license check in development/test environments
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !serverURL) {
     console.log('[License] Skipping license check (dev/test mode or no server URL)');
@@ -17,7 +17,7 @@ export async function checkLicence(serverURL: string): Promise<boolean> {
 
   const now = Date.now();
   const { cacheExpires, key } = store.store;
-  
+
   console.log('[License] Current license key:', key ? key.substring(0, 8) + '...' : 'none');
   console.log('[License] Cache expires:', new Date(cacheExpires).toISOString());
 
@@ -29,7 +29,11 @@ export async function checkLicence(serverURL: string): Promise<boolean> {
 
   // Offline grace period - if we have a cached license and it's still valid
   if (key && cacheExpires > now) {
-    console.log('[License] Using cached license (valid until', new Date(cacheExpires).toISOString(), ')');
+    console.log(
+      '[License] Using cached license (valid until',
+      new Date(cacheExpires).toISOString(),
+      ')'
+    );
     return true;
   }
 
@@ -44,7 +48,10 @@ export async function checkLicence(serverURL: string): Promise<boolean> {
     }
     console.log('[License] License validation failed - invalid license');
   } catch (error) {
-    console.log('[License] Error validating license:', error instanceof Error ? error.message : String(error));
+    console.log(
+      '[License] Error validating license:',
+      error instanceof Error ? error.message : String(error)
+    );
     // If server is unreachable and we have a cached key, allow offline usage
     if (key && cacheExpires > 0) {
       console.warn('License server unreachable, using cached license');

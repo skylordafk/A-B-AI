@@ -35,6 +35,7 @@ chmod +x server-deployment-script.sh
 ```
 
 This script will:
+
 - ✅ Update system packages
 - ✅ Install Node.js 20
 - ✅ Install PM2 process manager
@@ -64,6 +65,7 @@ nano .env
 ```
 
 Update these values:
+
 ```env
 # Replace with your actual Stripe keys
 STRIPE_SECRET_KEY=sk_live_your_actual_stripe_secret_key
@@ -147,6 +149,7 @@ This should return a license key that you can test with the validate endpoint.
 ## 🛠️ Common Troubleshooting
 
 ### Server won't start
+
 ```bash
 # Check logs
 pm2 logs abai-license-server
@@ -159,6 +162,7 @@ systemctl restart nginx
 ```
 
 ### SSL issues
+
 ```bash
 # Check nginx configuration
 nginx -t
@@ -171,6 +175,7 @@ certbot certificates
 ```
 
 ### Domain not resolving
+
 ```bash
 # Check DNS
 nslookup license.spventerprises.com
@@ -184,6 +189,7 @@ systemctl status nginx
 Update your A-B/AI application to use the HTTPS endpoint:
 
 In `apps/main/src/main.ts` or wherever you check licenses:
+
 ```typescript
 const SERVER_URL = 'https://license.spventerprises.com';
 ```
@@ -247,4 +253,4 @@ If everything worked correctly, you should now have:
 - ✅ SSL certificate installed
 - ✅ Process monitoring with PM2
 
-Your license server is now ready for production use! 🚀 
+Your license server is now ready for production use! 🚀

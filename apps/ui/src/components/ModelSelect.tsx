@@ -16,15 +16,26 @@ const AVAILABLE_MODELS: { provider: string; models: ModelMeta[] }[] = [
   {
     provider: 'OpenAI',
     models: [
-      { id: 'o3-2025-04-16', name: 'O3 2025-04-16', pricePrompt: 0.002 },
+      { id: 'gpt-4.1', name: 'GPT-4.1', pricePrompt: 0.002 },
       { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', pricePrompt: 0.0004 },
+      { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', pricePrompt: 0.0001 },
+      { id: 'gpt-4o', name: 'GPT-4o', pricePrompt: 0.0025 },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', pricePrompt: 0.0006 },
+      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', pricePrompt: 0.0005 },
+      { id: 'o3-2025-04-16', name: 'O3 2025-04-16 (Legacy)', pricePrompt: 0.01 },
     ],
   },
   {
     provider: 'Anthropic',
     models: [
       { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', pricePrompt: 0.015 },
-      { id: 'claude-3-haiku', name: 'Claude 3 Haiku', pricePrompt: 0.0005 },
+      { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', pricePrompt: 0.003 },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', pricePrompt: 0.003 },
+      { id: 'claude-3-5-haiku', name: 'Claude 3.5 Haiku', pricePrompt: 0.0008 },
+      { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet', pricePrompt: 0.003 },
+      { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', pricePrompt: 0.00025 },
+      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus (Legacy)', pricePrompt: 0.015 },
+      { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet (Legacy)', pricePrompt: 0.003 },
     ],
   },
   {

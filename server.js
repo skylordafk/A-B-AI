@@ -1,8 +1,8 @@
-const Fastify = require('fastify');
-const Stripe = require('stripe');
-const { v4: uuidv4 } = require('uuid');
-const fs = require('fs').promises;
-const path = require('path');
+import Fastify from 'fastify';
+import Stripe from 'stripe';
+import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs/promises';
+import path from 'path';
 
 // Initialize Stripe with your secret key
 const stripe = new Stripe(
@@ -16,9 +16,20 @@ const app = Fastify({
   trustProxy: true,
 });
 
-// Webhook content type parser for raw body
-app.addContentTypeParser('application/json', { parseAs: 'buffer' }, function (req, body, done) {
-  done(null, body);
+// Webhook content type parser for raw body only for webhook endpoint
+app.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
+  // For webhook endpoint, keep as buffer for signature verification
+  if (req.url === '/webhook') {
+    done(null, Buffer.from(body));
+  } else {
+    // For other endpoints, parse as JSON
+    try {
+      const json = JSON.parse(body);
+      done(null, json);
+    } catch (error) {
+      done(error, undefined);
+    }
+  }
 });
 
 // Simple file-based database for licenses
@@ -56,9 +67,9 @@ async function loadLicenses() {
     const data = await fs.readFile(DB_FILE, 'utf8');
     const licenses = JSON.parse(data);
     licensesCache = new Map(Object.entries(licenses));
-    console.log(`✅ Loaded ${licensesCache.size} licenses from database`);
+    console.warn(`Loaded ${licensesCache.size} licenses from database`);
   } catch (error) {
-    console.log('📝 No existing license database found, starting fresh');
+    console.warn('No existing license database found, starting fresh');
     licensesCache = new Map();
   }
 }
@@ -68,9 +79,9 @@ async function saveLicenses() {
   try {
     const licenses = Object.fromEntries(licensesCache);
     await fs.writeFile(DB_FILE, JSON.stringify(licenses, null, 2));
-    console.log(`💾 Saved ${licensesCache.size} licenses to database`);
+    console.warn(`Saved ${licensesCache.size} licenses to database`);
   } catch (error) {
-    console.error('❌ Failed to save licenses:', error);
+    console.error('Failed to save licenses:', error);
   }
 }
 
@@ -91,7 +102,7 @@ async function createLicense(email, stripeData = {}) {
   licensesCache.set(licenseKey, license);
   await saveLicenses();
 
-  console.log(`🔑 Created license for ${email}: ${licenseKey}`);
+  console.warn(`Created license for ${email}: ${licenseKey}`);
   return license;
 }
 
@@ -122,7 +133,7 @@ app.addHook('preHandler', async (request, reply) => {
 });
 
 // Health check endpoint
-app.get('/health', async (request, reply) => {
+app.get('/health', async (_request, _reply) => {
   return {
     status: 'healthy',
     licenses: licensesCache.size,
@@ -141,39 +152,18 @@ app.post('/validate', async (request, reply) => {
   }
 
   try {
-    let bodyData;
-
-    // Handle different request body formats
-    if (Buffer.isBuffer(request.body)) {
-      try {
-        bodyData = JSON.parse(request.body.toString());
-      } catch (e) {
-        return reply.code(400).send({ error: 'Invalid JSON in request body' });
-      }
-    } else if (typeof request.body === 'object') {
-      bodyData = request.body;
-    } else if (typeof request.body === 'string') {
-      try {
-        bodyData = JSON.parse(request.body);
-      } catch (e) {
-        return reply.code(400).send({ error: 'Invalid JSON in request body' });
-      }
-    } else {
-      return reply.code(400).send({ error: 'Invalid request body' });
-    }
-
-    const { key } = bodyData;
+    const { key } = request.body;
 
     if (!key) {
       return reply.code(400).send({ error: 'License key required' });
     }
 
     const isValid = await validateLicense(key);
-    console.log(`🔍 License validation: ${key.substring(0, 8)}... -> ${isValid}`);
+    console.warn(`License validation: ${key.substring(0, 8)}... -> ${isValid}`);
 
     return reply.send({ valid: isValid });
   } catch (error) {
-    console.error('❌ Validation error:', error);
+    console.error('Validation error:', error);
     return reply.code(500).send({ error: 'Validation failed' });
   }
 });
@@ -187,19 +177,19 @@ app.post('/webhook', async (request, reply) => {
 
   try {
     // Get raw body for webhook verification
-    const rawBody = Buffer.isBuffer(request.body) ? request.body : Buffer.from(request.body);
-    event = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
-    console.log(`📨 Received webhook: ${event.type}`);
+    // body is already a buffer due to content type parser for /webhook
+    event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+    console.warn(`Received webhook: ${event.type}`);
   } catch (err) {
-    console.error(`❌ Webhook signature verification failed: ${err.message}`);
+    console.error(`Webhook signature verification failed: ${err.message}`);
     return reply.code(400).send({ error: 'Invalid signature' });
   }
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed':
+      case 'checkout.session.completed': {
         const session = event.data.object;
-        console.log(`💳 Payment completed for session: ${session.id}`);
+        console.warn(`Payment completed for session: ${session.id}`);
 
         // Create license for the customer
         if (session.customer_email) {
@@ -210,28 +200,30 @@ app.post('/webhook', async (request, reply) => {
           });
         }
         break;
+      }
 
-      case 'customer.subscription.deleted':
+      case 'customer.subscription.deleted': {
         const subscription = event.data.object;
-        console.log(`🚫 Subscription cancelled: ${subscription.id}`);
+        console.warn(`Subscription cancelled: ${subscription.id}`);
 
         // Deactivate licenses for this subscription
         for (const [key, license] of licensesCache.entries()) {
           if (license.stripeSubscriptionId === subscription.id) {
             license.active = false;
-            console.log(`🔒 Deactivated license: ${key}`);
+            console.warn(`Deactivated license: ${key}`);
           }
         }
         await saveLicenses();
         break;
+      }
 
       default:
-        console.log(`🤷 Unhandled event type: ${event.type}`);
+        console.warn(`Unhandled event type: ${event.type}`);
     }
 
     return reply.send({ received: true });
   } catch (error) {
-    console.error('❌ Webhook processing error:', error);
+    console.error('Webhook processing error:', error);
     return reply.code(500).send({ error: 'Webhook processing failed' });
   }
 });
@@ -246,41 +238,20 @@ app.post('/activate', async (request, reply) => {
   }
 
   try {
-    let bodyData;
-
-    // Handle different request body formats
-    if (Buffer.isBuffer(request.body)) {
-      try {
-        bodyData = JSON.parse(request.body.toString());
-      } catch (e) {
-        return reply.code(400).send({ error: 'Invalid JSON in request body' });
-      }
-    } else if (typeof request.body === 'object') {
-      bodyData = request.body;
-    } else if (typeof request.body === 'string') {
-      try {
-        bodyData = JSON.parse(request.body);
-      } catch (e) {
-        return reply.code(400).send({ error: 'Invalid JSON in request body' });
-      }
-    } else {
-      return reply.code(400).send({ error: 'Invalid request body' });
-    }
-
-    const { email } = bodyData;
+    const { email } = request.body;
 
     if (!email || !isValidEmail(email)) {
       return reply.code(400).send({ error: 'Valid email required' });
     }
 
     const license = await createLicense(email);
-    return reply.send({ 
-      success: true, 
+    return reply.send({
+      success: true,
       licenseKey: license.key,
-      email: license.email 
+      email: license.email,
     });
   } catch (error) {
-    console.error('❌ Activation error:', error);
+    console.error('Activation error:', error);
     return reply.code(500).send({ error: 'Activation failed' });
   }
 });
@@ -295,28 +266,7 @@ app.post('/retrieve-license', async (request, reply) => {
   }
 
   try {
-    let bodyData;
-
-    // Handle different request body formats
-    if (Buffer.isBuffer(request.body)) {
-      try {
-        bodyData = JSON.parse(request.body.toString());
-      } catch (e) {
-        return reply.code(400).send({ error: 'Invalid JSON in request body' });
-      }
-    } else if (typeof request.body === 'object') {
-      bodyData = request.body;
-    } else if (typeof request.body === 'string') {
-      try {
-        bodyData = JSON.parse(request.body);
-      } catch (e) {
-        return reply.code(400).send({ error: 'Invalid JSON in request body' });
-      }
-    } else {
-      return reply.code(400).send({ error: 'Invalid request body' });
-    }
-
-    const { email } = bodyData;
+    const { email } = request.body;
 
     if (!email || !isValidEmail(email)) {
       return reply.code(400).send({ error: 'Valid email required' });
@@ -331,24 +281,26 @@ app.post('/retrieve-license', async (request, reply) => {
     );
 
     if (licenses.length === 0) {
-      console.log(`❌ No license found for email: ${sanitizedEmail}`);
+      console.warn(`No license found for email: ${sanitizedEmail}`);
       return reply.code(404).send({ error: 'No license found for this email' });
     }
 
     // Return the most recent license if multiple exist
-    const mostRecentLicense = licenses.sort((a, b) => 
-      new Date(b.created).getTime() - new Date(a.created).getTime()
+    const mostRecentLicense = licenses.sort(
+      (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
     )[0];
 
-    console.log(`✅ Retrieved license for ${sanitizedEmail}: ${mostRecentLicense.key.substring(0, 8)}...`);
+    console.warn(
+      `Retrieved license for ${sanitizedEmail}: ${mostRecentLicense.key.substring(0, 8)}...`
+    );
 
-    return reply.send({ 
+    return reply.send({
       licenseKey: mostRecentLicense.key,
       created: mostRecentLicense.created,
-      active: mostRecentLicense.active
+      active: mostRecentLicense.active,
     });
   } catch (error) {
-    console.error('❌ License retrieval error:', error);
+    console.error('License retrieval error:', error);
     return reply.code(500).send({ error: 'Failed to retrieve license' });
   }
 });
@@ -359,32 +311,32 @@ app.post('/retrieve-license', async (request, reply) => {
 async function start() {
   try {
     await loadLicenses();
-    
+
     const port = process.env.PORT || 4100;
-    const host = '0.0.0.0'; // Listen on all interfaces
-    
+    const host = '0.0.00'; // Listen on all interfaces
+
     await app.listen({ port, host });
-    console.log(`🚀 Server listening on http://${host}:${port}`);
-    console.log(`🌐 Health check: http://${host}:${port}/health`);
-    console.log(`🔑 License validation: http://${host}:${port}/validate`);
-    console.log(`📨 Stripe webhook: http://${host}:${port}/webhook`);
+    console.warn(`Server listening on http://${host}:${port}`);
+    console.warn(`Health check: http://${host}:${port}/health`);
+    console.warn(`License validation: http://${host}:${port}/validate`);
+    console.warn(`Stripe webhook: http://${host}:${port}/webhook`);
   } catch (err) {
-    console.error('❌ Server startup failed:', err);
+    console.error('Server startup failed:', err);
     process.exit(1);
   }
 }
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('🛑 Shutting down server...');
+  console.warn('Shutting down server...');
   await saveLicenses();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('🛑 Shutting down server...');
+  console.warn('Shutting down server...');
   await saveLicenses();
   process.exit(0);
 });
 
-start(); 
+start();

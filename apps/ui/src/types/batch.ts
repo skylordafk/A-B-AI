@@ -4,6 +4,7 @@ export interface BatchRow {
   model?: string;
   system?: string;
   temperature?: number;
+  data?: Record<string, unknown>;
 }
 
 export interface BatchResult {
@@ -18,6 +19,8 @@ export interface BatchResult {
   latency_ms?: number;
   error?: string;
   errorMessage?: string;
+  data?: Record<string, unknown>;
+  cachingInfo?: string; // Information about prompt caching usage
 }
 
 export interface RowError {

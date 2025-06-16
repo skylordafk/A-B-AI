@@ -12,6 +12,17 @@ export interface Message {
   timestamp?: number;
 }
 
+export interface BatchSummary {
+  totalRows: number;
+  successCount: number;
+  errorCount: number;
+  totalCost: number;
+  averageLatency: number;
+  duration: number;
+  modelsUsed: string[];
+  timestamp: string;
+}
+
 interface ChatContextType {
   chats: ChatConversation[];
   currentChatId: string | null;
@@ -21,6 +32,7 @@ interface ChatContextType {
   deleteChat: (chatId: string) => void;
   pushMessage: (message: Message) => void;
   pushMessages: (messages: Message[]) => void;
+  pushBatchSummary: (summary: BatchSummary) => void;
   updateChatTitle: (chatId: string, title: string) => void;
   clearAllChats: () => void;
 }
@@ -136,6 +148,53 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const pushBatchSummary = (summary: BatchSummary) => {
+    if (!currentProject || !currentChatId) {
+      // Create a new chat if none exists
+      createNewChat();
+      // The summary will be added in the next call due to state update timing
+      setTimeout(() => pushBatchSummary(summary), 0);
+      return;
+    }
+
+    // Format duration
+    const formatDuration = (ms: number) => {
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+      }
+      return `${seconds}s`;
+    };
+
+    // Create a formatted summary message
+    const summaryContent = `📊 **Batch Processing Complete**
+
+**Results:**
+• **${summary.totalRows}** total prompts processed
+• **${summary.successCount}** successful responses
+• **${summary.errorCount}** failed prompts
+• **${formatDuration(summary.duration)}** total time
+• **${Math.round(summary.averageLatency)}ms** average response time
+
+**Cost:** $${summary.totalCost.toFixed(8)}
+
+**Models Used:** ${summary.modelsUsed.map((m) => m.split('/').pop()).join(', ')}
+
+*Detailed results have been saved and are available in the batch processing tab.*`;
+
+    const batchMessage: Message = {
+      role: 'assistant',
+      content: summaryContent,
+      cost: summary.totalCost,
+      provider: 'Batch System',
+      timestamp: new Date(summary.timestamp).getTime(),
+      id: `batch-${Date.now()}`,
+    };
+
+    addMessage(currentChatId, convertMessageToChatMessage(batchMessage));
+  };
+
   const updateChatTitle = (chatId: string, title: string) => {
     if (!currentProject) return;
     updateConversation(chatId, { name: title });
@@ -174,6 +233,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         deleteChat,
         pushMessage,
         pushMessages,
+        pushBatchSummary,
         updateChatTitle,
         clearAllChats,
       }}

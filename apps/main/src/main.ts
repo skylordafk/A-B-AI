@@ -5,7 +5,26 @@ import fs from 'fs';
 import Store from 'electron-store';
 import { chatWithOpenAI } from './providers/openai';
 import { allProviders, ProviderId } from './providers';
-import { getAllKeys, setKey, getKey, validateKey } from './settings';
+import {
+  getAllKeys,
+  setKey,
+  getKey,
+  validateKey,
+  setMaxOutputTokens,
+  getMaxOutputTokens,
+  setEnableWebSearch,
+  getEnableWebSearch,
+  setMaxWebSearchUses,
+  getMaxWebSearchUses,
+  setEnableExtendedThinking,
+  getEnableExtendedThinking,
+  setEnablePromptCaching,
+  getEnablePromptCaching,
+  setPromptCacheTTL,
+  getPromptCacheTTL,
+  setEnableStreaming,
+  getEnableStreaming,
+} from './settings';
 import { get_encoding } from '@dqbd/tiktoken';
 import { checkLicence } from './licensing/checkLicence';
 import { append as appendHistory } from './history/append';
@@ -26,9 +45,30 @@ const store = new Store<{
   geminiKey?: string;
 }>;
 
-// Set up global API key getter
+// Set up global API key getter and max output tokens getter
 (globalThis as Record<string, unknown>).getApiKey = (id: ProviderId) => {
   return getKey(id);
+};
+(globalThis as Record<string, unknown>).getMaxOutputTokens = () => {
+  return getMaxOutputTokens();
+};
+(globalThis as Record<string, unknown>).getEnableWebSearch = () => {
+  return getEnableWebSearch();
+};
+(globalThis as Record<string, unknown>).getMaxWebSearchUses = () => {
+  return getMaxWebSearchUses();
+};
+(globalThis as Record<string, unknown>).getEnableExtendedThinking = () => {
+  return getEnableExtendedThinking();
+};
+(globalThis as Record<string, unknown>).getEnablePromptCaching = () => {
+  return getEnablePromptCaching();
+};
+(globalThis as Record<string, unknown>).getPromptCacheTTL = () => {
+  return getPromptCacheTTL();
+};
+(globalThis as Record<string, unknown>).getEnableStreaming = () => {
+  return getEnableStreaming();
 };
 
 // Initialize tiktoken encoder
@@ -43,6 +83,20 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  // Set Content Security Policy based on environment
+  win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    const csp = isDev
+      ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http: https: ws:;"
+      : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https:;";
+
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp],
+      },
+    });
   });
 
   // In development, load the Vite dev server URL. In production, use `loadFile` to avoid
@@ -70,8 +124,111 @@ ipcMain.handle('settings:getAllKeys', () => {
   return getAllKeys();
 });
 
-ipcMain.handle('settings:validateKey', async (_, id: ProviderId) => {
+ipcMain.handle('settings:validateKey', (_, id: ProviderId) => {
   return validateKey(id);
+});
+
+ipcMain.handle('settings:setMaxOutputTokens', (_, value: number) => {
+  setMaxOutputTokens(value);
+});
+
+ipcMain.handle('settings:getMaxOutputTokens', () => {
+  return getMaxOutputTokens();
+});
+
+// Web Search Settings
+ipcMain.handle('settings:setEnableWebSearch', (_, value: boolean) => {
+  setEnableWebSearch(value);
+});
+
+ipcMain.handle('settings:getEnableWebSearch', () => {
+  return getEnableWebSearch();
+});
+
+ipcMain.handle('settings:setMaxWebSearchUses', (_, value: number) => {
+  setMaxWebSearchUses(value);
+});
+
+ipcMain.handle('settings:getMaxWebSearchUses', () => {
+  return getMaxWebSearchUses();
+});
+
+// Extended Thinking Settings
+ipcMain.handle('settings:setEnableExtendedThinking', (_, value: boolean) => {
+  setEnableExtendedThinking(value);
+});
+
+ipcMain.handle('settings:getEnableExtendedThinking', () => {
+  return getEnableExtendedThinking();
+});
+
+// Prompt Caching Settings
+ipcMain.handle('settings:setEnablePromptCaching', (_, value: boolean) => {
+  setEnablePromptCaching(value);
+});
+
+ipcMain.handle('settings:getEnablePromptCaching', () => {
+  return getEnablePromptCaching();
+});
+
+ipcMain.handle('settings:setPromptCacheTTL', (_, value: '5m' | '1h') => {
+  setPromptCacheTTL(value);
+});
+
+ipcMain.handle('settings:getPromptCacheTTL', () => {
+  return getPromptCacheTTL();
+});
+
+// Streaming Settings
+ipcMain.handle('settings:setEnableStreaming', (_, value: boolean) => {
+  setEnableStreaming(value);
+});
+
+ipcMain.handle('settings:getEnableStreaming', () => {
+  return getEnableStreaming();
+});
+
+// Job Queue State Management
+ipcMain.handle('jobqueue:saveState', (_, batchId: string, state: any) => {
+  const stateDir = path.join(os.homedir(), '.abai', 'jobqueue');
+  if (!fs.existsSync(stateDir)) {
+    fs.mkdirSync(stateDir, { recursive: true });
+  }
+
+  const statePath = path.join(stateDir, `${batchId}.jobqueue`);
+  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+});
+
+ipcMain.handle('jobqueue:loadState', (_, batchId: string) => {
+  const stateDir = path.join(os.homedir(), '.abai', 'jobqueue');
+  const statePath = path.join(stateDir, `${batchId}.jobqueue`);
+
+  if (!fs.existsSync(statePath)) {
+    return null;
+  }
+
+  const stateData = fs.readFileSync(statePath, 'utf-8');
+  return JSON.parse(stateData);
+});
+
+ipcMain.handle('jobqueue:clearState', (_, batchId: string) => {
+  const stateDir = path.join(os.homedir(), '.abai', 'jobqueue');
+  const statePath = path.join(stateDir, `${batchId}.jobqueue`);
+
+  if (fs.existsSync(statePath)) {
+    fs.unlinkSync(statePath);
+  }
+});
+
+ipcMain.handle('jobqueue:getStateDirectory', () => {
+  return path.join(os.homedir(), '.abai', 'jobqueue');
+});
+
+ipcMain.handle('jobqueue:listFiles', (_, directory: string) => {
+  if (!fs.existsSync(directory)) {
+    return [];
+  }
+  return fs.readdirSync(directory);
 });
 
 // License management handlers
@@ -79,10 +236,10 @@ ipcMain.handle('license:store', (_, licenseKey: string) => {
   const licenseStore = new Store<{ cacheExpires: number; key: string }>({
     defaults: { cacheExpires: 0, key: '' },
   });
-  
+
   licenseStore.set('key', licenseKey);
   licenseStore.set('cacheExpires', Date.now() + 72 * 60 * 60 * 1000); // 72 hours cache
-  
+
   console.log('License key stored successfully');
   return true;
 });
@@ -91,7 +248,7 @@ ipcMain.handle('license:get', () => {
   const licenseStore = new Store<{ cacheExpires: number; key: string }>({
     defaults: { cacheExpires: 0, key: '' },
   });
-  
+
   return licenseStore.get('key');
 });
 
@@ -99,7 +256,7 @@ ipcMain.handle('license:clear', () => {
   const licenseStore = new Store<{ cacheExpires: number; key: string }>({
     defaults: { cacheExpires: 0, key: '' },
   });
-  
+
   licenseStore.clear();
   console.log('License cleared');
   return true;
@@ -112,35 +269,83 @@ ipcMain.handle('chat:send', async (_, prompt: string) => {
   return chatWithOpenAI(apiKey, prompt);
 });
 
-// Multi-model chat handler
-ipcMain.handle('chat:multiSend', async (_, prompt: string, ids: ProviderId[]) => {
-  const selected = allProviders.filter((p) => ids.includes(p.id as ProviderId));
-  const results = await Promise.all(
-    selected.map((p) =>
-      p.chat(prompt).catch((err) => {
-        // Emit invalid key event if it's an auth error
-        if (
-          err.status === 401 ||
-          err.status === 403 ||
-          err.message?.includes('API key') ||
-          err.message?.includes('authentication')
-        ) {
-          const win = BrowserWindow.getAllWindows()[0];
-          if (win) {
-            win.webContents.send('settings:invalidKey', p.id);
+// Multi-model chat handler with conversation history support and advanced features
+ipcMain.handle(
+  'chat:multiSend',
+  async (
+    _,
+    prompt: string,
+    ids: ProviderId[],
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ) => {
+    const selected = allProviders.filter((p) => ids.includes(p.id as ProviderId));
+
+    // Build the full conversation including the new prompt
+    const messages = [...(conversationHistory || []), { role: 'user' as const, content: prompt }];
+
+    // Get advanced feature settings
+    const enableWebSearch = getEnableWebSearch();
+    const enableExtendedThinking = getEnableExtendedThinking();
+    const enablePromptCaching = getEnablePromptCaching();
+    const cacheTTL = getPromptCacheTTL();
+    const enableStreaming = getEnableStreaming();
+
+    const results = await Promise.all(
+      selected.map(async (p) => {
+        try {
+          let result;
+
+          // Use enhanced features for Anthropic providers
+          if (
+            p.id === 'anthropic' &&
+            (enableWebSearch || enableExtendedThinking || enablePromptCaching)
+          ) {
+            // Use the enhanced chatWithHistory method with advanced options
+            result = await (p as any).chatWithHistory(messages, undefined, {
+              enablePromptCaching,
+              cacheTTL,
+              enableStreaming,
+              // Note: For real-time streaming in chat, we'd need WebSocket or similar
+              // For now, streaming is mainly for batch processing
+            });
+          } else {
+            // Use standard chatWithHistory for other providers
+            result = await p.chatWithHistory(messages);
           }
+
+          return result;
+        } catch (error: any) {
+          // Emit invalid key event if it's an auth error
+          if (
+            error.status === 401 ||
+            error.status === 403 ||
+            error.message?.includes('API key') ||
+            error.message?.includes('authentication')
+          ) {
+            const win = BrowserWindow.getAllWindows()[0];
+            if (win) {
+              win.webContents.send('settings:invalidKey', p.id);
+            }
+          }
+          return {
+            answer: `Error: ${error.message}`,
+            promptTokens: 0,
+            answerTokens: 0,
+            costUSD: 0,
+          };
         }
-        return {
-          answer: `Error: ${err.message}`,
-          promptTokens: 0,
-          answerTokens: 0,
-          costUSD: 0,
-        };
       })
-    )
-  );
-  return results.map((r, i) => ({ provider: selected[i].label, ...r }));
-});
+    );
+
+    return results.map((r, i) => ({
+      provider: selected[i].label,
+      ...r,
+      // Ensure cache information is passed through
+      cacheCreationTokens: (r as any).cacheCreationTokens,
+      cacheReadTokens: (r as any).cacheReadTokens,
+    }));
+  }
+);
 
 // Get available models handler
 ipcMain.handle('models:getAvailable', async () => {
@@ -150,9 +355,25 @@ ipcMain.handle('models:getAvailable', async () => {
   }));
 });
 
-// Add IPC handler for token counting
-ipcMain.handle('count-tokens', async (_event, text: string) => {
+// Add IPC handler for token counting with model-specific support
+ipcMain.handle('count-tokens', async (_event, text: string, modelId?: string) => {
   try {
+    // For Claude models, use native token counting if available
+    if (modelId?.includes('anthropic/claude') || modelId?.includes('claude')) {
+      try {
+        const anthropicProvider = allProviders.find((p) => p.id === 'anthropic');
+        if (anthropicProvider && 'countTokens' in anthropicProvider) {
+          return await (anthropicProvider as any).countTokens(text);
+        }
+      } catch (error) {
+        console.log(
+          '[Token Count] Native Claude counting failed, falling back to tiktoken:',
+          error
+        );
+      }
+    }
+
+    // Default to tiktoken for other models
     const tokens = tokenEncoder.encode(text);
     return tokens.length;
   } catch (error) {
@@ -213,6 +434,108 @@ ipcMain.handle('history:read', async (_event, project: string) => {
   }
 });
 
+// Enhanced chat handler for Claude with advanced features
+ipcMain.handle(
+  'chat:sendToModelWithFeatures',
+  async (
+    _,
+    modelId: string,
+    prompt: string,
+    options?: {
+      systemPrompt?: string;
+      temperature?: number;
+      enablePromptCaching?: boolean;
+      cacheTTL?: '5m' | '1h';
+      cacheSystemPrompt?: boolean;
+      enableStreaming?: boolean;
+      onStreamChunk?: (chunk: string) => void;
+    }
+  ) => {
+    // Parse provider from model ID
+    const [providerName, ...modelParts] = modelId.split('/');
+    const modelName = modelParts.join('/');
+
+    // Find the provider
+    const provider = allProviders.find((p) => p && p.id === providerName);
+    if (!provider) {
+      console.error(`[Main] Provider not found or undefined: ${providerName}`);
+      throw new Error(`Unknown provider: ${providerName}`);
+    }
+
+    // Check if API key exists
+    const apiKey = getKey(provider.id as ProviderId);
+    if (!apiKey) {
+      throw new Error(`Missing API key for provider: ${providerName}`);
+    }
+
+    try {
+      let result;
+
+      if (providerName === 'anthropic' && options?.enablePromptCaching) {
+        // Use enhanced chatWithHistory method for Claude with caching
+        const messages = [{ role: 'user' as const, content: prompt }];
+        const anthropicProvider = allProviders.find((p) => p.id === 'anthropic');
+
+        if (anthropicProvider && 'chatWithHistory' in anthropicProvider) {
+          result = await (anthropicProvider as any).chatWithHistory(messages, modelId, {
+            enablePromptCaching: options.enablePromptCaching,
+            cacheTTL: options.cacheTTL,
+            systemPrompt: options.systemPrompt,
+            cacheSystemPrompt: options.cacheSystemPrompt,
+            enableStreaming: options.enableStreaming,
+            onStreamChunk: options.onStreamChunk,
+          });
+        } else {
+          throw new Error('Enhanced Claude features not available');
+        }
+      } else {
+        // Fall back to standard chat method
+        let fullPrompt = prompt;
+        if (options?.systemPrompt) {
+          fullPrompt = `${options.systemPrompt}\n\n${prompt}`;
+        }
+        result = await provider.chat(fullPrompt, modelId);
+      }
+
+      // Get the specific model details
+      const models = provider.listModels();
+      const modelInfo = models.find((m) => modelId.includes(m.id) || m.id.includes(modelName));
+      const modelLabel = modelInfo ? modelInfo.name : provider.label;
+
+      return {
+        answer: result.answer,
+        promptTokens: result.promptTokens,
+        answerTokens: result.answerTokens,
+        costUSD: result.costUSD,
+        usage: {
+          prompt_tokens: result.promptTokens,
+          completion_tokens: result.answerTokens,
+          // Pass through cache usage if available
+          cache_creation_input_tokens: (result as any).cacheCreationTokens,
+          cache_read_input_tokens: (result as any).cacheReadTokens,
+        },
+        cost: result.costUSD,
+        provider: modelLabel,
+        model: modelId,
+      };
+    } catch (error: any) {
+      // Check for auth errors
+      if (
+        error.status === 401 ||
+        error.status === 403 ||
+        error.message?.includes('API key') ||
+        error.message?.includes('authentication')
+      ) {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win) {
+          win.webContents.send('settings:invalidKey', provider.id);
+        }
+      }
+      throw error;
+    }
+  }
+);
+
 // Model-specific chat handler for batch processing
 ipcMain.handle(
   'chat:sendToModel',
@@ -222,8 +545,9 @@ ipcMain.handle(
     const modelName = modelParts.join('/');
 
     // Find the provider
-    const provider = allProviders.find((p) => p.id === providerName);
+    const provider = allProviders.find((p) => p && p.id === providerName);
     if (!provider) {
+      console.error(`[Main] Provider not found or undefined: ${providerName}`);
       throw new Error(`Unknown provider: ${providerName}`);
     }
 
@@ -285,32 +609,36 @@ app.whenReady().then(async () => {
   console.log('[Main] app.isPackaged:', app.isPackaged);
   console.log('[Main] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
   console.log('[Main] NODE_ENV:', process.env.NODE_ENV);
-  
+
   // Check license validity (skip in development)
   if (!isDev) {
     console.log('[Main] Running license check...');
-    
+
     try {
       const licenseEndpoint = process.env.LICENCE_ENDPOINT || 'https://license.spventerprises.com';
       console.log('[Main] License endpoint:', licenseEndpoint);
-      
+
       const isValid = await checkLicence(licenseEndpoint);
       console.log('[Main] License check result:', isValid);
-      
+
       if (!isValid) {
         console.log('[Main] No valid license - showing activation page');
         // Don't quit the app - instead, load the UI and navigate to activation
         const win = createWindow();
-        
+
         // More robust navigation to activation page
         let navigationAttempts = 0;
         const maxAttempts = 5;
-        
+
         const navigateToActivation = () => {
           navigationAttempts++;
-          console.log(`[Main] Attempting to navigate to activation page (attempt ${navigationAttempts}/${maxAttempts})`);
-          
-          win.webContents.executeJavaScript(`
+          console.log(
+            `[Main] Attempting to navigate to activation page (attempt ${navigationAttempts}/${maxAttempts})`
+          );
+
+          win.webContents
+            .executeJavaScript(
+              `
             console.log('[Renderer] Current hash:', window.location.hash);
             console.log('[Renderer] Navigating to activation page...');
             window.location.hash = '#/activate';
@@ -320,37 +648,40 @@ app.whenReady().then(async () => {
             if (window.dispatchEvent) {
               window.dispatchEvent(new HashChangeEvent('hashchange'));
             }
-          `).then(() => {
-            console.log('[Main] Navigation script executed');
-            
-            // Check if we need to retry
-            if (navigationAttempts < maxAttempts) {
-              setTimeout(() => {
-                win.webContents.executeJavaScript(`window.location.hash`).then((hash) => {
-                  console.log(`[Main] Current hash after navigation: ${hash}`);
-                  if (hash !== '#/activate') {
-                    navigateToActivation();
-                  }
-                });
-              }, 500);
-            }
-          }).catch((err) => {
-            console.error('[Main] Navigation error:', err);
-          });
+          `
+            )
+            .then(() => {
+              console.log('[Main] Navigation script executed');
+
+              // Check if we need to retry
+              if (navigationAttempts < maxAttempts) {
+                setTimeout(() => {
+                  win.webContents.executeJavaScript(`window.location.hash`).then((hash) => {
+                    console.log(`[Main] Current hash after navigation: ${hash}`);
+                    if (hash !== '#/activate') {
+                      navigateToActivation();
+                    }
+                  });
+                }, 500);
+              }
+            })
+            .catch((err) => {
+              console.error('[Main] Navigation error:', err);
+            });
         };
-        
+
         // Wait for the app to fully load before navigating
         win.webContents.once('did-finish-load', () => {
           console.log('[Main] Window finished loading');
           // Give React time to initialize
           setTimeout(navigateToActivation, 1000);
         });
-        
+
         // Also try navigating when DOM is ready
         win.webContents.once('dom-ready', () => {
           console.log('[Main] DOM ready');
         });
-        
+
         // Set up the menu
         const isMac = process.platform === 'darwin';
         const template: Electron.MenuItemConstructorOptions[] = [
@@ -406,7 +737,10 @@ app.whenReady().then(async () => {
                     { type: 'separator' as const },
                     {
                       label: 'Speech',
-                      submenu: [{ role: 'startSpeaking' as const }, { role: 'stopSpeaking' as const }],
+                      submenu: [
+                        { role: 'startSpeaking' as const },
+                        { role: 'stopSpeaking' as const },
+                      ],
                     },
                   ]
                 : []),
@@ -440,17 +774,17 @@ app.whenReady().then(async () => {
 
         const menu = Menu.buildFromTemplate(template);
         Menu.setApplicationMenu(menu);
-        
+
         return; // Exit early, don't create another window
       }
     } catch (error) {
       console.error('License check failed:', error);
       // Only show error dialog if we have a cached license but can't validate it
       // This indicates a real network/server issue, not just missing license
-      const Store = require('electron-store');
+      const { default: Store } = await import('electron-store');
       const store = new Store({ defaults: { cacheExpires: 0, key: '' } });
       const { key } = store.store;
-      
+
       if (key) {
         // User has a license but can't validate it - show error
         dialog.showErrorBox(
@@ -462,7 +796,7 @@ app.whenReady().then(async () => {
       } else {
         // No license found and server unreachable - show activation page
         const win = createWindow();
-        
+
         win.webContents.once('did-finish-load', () => {
           win.webContents.executeJavaScript(`
             if (window.location.hash !== '#/activate') {
@@ -470,7 +804,7 @@ app.whenReady().then(async () => {
             }
           `);
         });
-        
+
         // Set up the menu
         const isMac = process.platform === 'darwin';
         const template: Electron.MenuItemConstructorOptions[] = [
@@ -526,7 +860,10 @@ app.whenReady().then(async () => {
                     { type: 'separator' as const },
                     {
                       label: 'Speech',
-                      submenu: [{ role: 'startSpeaking' as const }, { role: 'stopSpeaking' as const }],
+                      submenu: [
+                        { role: 'startSpeaking' as const },
+                        { role: 'stopSpeaking' as const },
+                      ],
                     },
                   ]
                 : []),
@@ -560,7 +897,7 @@ app.whenReady().then(async () => {
 
         const menu = Menu.buildFromTemplate(template);
         Menu.setApplicationMenu(menu);
-        
+
         return; // Exit early, don't create another window
       }
     }

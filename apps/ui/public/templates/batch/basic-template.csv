@@ -1,9 +1,11 @@
-prompt,model,system,temperature
-"What is the capital of France?",openai/o3-2025-04-16,"You are a helpful assistant",0.7
-"Explain quantum computing in simple terms",openai/gpt-4.1-mini,"You are a science teacher explaining complex topics to beginners",0.5
-"Write a haiku about coding",anthropic/claude-opus-4-20250514,,1.0
-"What are the benefits of renewable energy?",anthropic/claude-3-haiku,"You are an environmental expert",0.8
-"Translate 'Hello world' to Spanish",gemini/models/gemini-2.5-pro-thinking,,0.3
-"List 5 interesting facts about space",gemini/models/gemini-2.5-flash-preview,"You are an astronomy enthusiast",0.6
-"What is machine learning?",grok/grok-3,"You are a technical educator",0.7
-"Give me a recipe for chocolate chip cookies",grok/grok-3-mini,"You are a friendly chef",0.9 
+prompt,model,system,temperature,variable1,variable2
+"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4o,"You are a helpful travel assistant who provides detailed and practical recommendations.",0.0,activities,Japan
+"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4.1-mini,"You are a knowledgeable local guide who knows the best hidden gems and popular spots.",0.1,restaurants,Paris
+"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4.1,"You are a sophisticated travel expert with deep cultural knowledge.",0.2,art galleries,Florence
+"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-3-5-sonnet-20241022,"You are a cultural expert who provides insightful information about history and significance.",0.3,museums,London
+"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-3-5-haiku,"You are an outdoor enthusiast who loves nature and recreational activities.",0.4,parks,New York
+"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-sonnet-4,"You are a balanced travel advisor who considers all perspectives.",0.5,neighborhoods,Barcelona
+"What are the best {{variable1}} to do in {{variable2}}?",gemini/models/gemini-2.5-pro-thinking,"You are a coastal lifestyle expert who knows the best beach activities and seaside attractions.",0.6,beaches,Sydney
+"What are the best {{variable1}} to do in {{variable2}}?",gemini/models/gemini-2.5-flash-preview,"You are a shopping enthusiast who knows the best stores, markets, and shopping districts.",0.7,shops,Tokyo
+"What are the best {{variable1}} to do in {{variable2}}?",grok/grok-3,"You are a coffee connoisseur and café culture expert who knows the best spots for coffee and atmosphere.",0.8,cafes,Berlin
+"What are the best {{variable1}} to do in {{variable2}}?",grok/grok-3-mini,"You are an outdoor adventure guide who knows the best hiking trails and scenic routes.",0.9,trails,Vancouver 

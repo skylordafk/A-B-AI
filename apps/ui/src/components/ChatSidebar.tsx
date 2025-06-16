@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { Button } from './ui/button';
 import { useChat } from '../contexts/ChatContext';
+import { useProject } from '../contexts/ProjectContext';
 import type { ChatMessage } from '../contexts/ProjectContext';
 
 interface ChatSidebarProps {
@@ -10,6 +11,7 @@ interface ChatSidebarProps {
 
 const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
   const { chats, currentChatId, createNewChat, switchToChat, deleteChat } = useChat();
+  const { currentProject, isLoading } = useProject();
 
   const formatTime = (date: Date | string) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -86,7 +88,16 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
 
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
-        {chats.length === 0 ? (
+        {isLoading ? (
+          <div className="p-4 text-center text-stone-600 dark:text-stone-400">
+            <p>Loading chats...</p>
+          </div>
+        ) : !currentProject ? (
+          <div className="p-4 text-center text-stone-600 dark:text-stone-400">
+            <p>No project selected</p>
+            <p className="text-sm">Select a project to view chat history</p>
+          </div>
+        ) : chats.length === 0 ? (
           <div className="p-4 text-center text-stone-600 dark:text-stone-400">
             <p>No chats yet</p>
             <p className="text-sm">Start a new conversation!</p>
@@ -180,7 +191,9 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
       {/* Footer */}
       <div className="p-2 border-t border-stone-300 dark:border-stone-700">
         <p className="text-xs text-stone-600 dark:text-stone-400 text-center">
-          Session chats • Clear on app restart
+          {currentProject
+            ? `${currentProject.name} • ${chats.length} chat${chats.length !== 1 ? 's' : ''}`
+            : 'No project selected'}
         </p>
       </div>
     </div>

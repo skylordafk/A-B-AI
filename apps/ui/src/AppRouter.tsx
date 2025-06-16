@@ -43,7 +43,14 @@ function ProjectRoutes() {
               </ChatProvider>
             }
           />
-          <Route path="/batch" element={<Batch />} />
+          <Route
+            path="/batch"
+            element={
+              <ChatProvider>
+                <Batch />
+              </ChatProvider>
+            }
+          />
           <Route path="/settings" element={<ProjectSettings />} />
           <Route path="/" element={<Navigate to="/chat" replace />} />
         </>

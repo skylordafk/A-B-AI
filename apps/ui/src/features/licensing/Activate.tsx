@@ -20,7 +20,7 @@ export default function Activate() {
 
     // Store email for later retrieval
     localStorage.setItem('abai_purchase_email', email);
-    
+
     // Redirect to Stripe payment link
     window.location.href = `${STRIPE_PAYMENT_LINK}?prefilled_email=${encodeURIComponent(email)}`;
   };
@@ -36,31 +36,37 @@ export default function Activate() {
 
     try {
       // Try to retrieve license from server
-      const serverUrl = import.meta.env.PROD 
-        ? 'https://license.spventerprises.com' 
+      const serverUrl = import.meta.env.PROD
+        ? 'https://license.spventerprises.com'
         : 'http://localhost:4100';
-        
+
       const response = await axios.post(`${serverUrl}/retrieve-license`, { email });
-      
+
       if (response.data.licenseKey) {
         // Store the license key
         if (window.api?.storeLicense) {
           await window.api.storeLicense(response.data.licenseKey);
         }
-        
+
         // Store email for future reference
         localStorage.setItem('abai_license_email', email);
-        
+
         // Navigate to success page with email parameter
         navigate(`/activate-success?email=${encodeURIComponent(email)}`);
       } else {
-        setError('No license found for this email. Please check your email or purchase a new license.');
+        setError(
+          'No license found for this email. Please check your email or purchase a new license.'
+        );
       }
     } catch (err: any) {
       if (err.response?.status === 404) {
-        setError('No license found for this email. Please check your email or purchase a new license.');
+        setError(
+          'No license found for this email. Please check your email or purchase a new license.'
+        );
       } else {
-        setError('Unable to retrieve license. Please check your internet connection and try again.');
+        setError(
+          'Unable to retrieve license. Please check your internet connection and try again.'
+        );
       }
     } finally {
       setLoading(false);
@@ -75,20 +81,19 @@ export default function Activate() {
             {mode === 'purchase' ? 'Purchase ABAI License' : 'Retrieve Your License'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            {mode === 'purchase' 
+            {mode === 'purchase'
               ? 'Enter your email to purchase your ABAI license'
-              : 'Enter the email you used to purchase your license'
-            }
+              : 'Enter the email you used to purchase your license'}
           </p>
         </div>
-        
+
         {/* Mode Toggle */}
         <div className="flex justify-center space-x-4">
           <button
             onClick={() => setMode('purchase')}
             className={`px-4 py-2 text-sm font-medium rounded-md ${
-              mode === 'purchase' 
-                ? 'bg-indigo-600 text-white' 
+              mode === 'purchase'
+                ? 'bg-indigo-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
@@ -97,15 +102,15 @@ export default function Activate() {
           <button
             onClick={() => setMode('retrieve')}
             className={`px-4 py-2 text-sm font-medium rounded-md ${
-              mode === 'retrieve' 
-                ? 'bg-indigo-600 text-white' 
+              mode === 'retrieve'
+                ? 'bg-indigo-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
             Already Purchased
           </button>
         </div>
-        
+
         <div className="mt-8 space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">

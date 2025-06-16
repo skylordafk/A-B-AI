@@ -6,6 +6,13 @@ interface StoreSchema {
   anthropicKey?: string;
   grokKey?: string;
   geminiKey?: string;
+  maxOutputTokens?: number; // 0 means no limit
+  enableWebSearch?: boolean; // Enable web search tool for Claude
+  enableExtendedThinking?: boolean; // Enable extended thinking for Claude
+  maxWebSearchUses?: number; // Maximum web searches per request
+  enablePromptCaching?: boolean; // Enable prompt caching for Claude
+  promptCacheTTL?: '5m' | '1h'; // Cache time-to-live
+  enableStreaming?: boolean; // Enable streaming responses for real-time display
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,12 +59,76 @@ export function getKey(provider: ProviderId): string | undefined {
   }
 }
 
+export function setMaxOutputTokens(value: number): void {
+  store.set('maxOutputTokens', value);
+}
+
+export function getMaxOutputTokens(): number {
+  // Default to 8192 tokens if not set, 0 means no limit
+  return store.get('maxOutputTokens') ?? 8192;
+}
+
+// Web Search Settings
+export function setEnableWebSearch(value: boolean): void {
+  store.set('enableWebSearch', value);
+}
+
+export function getEnableWebSearch(): boolean {
+  return store.get('enableWebSearch') ?? false;
+}
+
+export function setMaxWebSearchUses(value: number): void {
+  store.set('maxWebSearchUses', value);
+}
+
+export function getMaxWebSearchUses(): number {
+  return store.get('maxWebSearchUses') ?? 5;
+}
+
+// Extended Thinking Settings
+export function setEnableExtendedThinking(value: boolean): void {
+  store.set('enableExtendedThinking', value);
+}
+
+export function getEnableExtendedThinking(): boolean {
+  return store.get('enableExtendedThinking') ?? false;
+}
+
+// Prompt Caching Settings
+export function setEnablePromptCaching(value: boolean): void {
+  store.set('enablePromptCaching', value);
+}
+
+export function getEnablePromptCaching(): boolean {
+  return store.get('enablePromptCaching') ?? false;
+}
+
+export function setPromptCacheTTL(value: '5m' | '1h'): void {
+  store.set('promptCacheTTL', value);
+}
+
+export function getPromptCacheTTL(): '5m' | '1h' {
+  return store.get('promptCacheTTL') ?? '5m';
+}
+
+// Streaming Settings
+export function setEnableStreaming(value: boolean): void {
+  store.set('enableStreaming', value);
+}
+
+export function getEnableStreaming(): boolean {
+  return store.get('enableStreaming') ?? false;
+}
+
 export async function validateKey(provider: ProviderId): Promise<boolean> {
   const key = getKey(provider);
   if (!key) return false;
 
-  const providerInstance = allProviders.find((p) => p.id === provider);
-  if (!providerInstance) return false;
+  const providerInstance = allProviders.find((p) => p && p.id === provider);
+  if (!providerInstance) {
+    console.error(`[Settings] Provider not found or undefined: ${provider}`);
+    return false;
+  }
 
   try {
     // Try a simple test prompt

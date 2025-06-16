@@ -129,3 +129,22 @@ neline -*
 
 
 docs/latest/
+
+# Sensitive internal code and documents moved to private repo
+scripts/licence-server.ts
+servers/
+tests/test-security-comprehensive.js
+tests/test-production-integration.js
+tests/test-stripe-webhooks.js
+
+# Internal security and compliance docs
+docs/security/
+docs/security-page.html
+
+# Large internal snapshots and PDFs
+# (These files will be moved to a private repo or release assets)
+docs/Project Snapshot*
+docs/*.pdf
+
+# Other large binaries not needed in repo
+icon.png

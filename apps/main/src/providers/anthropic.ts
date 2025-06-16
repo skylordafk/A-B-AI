@@ -508,9 +508,10 @@ export const anthropicProvider: BaseProvider = {
       costUSD += (webSearchRequests / 1000) * 10; // $10 per 1,000 web search requests
     }
 
-    // Log caching statistics for debugging
+    // Log caching statistics during development but avoid basic console logging in production builds
     if (cacheCreationTokens > 0 || cacheReadTokens > 0) {
-      console.log(`[Anthropic] Prompt caching stats:`, {
+      /* eslint-disable no-console */
+      console.info('[Anthropic] Prompt caching stats:', {
         cacheCreationTokens,
         cacheReadTokens,
         regularInputTokens,
@@ -519,6 +520,7 @@ export const anthropicProvider: BaseProvider = {
             ? `${((1 - pricing.cacheRead / pricing.input) * 100).toFixed(1)}%`
             : '0%',
       });
+      /* eslint-enable no-console */
     }
 
     return {

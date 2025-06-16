@@ -1,0 +1,352 @@
+{
+  "a5c87677-d47d-4be0-8075-d3c87d037b33": {
+    "key": "a5c87677-d47d-4be0-8075-d3c87d037b33",
+    "email": "test-1749808107419@example.com",
+    "created": "2025-06-13T09:48:27.436Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "682967a4-a5b4-4fb7-8162-0134bca54b64": {
+    "key": "682967a4-a5b4-4fb7-8162-0134bca54b64",
+    "email": "ratetest-1749808107459@example.com-0",
+    "created": "2025-06-13T09:48:27.463Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "05824601-e09a-4422-8b21-885c106ba00c": {
+    "key": "05824601-e09a-4422-8b21-885c106ba00c",
+    "email": "ratetest-1749808107459@example.com-1",
+    "created": "2025-06-13T09:48:27.466Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "40554fff-c608-4d39-9e7c-edcac6552615": {
+    "key": "40554fff-c608-4d39-9e7c-edcac6552615",
+    "email": "ratetest-1749808107459@example.com-2",
+    "created": "2025-06-13T09:48:27.466Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "56101573-520b-4afd-a853-52ce9f73f503": {
+    "key": "56101573-520b-4afd-a853-52ce9f73f503",
+    "email": "ratetest-1749808107459@example.com-3",
+    "created": "2025-06-13T09:48:27.467Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "7224d1ba-172a-41bf-8cb6-a101d7650074": {
+    "key": "7224d1ba-172a-41bf-8cb6-a101d7650074",
+    "email": "ratetest-1749808107459@example.com-4",
+    "created": "2025-06-13T09:48:27.467Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "6e38edd5-0d8d-4286-a6c2-826d693cf862": {
+    "key": "6e38edd5-0d8d-4286-a6c2-826d693cf862",
+    "email": "ratetest-1749808107459@example.com-5",
+    "created": "2025-06-13T09:48:27.468Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "9aebc279-2774-4ad7-b400-c8b4033dd0b3": {
+    "key": "9aebc279-2774-4ad7-b400-c8b4033dd0b3",
+    "email": "ratetest-1749808107459@example.com-6",
+    "created": "2025-06-13T09:48:27.468Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "a3dd494d-7905-4146-96f6-cda37e9c6448": {
+    "key": "a3dd494d-7905-4146-96f6-cda37e9c6448",
+    "email": "ratetest-1749808107459@example.com-7",
+    "created": "2025-06-13T09:48:27.468Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "a004087d-5155-44ea-8b05-d84a1e65eaa7": {
+    "key": "a004087d-5155-44ea-8b05-d84a1e65eaa7",
+    "email": "ratetest-1749808107459@example.com-8",
+    "created": "2025-06-13T09:48:27.468Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "9b7b2c28-61de-4c02-bbc7-230c3b2a7e38": {
+    "key": "9b7b2c28-61de-4c02-bbc7-230c3b2a7e38",
+    "email": "ratetest-1749808107459@example.com-9",
+    "created": "2025-06-13T09:48:27.469Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "f19dc5fc-e679-43a0-96bf-a56238b36736": {
+    "key": "f19dc5fc-e679-43a0-96bf-a56238b36736",
+    "email": "not-an-email",
+    "created": "2025-06-13T09:48:27.481Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "a178f7fe-d410-4e84-b292-d90be6abbd52": {
+    "key": "a178f7fe-d410-4e84-b292-d90be6abbd52",
+    "email": "'; DROP TABLE licenses; --",
+    "created": "2025-06-13T09:48:27.483Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "5d78c228-1531-42aa-83a8-73ac0cb69673": {
+    "key": "5d78c228-1531-42aa-83a8-73ac0cb69673",
+    "email": "<script>alert(\"xss\")</script>",
+    "created": "2025-06-13T09:48:27.484Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "a9aad634-72e8-46cb-a7aa-d2b9f794e671": {
+    "key": "a9aad634-72e8-46cb-a7aa-d2b9f794e671",
+    "email": "format-test-1749808107840@example.com",
+    "created": "2025-06-13T09:48:27.841Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "1f802cdc-db02-4cd1-be8f-2c96763f23a7": {
+    "key": "1f802cdc-db02-4cd1-be8f-2c96763f23a7",
+    "email": "test-1749808113203@example.com",
+    "created": "2025-06-13T09:48:33.225Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "5edc55b9-4fd2-4e34-9e1c-5122470e29e6": {
+    "key": "5edc55b9-4fd2-4e34-9e1c-5122470e29e6",
+    "email": "ratetest-1749808113240@example.com-0",
+    "created": "2025-06-13T09:48:33.252Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "0cddac1e-aa85-444d-aee8-27d1c3e90ee8": {
+    "key": "0cddac1e-aa85-444d-aee8-27d1c3e90ee8",
+    "email": "ratetest-1749808113240@example.com-1",
+    "created": "2025-06-13T09:48:33.256Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "77660ae5-3ecb-406e-9f0b-735b83f152e7": {
+    "key": "77660ae5-3ecb-406e-9f0b-735b83f152e7",
+    "email": "ratetest-1749808113240@example.com-2",
+    "created": "2025-06-13T09:48:33.256Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "ef55b880-d2aa-40d3-af44-5b8443eba832": {
+    "key": "ef55b880-d2aa-40d3-af44-5b8443eba832",
+    "email": "ratetest-1749808113240@example.com-3",
+    "created": "2025-06-13T09:48:33.257Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "495ca8dc-9cc4-4de1-8acc-bb8de990e08e": {
+    "key": "495ca8dc-9cc4-4de1-8acc-bb8de990e08e",
+    "email": "ratetest-1749808113240@example.com-4",
+    "created": "2025-06-13T09:48:33.257Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "07093f93-b3a6-48e3-81d8-9989ffe5166a": {
+    "key": "07093f93-b3a6-48e3-81d8-9989ffe5166a",
+    "email": "ratetest-1749808113240@example.com-5",
+    "created": "2025-06-13T09:48:33.257Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "24dc9bd6-32fc-4198-8427-cf5f98d7dc9d": {
+    "key": "24dc9bd6-32fc-4198-8427-cf5f98d7dc9d",
+    "email": "ratetest-1749808113240@example.com-6",
+    "created": "2025-06-13T09:48:33.257Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "ea02348d-0370-4b9b-9a9e-a0829d5f4b32": {
+    "key": "ea02348d-0370-4b9b-9a9e-a0829d5f4b32",
+    "email": "ratetest-1749808113240@example.com-7",
+    "created": "2025-06-13T09:48:33.258Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "b1fbbb99-9dc2-4a10-a300-4e0091417e35": {
+    "key": "b1fbbb99-9dc2-4a10-a300-4e0091417e35",
+    "email": "ratetest-1749808113240@example.com-8",
+    "created": "2025-06-13T09:48:33.258Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "be96d1c3-2a20-4850-bfd6-7cbef6dc2bce": {
+    "key": "be96d1c3-2a20-4850-bfd6-7cbef6dc2bce",
+    "email": "ratetest-1749808113240@example.com-9",
+    "created": "2025-06-13T09:48:33.258Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "657624a7-aa69-4229-a28d-4fc6c9c1a3ce": {
+    "key": "657624a7-aa69-4229-a28d-4fc6c9c1a3ce",
+    "email": "not-an-email",
+    "created": "2025-06-13T09:48:33.269Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "1002a621-d53c-420f-98d9-597e99e42727": {
+    "key": "1002a621-d53c-420f-98d9-597e99e42727",
+    "email": "'; DROP TABLE licenses; --",
+    "created": "2025-06-13T09:48:33.271Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "75e8d05e-1c5c-479f-adb3-00cbe098b669": {
+    "key": "75e8d05e-1c5c-479f-adb3-00cbe098b669",
+    "email": "<script>alert(\"xss\")</script>",
+    "created": "2025-06-13T09:48:33.274Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "41ddcc4f-cd68-4aff-9125-83cb92521d9f": {
+    "key": "41ddcc4f-cd68-4aff-9125-83cb92521d9f",
+    "email": "format-test-1749808113574@example.com",
+    "created": "2025-06-13T09:48:33.583Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "400ee542-4d0c-47bb-83b5-7f6b3d2eea08": {
+    "key": "400ee542-4d0c-47bb-83b5-7f6b3d2eea08",
+    "email": "debug@example.com",
+    "created": "2025-06-13T09:52:10.262Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "182f0ab5-0077-4669-83a0-415aa765a9bd": {
+    "key": "182f0ab5-0077-4669-83a0-415aa765a9bd",
+    "email": "test@example.com",
+    "created": "2025-06-13T09:52:27.863Z",
+    "active": true,
+    "stripeCustomerId": null,
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "95a0feb1-0650-4510-8e03-c2572073b6eb": {
+    "key": "95a0feb1-0650-4510-8e03-c2572073b6eb",
+    "email": "webhook-test-1749808347873@example.com",
+    "created": "2025-06-13T09:52:27.874Z",
+    "active": true,
+    "stripeCustomerId": "cus_test_1749808347873",
+    "stripeSubscriptionId": "sub_test_1749808347873",
+    "stripePriceId": "price_test_12345",
+    "seats": 1
+  },
+  "b76e9fdd-487a-410d-8cc8-01ce3cf32f52": {
+    "key": "b76e9fdd-487a-410d-8cc8-01ce3cf32f52",
+    "email": "idempotency-test-1749808347894@example.com",
+    "created": "2025-06-13T09:52:27.894Z",
+    "active": true,
+    "stripeCustomerId": "cus_test_1749808347894",
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  },
+  "465715b4-95ca-42fe-90df-3e46afd856f6": {
+    "key": "465715b4-95ca-42fe-90df-3e46afd856f6",
+    "email": "idempotency-test-1749808347894@example.com",
+    "created": "2025-06-13T09:52:27.896Z",
+    "active": true,
+    "stripeCustomerId": "cus_test_1749808347894",
+    "stripeSubscriptionId": null,
+    "stripePriceId": null,
+    "seats": 1
+  }
+}

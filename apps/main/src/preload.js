@@ -22,15 +22,55 @@ contextBridge.exposeInMainWorld('api', {
   validateKey: (id) => ipcRenderer.invoke('settings:validateKey', id),
   // Legacy single prompt
   sendPrompt: (prompt) => ipcRenderer.invoke('chat:send', prompt),
-  // New multi-model prompt
-  sendPrompts: (prompt, ids) => ipcRenderer.invoke('chat:multiSend', prompt, ids),
+  // New multi-model prompt with conversation history
+  sendPrompts: (prompt, ids, conversationHistory) =>
+    ipcRenderer.invoke('chat:multiSend', prompt, ids, conversationHistory),
   // Model-specific prompt for batch processing
   sendToModel: (modelId, prompt, systemPrompt, temperature) =>
     ipcRenderer.invoke('chat:sendToModel', modelId, prompt, systemPrompt, temperature),
+  // Enhanced model prompt with advanced features
+  sendToModelWithFeatures: (modelId, prompt, options) =>
+    ipcRenderer.invoke('chat:sendToModelWithFeatures', modelId, prompt, options),
   // Get available models
   getAvailableModels: () => ipcRenderer.invoke('models:getAvailable'),
   // Count tokens for a text
-  countTokens: (text) => ipcRenderer.invoke('count-tokens', text),
+  countTokens: (text, modelId) => ipcRenderer.invoke('count-tokens', text, modelId),
+  // Max output tokens settings
+  setMaxOutputTokens: (value) => ipcRenderer.invoke('settings:setMaxOutputTokens', value),
+  getMaxOutputTokens: () => ipcRenderer.invoke('settings:getMaxOutputTokens'),
+  // Web search settings
+  setEnableWebSearch: (value) => ipcRenderer.invoke('settings:setEnableWebSearch', value),
+  getEnableWebSearch: () => ipcRenderer.invoke('settings:getEnableWebSearch'),
+  setMaxWebSearchUses: (value) => ipcRenderer.invoke('settings:setMaxWebSearchUses', value),
+  getMaxWebSearchUses: () => ipcRenderer.invoke('settings:getMaxWebSearchUses'),
+  // Extended thinking settings
+  setEnableExtendedThinking: (value) =>
+    ipcRenderer.invoke('settings:setEnableExtendedThinking', value),
+  getEnableExtendedThinking: () => ipcRenderer.invoke('settings:getEnableExtendedThinking'),
+  // Prompt caching settings
+  setEnablePromptCaching: (value) => ipcRenderer.invoke('settings:setEnablePromptCaching', value),
+  getEnablePromptCaching: () => ipcRenderer.invoke('settings:getEnablePromptCaching'),
+  setPromptCacheTTL: (value) => ipcRenderer.invoke('settings:setPromptCacheTTL', value),
+  getPromptCacheTTL: () => ipcRenderer.invoke('settings:getPromptCacheTTL'),
+  // Streaming settings
+  setEnableStreaming: (value) => ipcRenderer.invoke('settings:setEnableStreaming', value),
+  getEnableStreaming: () => ipcRenderer.invoke('settings:getEnableStreaming'),
+  // Job queue state management
+  saveJobQueueState: (batchId, state) => ipcRenderer.invoke('jobqueue:saveState', batchId, state),
+  loadJobQueueState: (batchId) => ipcRenderer.invoke('jobqueue:loadState', batchId),
+  clearJobQueueState: (batchId) => ipcRenderer.invoke('jobqueue:clearState', batchId),
+  getStateDirectory: () => ipcRenderer.invoke('jobqueue:getStateDirectory'),
+  listFiles: (directory) => ipcRenderer.invoke('jobqueue:listFiles', directory),
+  // Log history
+  logHistory: (project, row) => ipcRenderer.invoke('history:log', project, row),
+  // Open history folder
+  openHistoryFolder: (project) => ipcRenderer.invoke('history:openFolder', project),
+  // Read history file
+  readHistory: (project) => ipcRenderer.invoke('history:read', project),
+  // License management
+  storeLicense: (licenseKey) => ipcRenderer.invoke('license:store', licenseKey),
+  getLicense: () => ipcRenderer.invoke('license:get'),
+  clearLicense: () => ipcRenderer.invoke('license:clear'),
 });
 
 contextBridge.exposeInMainWorld('ipc', {

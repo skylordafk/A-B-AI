@@ -17,7 +17,7 @@ export default function DryRunModal({ isOpen, onClose, estimation, rows }: DryRu
     return {
       ...est,
       prompt: row?.prompt || '',
-      model: row?.model || 'openai/o3-2025-04-16',
+      model: row?.model || 'openai/gpt-4o',
       hasSystem: !!row?.system,
     };
   });
@@ -50,7 +50,7 @@ export default function DryRunModal({ isOpen, onClose, estimation, rows }: DryRu
               <div>
                 <p className="text-[var(--text-secondary)] text-sm">Input Token Cost</p>
                 <p className="text-2xl font-bold text-green-600">
-                  ${estimation.totalUSD.toFixed(4)}
+                  ${estimation.totalUSD.toFixed(8)}
                 </p>
               </div>
             </div>
@@ -88,7 +88,7 @@ export default function DryRunModal({ isOpen, onClose, estimation, rows }: DryRu
                 <div className="text-right text-[var(--text-primary)]">
                   {row.tokens_in.toLocaleString()}
                 </div>
-                <div className="text-right text-green-600">${row.est_cost.toFixed(4)}</div>
+                <div className="text-right text-green-600">${row.est_cost.toFixed(8)}</div>
               </div>
             ))}
           </div>

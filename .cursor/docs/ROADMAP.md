@@ -49,9 +49,19 @@ Queue CSV/JSON of prompts; route each to the cheapest “fast tier” unless the
 
 ---
 
-## Phase 8 — Prompt Coach v1
+## Phase 8 — Monetization Core Scaffold ✅ [COMPLETE]
 
-Score a prompt, suggest improvements, and display side-by-side output diff.
+_Goal: Add licensing, usage tracking, and metric infrastructure for monetization._
+
+| #   | Task                                                                                                                 | Acceptance / Deliverable                         | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------ |
+| 8-1 | **License Management**<br/>• Stripe activation flow<br/>• Offline validation with 72h cache<br/>• Dev license server | Working activation UI + license check on startup | ✅     |
+| 8-2 | **Prompt-Coach Metrics**<br/>• Metric registry (similarity, cost, latency)<br/>• Diff viewer with colored badges     | Visual comparison table with metric scores       | ✅     |
+| 8-3 | **Usage History**<br/>• Per-project JSONL logging<br/>• Automatic batch tracking                                     | History files in ~/.abai/history/{project}.jsonl | ✅     |
+| 8-4 | **Project Settings**<br/>• API key management<br/>• Metric toggles<br/>• Request throttling                          | Settings screen with per-project configuration   | ✅     |
+| 8-5 | **Multi-arch Builds**<br/>• macOS: x64 + arm64<br/>• Windows: x64<br/>• CI updates                                   | electron-builder config + workflow updates       | ✅     |
+
+**Exit test:** License activation → batch run → metrics displayed → history logged.
 
 ---
 

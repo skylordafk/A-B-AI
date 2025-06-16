@@ -15,17 +15,27 @@
     "@anthropic-ai/sdk": "^0.53.0",
     "@dqbd/tiktoken": "^1.0.21",
     "@google/genai": "^1.4.0",
+    "@stripe/stripe-js": "^7.3.1",
     "ai": "^4.3.16",
+    "axios": "^1.9.0",
     "electron-store": "8.1.0",
-    "openai": "^5.1.1"
+    "openai": "^5.1.1",
+    "stripe": "^18.2.1",
+    "uuid": "^11.1.0"
   },
   "scripts": {
-    "dev": "concurrently -k -n UI,MAIN \"pnpm --filter ./apps/ui dev\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5174 pnpm --filter ./apps/main dev\"",
+    "dev": "concurrently -k -n UI,MAIN,LICENSE \"pnpm --filter ./apps/ui dev\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5174 pnpm --filter ./apps/main dev\" \"pnpm run license-server\"",
+    "license-server": "tsx scripts/licence-server.ts",
     "build": "pnpm -r run build",
     "start:prod": "pnpm --filter ./apps/main exec electron .",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
+    "test:license": "node tests/license-e2e.test.js",
+    "test:webhooks": "node test-stripe-webhooks.js",
+    "test:production": "node test-production-integration.js",
+    "test:packaged": "node test-packaged-app.js",
+    "test:all": "npm run test && npm run test:license && npm run test:webhooks && npm run test:production",
     "lint": "eslint \"**/*.{ts,tsx,js,jsx}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "prepare": "husky",
@@ -37,6 +47,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.43.1",
+    "@types/node": "^22.10.6",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@vitest/ui": "^3.2.2",
@@ -48,9 +60,11 @@
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
+    "fastify": "^5.3.3",
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
     "typescript": "^5.4.5",
     "vitest": "^3.2.2"
   },
@@ -128,16 +142,23 @@
       "**/*.node"
     ],
     "forceCodeSigning": false,
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.developer-tools"
+    },
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
           "arch": [
             "x64"
           ]

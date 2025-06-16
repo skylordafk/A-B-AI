@@ -25,12 +25,30 @@ const COLUMNS = [
 ] as const;
 
 const MODELS = [
+  // OpenAI models
+  { value: 'gpt-4.1', label: 'GPT-4.1' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+  { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano' },
   { value: 'gpt-4o', label: 'GPT-4o' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
   { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  // Anthropic models
+  { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
+  { value: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-  { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+  { value: 'claude-3-5-haiku', label: 'Claude 3.5 Haiku' },
+  { value: 'claude-3-7-sonnet', label: 'Claude 3.7 Sonnet' },
+  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
+  { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Legacy)' },
+  { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet (Legacy)' },
+  // Grok models
+  { value: 'grok-3', label: 'Grok 3' },
+  { value: 'grok-3-mini', label: 'Grok 3 Mini' },
+  // Gemini models
+  { value: 'models/gemini-2.5-pro-thinking', label: 'Gemini 2.5 Pro Thinking' },
+  { value: 'models/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash Preview' },
+  // Legacy
+  { value: 'o3-2025-04-16', label: 'OpenAI o3 (Legacy)' },
   { value: 'o1-preview', label: 'o1-preview' },
   { value: 'o1-mini', label: 'o1-mini' },
 ];

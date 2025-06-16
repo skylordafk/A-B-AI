@@ -1,32 +1,38 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { useProject, type ChatMessage, type ChatConversation } from './ProjectContext';
 
-interface Message {
+export interface Message {
   role: 'user' | 'assistant';
   content: string;
   cost?: number;
   provider?: string;
-  answer?: string;
-  costUSD?: number;
+  tokens?: { input: number; output: number };
+  id?: string;
+  timestamp?: number;
 }
 
-interface Chat {
-  id: string;
-  title: string;
-  messages: Message[];
-  createdAt: Date;
-  updatedAt: Date;
+export interface BatchSummary {
+  totalRows: number;
+  successCount: number;
+  errorCount: number;
+  totalCost: number;
+  averageLatency: number;
+  duration: number;
+  modelsUsed: string[];
+  timestamp: string;
 }
 
 interface ChatContextType {
-  chats: Chat[];
+  chats: ChatConversation[];
   currentChatId: string | null;
-  currentChat: Chat | null;
+  currentChat: ChatConversation | null;
   createNewChat: () => string;
   switchToChat: (chatId: string) => void;
   deleteChat: (chatId: string) => void;
   pushMessage: (message: Message) => void;
   pushMessages: (messages: Message[]) => void;
+  pushBatchSummary: (summary: BatchSummary) => void;
   updateChatTitle: (chatId: string, title: string) => void;
   clearAllChats: () => void;
 }
@@ -34,15 +40,28 @@ interface ChatContextType {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const [chats, setChats] = useState<Chat[]>([]);
+  const {
+    currentProject,
+    createConversation,
+    switchConversation,
+    deleteConversation,
+    updateConversation,
+    addMessage,
+    getCurrentConversation,
+  } = useProject();
+
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
-  const generateChatId = () => `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // Sync current chat ID with project's current conversation
+  useEffect(() => {
+    if (currentProject?.currentConversationId !== currentChatId) {
+      setCurrentChatId(currentProject?.currentConversationId || null);
+    }
+  }, [currentProject?.currentConversationId, currentChatId]);
 
   const generateChatTitle = (messages: Message[]): string => {
     const firstUserMessage = messages.find((m) => m.role === 'user');
     if (firstUserMessage && firstUserMessage.content.length > 0) {
-      // Take first 30 chars of the first user message
       return (
         firstUserMessage.content.substring(0, 30).trim() +
         (firstUserMessage.content.length > 30 ? '...' : '')
@@ -51,58 +70,57 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return 'New Chat';
   };
 
-  const createNewChat = (): string => {
-    const newChatId = generateChatId();
-    const newChat: Chat = {
-      id: newChatId,
-      title: 'New Chat',
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+  // Convert Message to ChatMessage for storage
+  const convertMessageToChatMessage = (msg: Message): Omit<ChatMessage, 'id' | 'timestamp'> => ({
+    role: msg.role,
+    content: msg.content,
+    provider: msg.provider,
+    cost: msg.cost,
+    tokens: msg.tokens,
+  });
 
-    setChats((prev) => [...prev, newChat]);
-    setCurrentChatId(newChatId);
-    return newChatId;
+  const createNewChat = (): string => {
+    if (!currentProject) return '';
+
+    const conversationId = createConversation();
+    setCurrentChatId(conversationId);
+    switchConversation(conversationId);
+    return conversationId;
   };
 
   const switchToChat = (chatId: string) => {
-    const chatExists = chats.find((chat) => chat.id === chatId);
+    if (!currentProject || !currentProject.chatHistory) return;
+
+    const chatExists = currentProject.chatHistory.find((conv) => conv.id === chatId);
     if (chatExists) {
       setCurrentChatId(chatId);
+      switchConversation(chatId);
     }
   };
 
   const deleteChat = (chatId: string) => {
-    setChats((prev) => {
-      const filteredChats = prev.filter((chat) => chat.id !== chatId);
+    if (!currentProject || !currentProject.chatHistory) return;
 
-      // If we're deleting the current chat, switch to another one or create new
-      if (currentChatId === chatId) {
-        if (filteredChats.length > 0) {
-          setCurrentChatId(filteredChats[filteredChats.length - 1].id);
-        } else {
-          // No chats left, create a new one
-          setTimeout(() => createNewChat(), 0);
-        }
+    deleteConversation(chatId);
+
+    // Update local state
+    if (currentChatId === chatId) {
+      const remainingChats = currentProject.chatHistory.filter((conv) => conv.id !== chatId);
+      if (remainingChats.length > 0) {
+        const newChatId = remainingChats[remainingChats.length - 1].id;
+        setCurrentChatId(newChatId);
+        switchConversation(newChatId);
+      } else {
+        // No chats left, create a new one
+        setTimeout(() => {
+          createNewChat();
+        }, 0);
       }
-
-      return filteredChats;
-    });
-  };
-
-  const updateCurrentChat = (updater: (chat: Chat) => Chat) => {
-    if (!currentChatId) return;
-
-    setChats((prev) =>
-      prev.map((chat) =>
-        chat.id === currentChatId ? { ...updater(chat), updatedAt: new Date() } : chat
-      )
-    );
+    }
   };
 
   const pushMessage = (message: Message) => {
-    if (!currentChatId) {
+    if (!currentProject || !currentChatId) {
       // Create a new chat if none exists
       createNewChat();
       // The message will be added in the next call due to state update timing
@@ -110,39 +128,99 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    updateCurrentChat((chat) => {
-      const updatedChat = { ...chat, messages: [...chat.messages, message] };
+    addMessage(currentChatId, convertMessageToChatMessage(message));
 
-      // Auto-generate title from first user message
-      if (message.role === 'user' && chat.messages.length === 0) {
-        updatedChat.title = generateChatTitle([message]);
-      }
-
-      return updatedChat;
-    });
+    // Auto-generate title from first user message
+    const currentConv = getCurrentConversation();
+    if (message.role === 'user' && currentConv && currentConv.messages.length === 1) {
+      const newTitle = generateChatTitle([message]);
+      updateConversation(currentChatId, { name: newTitle });
+    }
   };
 
   const pushMessages = (newMessages: Message[]) => {
-    if (!currentChatId) return;
+    if (!currentProject || !currentChatId) {
+      return;
+    }
 
-    updateCurrentChat((chat) => ({
-      ...chat,
-      messages: [...chat.messages, ...newMessages],
-    }));
+    newMessages.forEach((msg) => {
+      addMessage(currentChatId, convertMessageToChatMessage(msg));
+    });
+  };
+
+  const pushBatchSummary = (summary: BatchSummary) => {
+    if (!currentProject || !currentChatId) {
+      // Create a new chat if none exists
+      createNewChat();
+      // The summary will be added in the next call due to state update timing
+      setTimeout(() => pushBatchSummary(summary), 0);
+      return;
+    }
+
+    // Format duration
+    const formatDuration = (ms: number) => {
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+      }
+      return `${seconds}s`;
+    };
+
+    // Create a formatted summary message
+    const summaryContent = `📊 **Batch Processing Complete**
+
+**Results:**
+• **${summary.totalRows}** total prompts processed
+• **${summary.successCount}** successful responses
+• **${summary.errorCount}** failed prompts
+• **${formatDuration(summary.duration)}** total time
+• **${Math.round(summary.averageLatency)}ms** average response time
+
+**Cost:** $${summary.totalCost.toFixed(8)}
+
+**Models Used:** ${summary.modelsUsed.map((m) => m.split('/').pop()).join(', ')}
+
+*Detailed results have been saved and are available in the batch processing tab.*`;
+
+    const batchMessage: Message = {
+      role: 'assistant',
+      content: summaryContent,
+      cost: summary.totalCost,
+      provider: 'Batch System',
+      timestamp: new Date(summary.timestamp).getTime(),
+      id: `batch-${Date.now()}`,
+    };
+
+    addMessage(currentChatId, convertMessageToChatMessage(batchMessage));
   };
 
   const updateChatTitle = (chatId: string, title: string) => {
-    setChats((prev) =>
-      prev.map((chat) => (chat.id === chatId ? { ...chat, title, updatedAt: new Date() } : chat))
-    );
+    if (!currentProject) return;
+    updateConversation(chatId, { name: title });
   };
 
   const clearAllChats = () => {
-    setChats([]);
+    if (!currentProject || !currentProject.chatHistory) return;
+
+    // Delete all conversations
+    currentProject.chatHistory.forEach((conv) => {
+      deleteConversation(conv.id);
+    });
+
     setCurrentChatId(null);
   };
 
-  const currentChat = chats.find((chat) => chat.id === currentChatId) || null;
+  // Get chats from project history
+  const chats: ChatConversation[] = useMemo(() => {
+    if (!currentProject || !currentProject.chatHistory) return [];
+
+    return currentProject.chatHistory;
+  }, [currentProject, currentProject?.chatHistory]);
+
+  const currentChat = useMemo(() => {
+    return chats.find((chat) => chat.id === currentChatId) || null;
+  }, [chats, currentChatId]);
 
   return (
     <ChatContext.Provider
@@ -155,6 +233,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         deleteChat,
         pushMessage,
         pushMessages,
+        pushBatchSummary,
         updateChatTitle,
         clearAllChats,
       }}

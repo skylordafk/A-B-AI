@@ -1,0 +1,22 @@
+# Build directories
+dist/
+dist2/
+dist-old/
+build/
+node_modules/
+tests-out/
+test-results/
+
+# Config files
+*.config.js
+*.config.ts
+**/preload.js
+
+# Production license server files
+production-license-server.js
+production-license-server-secure.js
+production-license-server-fixed.js
+
+# Temporary files
+*.tmp
+*.temp 

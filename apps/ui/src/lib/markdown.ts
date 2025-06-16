@@ -1,5 +1,5 @@
 import { visit } from 'unist-util-visit';
-import type { Root, Code } from 'mdast';
+import type { Root, Code, Parent, Node } from 'mdast';
 
 /**
  * Remark plugin that merges adjacent code blocks with the same language.
@@ -10,8 +10,8 @@ export default function mergeAdjacentCodeFences() {
   return (tree: Root) => {
     const nodesToRemove: number[] = [];
 
-    visit(tree, 'code', (node: Code, index: number | null, parent: any) => {
-      if (index === null || !parent || !parent.children) return;
+    visit(tree, 'code', (node: Code, index: number | undefined, parent: Parent | undefined) => {
+      if (index === undefined || !parent || !parent.children) return;
 
       // Look for the next sibling
       let nextIndex = index + 1;
@@ -43,9 +43,9 @@ export default function mergeAdjacentCodeFences() {
     // Remove marked nodes in reverse order to maintain indices
     nodesToRemove.sort((a, b) => b - a);
 
-    visit(tree, (node: any, index: number | null, parent: any) => {
-      if (parent && parent.children && nodesToRemove.includes(index!)) {
-        parent.children.splice(index!, 1);
+    visit(tree, (node: Node, index: number | undefined, parent: Parent | undefined) => {
+      if (parent && parent.children && index !== undefined && nodesToRemove.includes(index)) {
+        parent.children.splice(index, 1);
       }
     });
   };

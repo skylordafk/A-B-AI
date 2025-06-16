@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Textarea } from './components/ui/textarea';
 import SplitButton from './components/ui/SplitButton';
@@ -11,9 +11,11 @@ import mergeAdjacentCodeFences from './lib/markdown';
 import LoadingOverlay from './components/LoadingOverlay';
 import ChatSidebar from './components/ChatSidebar';
 import { useChat } from './contexts/ChatContext';
+import { useProject } from './contexts/ProjectContext';
 import TerminalBlock from './components/TerminalBlock';
 import ThemeToggle from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
+import type { Message } from './contexts/ChatContext';
 
 // Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -30,6 +32,41 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay]);
 
   return debouncedValue;
+}
+
+// Feature status indicator component
+function FeatureStatusIndicator() {
+  const [features, setFeatures] = useState({
+    webSearch: false,
+    extendedThinking: false,
+    promptCaching: false,
+    cacheTTL: '5m' as '5m' | '1h',
+  });
+
+  useEffect(() => {
+    // Load feature status
+    Promise.all([
+      window.api.getEnableWebSearch(),
+      window.api.getEnableExtendedThinking(),
+      window.api.getEnablePromptCaching(),
+      window.api.getPromptCacheTTL(),
+    ]).then(([webSearch, extendedThinking, promptCaching, cacheTTL]) => {
+      setFeatures({ webSearch, extendedThinking, promptCaching, cacheTTL });
+    });
+  }, []);
+
+  const activeFeatures = [];
+  if (features.webSearch) activeFeatures.push('Web Search');
+  if (features.extendedThinking) activeFeatures.push('Extended Thinking');
+  if (features.promptCaching) activeFeatures.push(`Prompt Caching (${features.cacheTTL})`);
+
+  if (activeFeatures.length === 0) return null;
+
+  return (
+    <div className="mb-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border">
+      <span className="font-medium">Claude Features Active:</span> {activeFeatures.join(', ')}
+    </div>
+  );
 }
 
 // Copy button component
@@ -77,7 +114,7 @@ const CopyButton = ({ text, className = '' }: { text: string; className?: string
 };
 
 // Component to display two assistant messages with optional comparison & diff view
-const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }) => {
+const AssistantComparison = ({ assistantMessages }: { assistantMessages: Message[] }) => {
   const { mode } = useTheme();
   const [sideBySide, setSideBySide] = useState(true);
   const [showDiff, setShowDiff] = useState(false);
@@ -91,18 +128,18 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
             {msg.provider && (
               <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">{msg.provider}</p>
             )}
-            <CopyButton text={msg.answer || msg.content} />
+            <CopyButton text={msg.content} />
           </div>
           <TerminalBlock>
             <div className="prose prose-sm max-w-none prose-stone">
               <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
-                {msg.answer || msg.content}
+                {msg.content}
               </ReactMarkdown>
             </div>
           </TerminalBlock>
-          {msg.costUSD !== undefined && (
+          {msg.cost !== undefined && (
             <p className="text-xs text-stone-400 dark:text-stone-300 mt-1 ml-1">
-              Cost: ${msg.costUSD.toFixed(4)}
+              Cost: ${msg.cost.toFixed(4)}
             </p>
           )}
         </div>
@@ -115,20 +152,20 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
       <div className="flex justify-between mb-2 text-sm text-stone-600 dark:text-stone-300">
         <div className="flex items-center gap-2">
           <span>
-            {assistantMessages[0].provider} - Cost: ${assistantMessages[0].costUSD?.toFixed(4)}
+            {assistantMessages[0].provider} - Cost: ${assistantMessages[0].cost?.toFixed(8)}
           </span>
-          <CopyButton text={assistantMessages[0].answer || assistantMessages[0].content} />
+          <CopyButton text={assistantMessages[0].content} />
         </div>
         <div className="flex items-center gap-2">
           <span>
-            {assistantMessages[1].provider} - Cost: ${assistantMessages[1].costUSD?.toFixed(4)}
+            {assistantMessages[1].provider} - Cost: ${assistantMessages[1].cost?.toFixed(8)}
           </span>
-          <CopyButton text={assistantMessages[1].answer || assistantMessages[1].content} />
+          <CopyButton text={assistantMessages[1].content} />
         </div>
       </div>
       <ReactDiffViewer
-        oldValue={assistantMessages[0].answer || assistantMessages[0].content}
-        newValue={assistantMessages[1].answer || assistantMessages[1].content}
+        oldValue={assistantMessages[0].content}
+        newValue={assistantMessages[1].content}
         splitView={true}
         hideLineNumbers={true}
         useDarkTheme={mode === 'dark'}
@@ -200,8 +237,8 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
   );
 
   return (
-    <div className="border border-stone-300 dark:border-stone-600 rounded p-3 bg-stone-200 dark:bg-stone-700 relative">
-      <div className="flex justify-end gap-1 mb-2">
+    <div className="border border-stone-300 dark:border-stone-600 rounded p-3 bg-stone-200 dark:bg-stone-700 relative max-h-[60vh] overflow-hidden flex flex-col">
+      <div className="flex justify-end gap-1 mb-2 flex-shrink-0">
         <button
           onClick={() => setSideBySide(!sideBySide)}
           className="text-xs px-1.5 py-0.5 bg-slate-600 hover:bg-slate-700 text-white border border-slate-600 rounded-sm transition-colors"
@@ -215,7 +252,7 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: any[] }
           {showDiff ? 'Hide diff' : 'Show diff'}
         </button>
       </div>
-      {showDiff ? renderDiff() : renderAnswers()}
+      <div className="flex-1 overflow-y-auto">{showDiff ? renderDiff() : renderAnswers()}</div>
     </div>
   );
 };
@@ -225,14 +262,12 @@ const ConversationRound = ({
   userMessage,
   assistantMessages,
   roundIndex,
-  isLatest = false,
 }: {
-  userMessage: any;
-  assistantMessages: any[];
+  userMessage: Message;
+  assistantMessages: Message[];
   roundIndex: number;
-  isLatest?: boolean;
 }) => {
-  const [isExpanded, setIsExpanded] = useState(isLatest);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return (
     <div className="border border-stone-200 rounded mb-2 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
@@ -260,48 +295,52 @@ const ConversationRound = ({
       </button>
 
       {isExpanded && (
-        <div className="border-t border-stone-200 p-3 space-y-3">
-          {/* User message */}
-          <div className="text-right">
-            <div className="inline-block max-w-3xl p-2 bg-slate-600 text-white rounded">
-              <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
-                {userMessage.content}
-              </ReactMarkdown>
-            </div>
-          </div>
-
-          {/* Assistant responses */}
-          {assistantMessages.length === 2 ? (
-            <AssistantComparison assistantMessages={assistantMessages} />
-          ) : (
-            assistantMessages.map((msg, idx) => (
-              <div key={idx} className="max-w-4xl">
-                <div className="flex items-center gap-2 mb-1">
-                  {msg.provider && (
-                    <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">
-                      {msg.provider}
-                    </p>
-                  )}
-                  <CopyButton text={msg.content} />
-                </div>
-                <div
-                  className="inline-block p-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded relative text-stone-900 dark:text-stone-50"
-                  style={{ userSelect: 'text' }}
-                >
-                  <div className="prose prose-sm max-w-none prose-stone">
-                    <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-                {msg.cost !== undefined && (
-                  <p className="text-xs text-stone-400 dark:text-stone-500 mt-1 ml-1">
-                    Cost: ${msg.cost.toFixed(4)}
-                  </p>
-                )}
+        <div className="border-t border-stone-200 dark:border-stone-600 max-h-[70vh] overflow-y-auto">
+          <div className="p-3 space-y-3">
+            {/* User message */}
+            <div className="text-right">
+              <div className="inline-block max-w-3xl p-2 bg-slate-600 text-white rounded">
+                <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
+                  {userMessage.content}
+                </ReactMarkdown>
               </div>
-            ))
-          )}
+            </div>
+
+            {/* Assistant responses */}
+            {assistantMessages.length === 2 ? (
+              <AssistantComparison assistantMessages={assistantMessages} />
+            ) : (
+              <div className="space-y-3">
+                {assistantMessages.map((msg, idx) => (
+                  <div key={idx} className="max-w-4xl">
+                    <div className="flex items-center gap-2 mb-1">
+                      {msg.provider && (
+                        <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">
+                          {msg.provider}
+                        </p>
+                      )}
+                      <CopyButton text={msg.content} />
+                    </div>
+                    <div
+                      className="inline-block p-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded relative text-stone-900 dark:text-stone-50 max-h-96 overflow-y-auto"
+                      style={{ userSelect: 'text' }}
+                    >
+                      <div className="prose prose-sm max-w-none prose-stone">
+                        <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                    {msg.cost !== undefined && (
+                      <p className="text-xs text-stone-400 dark:text-stone-500 mt-1 ml-1">
+                        Cost: ${msg.cost.toFixed(8)}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -311,6 +350,7 @@ const ConversationRound = ({
 export default function ChatPage() {
   const navigate = useNavigate();
   const { currentChat, pushMessage, pushMessages, createNewChat } = useChat();
+  const { currentProject: _currentProject } = useProject();
   const [prompt, setPrompt] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -318,11 +358,37 @@ export default function ChatPage() {
   const [invalidKeyError, setInvalidKeyError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Local messages state that immediately reflects updates
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+
+  // Ref for auto-scrolling chat area
+  const chatAreaRef = useRef<HTMLDivElement>(null);
+
+  // Sync local messages with currentChat, but preserve local updates
+  useEffect(() => {
+    if (currentChat?.messages) {
+      // Convert ChatMessages to Messages
+      const convertedMessages = currentChat.messages.map(
+        (msg): Message => ({
+          role: msg.role,
+          content: msg.content,
+          cost: msg.cost,
+          provider: msg.provider,
+          id: msg.id,
+          timestamp: msg.timestamp,
+        })
+      );
+      setLocalMessages(convertedMessages);
+    }
+  }, [currentChat?.id, currentChat?.messages?.length]);
+
   // Debounced prompt for performance
   const debouncedPrompt = useDebounce(prompt, 150);
 
   useEffect(() => {
-    window.ipc.onOpenSettings(() => setSettingsOpen(true));
+    // Listen for menu settings event
+    const handleMenuSettings = () => setSettingsOpen(true);
+    window.ipc.onOpenSettings(handleMenuSettings);
 
     // Listen for invalid key events
     window.ipc.onInvalidKey((providerId) => {
@@ -336,22 +402,68 @@ export default function ChatPage() {
     if (!currentChat) {
       createNewChat();
     }
-  }, [currentChat, createNewChat]);
+  }, [currentChat]); // Removed createNewChat from dependencies to prevent infinite loop
+
+  // Auto-scroll to bottom when new messages are added
+  useEffect(() => {
+    if (chatAreaRef.current && localMessages.length > 0) {
+      const scrollToBottom = () => {
+        chatAreaRef.current?.scrollTo({
+          top: chatAreaRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      };
+
+      // Small delay to ensure DOM is updated
+      const timeoutId = setTimeout(scrollToBottom, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [localMessages.length]);
 
   const send = async () => {
-    if (!debouncedPrompt.trim() || selected.length === 0 || isLoading) return;
+    if (!debouncedPrompt.trim() || selected.length === 0 || isLoading) {
+      return;
+    }
 
-    pushMessage({ role: 'user', content: debouncedPrompt });
+    // Create user message
+    const userMessage = {
+      role: 'user' as const,
+      content: debouncedPrompt,
+      id: `msg-${Date.now()}-user`,
+      timestamp: Date.now(),
+    };
+
+    // Immediately update local state for instant feedback
+    setLocalMessages((prev) => [...prev, userMessage]);
+
+    // Also update through context (for persistence)
+    pushMessage(userMessage);
     setIsLoading(true);
 
     // Map model IDs to provider IDs
     const providerMap: Record<string, string> = {
-      'o3-2025-04-16': 'openai',
+      // OpenAI models
+      'gpt-4.1': 'openai',
       'gpt-4.1-mini': 'openai',
+      'gpt-4.1-nano': 'openai',
+      'gpt-4o': 'openai',
+      'gpt-4o-mini': 'openai',
+      'gpt-3.5-turbo': 'openai',
+      'o3-2025-04-16': 'openai', // Legacy
+      // Anthropic models
       'claude-opus-4-20250514': 'anthropic',
-      'claude-3-haiku': 'anthropic',
+      'claude-sonnet-4': 'anthropic',
+      'claude-3-5-sonnet-20241022': 'anthropic',
+      'claude-3-5-haiku': 'anthropic',
+      'claude-3-7-sonnet': 'anthropic',
+      'claude-3-haiku-20240307': 'anthropic',
+      'claude-3-opus-20240229': 'anthropic',
+      'claude-3-sonnet-20240229': 'anthropic',
+      'claude-3-haiku': 'anthropic', // Backwards compatibility
+      // Grok models
       'grok-3': 'grok',
       'grok-3-mini': 'grok',
+      // Gemini models
       'models/gemini-2.5-pro-thinking': 'gemini',
       'models/gemini-2.5-flash-preview': 'gemini',
     };
@@ -361,22 +473,80 @@ export default function ChatPage() {
     ];
 
     try {
+      if (!window.api?.sendPrompts) {
+        throw new Error('window.api.sendPrompts is not available');
+      }
+
+      // Convert current conversation to the format expected by the API (excluding the just-added user message)
+      const conversationHistory = localMessages
+        .slice(0, -1) // Exclude the user message we just added
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
       const results = await window.api.sendPrompts(
         debouncedPrompt,
-        selectedProviders as ('openai' | 'anthropic' | 'grok' | 'gemini')[]
+        selectedProviders as ('openai' | 'anthropic' | 'grok' | 'gemini')[],
+        conversationHistory
       );
-      pushMessages(
-        results.map((r) => ({
+
+      // Create assistant messages with proper content
+      const assistantMessages = results.map((r, idx) => {
+        let content = r.answer || '[No response]';
+
+        // Add caching information if available
+        const result = r as any; // Extended result may include cache fields
+        if (result.cacheCreationTokens || result.cacheReadTokens) {
+          const cacheInfo = [];
+          if (result.cacheCreationTokens > 0) {
+            cacheInfo.push(`Created ${result.cacheCreationTokens} cache tokens`);
+          }
+          if (result.cacheReadTokens > 0) {
+            const savings = Math.round((1 - 0.1) * 100); // 90% savings
+            cacheInfo.push(`Read ${result.cacheReadTokens} cache tokens (${savings}% savings)`);
+          }
+          content += `\n\n*💾 Cache: ${cacheInfo.join(', ')}*`;
+        }
+
+        return {
           role: 'assistant' as const,
-          content: r.answer,
+          content,
           cost: r.costUSD,
           provider: r.provider,
-          answer: r.answer,
           costUSD: r.costUSD,
-        }))
-      );
-    } catch (err: any) {
-      if (err.message.includes('API key')) setSettingsOpen(true);
+          tokens: {
+            input: r.promptTokens || 0,
+            output: r.answerTokens || 0,
+          },
+          id: `msg-${Date.now()}-assistant-${idx}`,
+          timestamp: Date.now() + idx,
+        };
+      });
+
+      // Immediately update local state
+      setLocalMessages((prev) => [...prev, ...assistantMessages]);
+
+      // Also update through context
+      pushMessages(assistantMessages);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      const errorMessage = {
+        role: 'assistant' as const,
+        content: `Error: ${errorMsg}`,
+        cost: 0,
+        provider: 'System',
+        costUSD: 0,
+        tokens: { input: 0, output: 0 },
+        id: `msg-${Date.now()}-error`,
+        timestamp: Date.now(),
+      };
+
+      // Update local state with error
+      setLocalMessages((prev) => [...prev, errorMessage]);
+
+      if (errorMsg.includes('API key')) setSettingsOpen(true);
+      pushMessages([errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -385,11 +555,12 @@ export default function ChatPage() {
   };
 
   // Get messages from current chat and organize into conversation rounds
-  const messages = currentChat?.messages || [];
+  const messages = localMessages; // Use local messages for immediate updates
+
   const conversationRounds = useMemo(() => {
-    const rounds: Array<{ userMessage: any; assistantMessages: any[] }> = [];
-    let currentUserMessage = null;
-    let currentAssistantMessages: any[] = [];
+    const rounds: Array<{ userMessage: Message; assistantMessages: Message[] }> = [];
+    let currentUserMessage: Message | null = null;
+    let currentAssistantMessages: Message[] = [];
 
     for (const message of messages) {
       if (message.role === 'user') {
@@ -408,8 +579,8 @@ export default function ChatPage() {
       }
     }
 
-    // Add the last round if it exists
-    if (currentUserMessage && currentAssistantMessages.length > 0) {
+    // Add the last round even if there are no assistant messages yet (user just sent a message)
+    if (currentUserMessage) {
       rounds.push({ userMessage: currentUserMessage, assistantMessages: currentAssistantMessages });
     }
 
@@ -448,7 +619,7 @@ export default function ChatPage() {
 
               <div>
                 <h1 className="text-base font-semibold text-stone-900 dark:text-stone-50">
-                  {currentChat?.title || 'New Chat'}
+                  {currentChat?.name || 'New Chat'}
                 </h1>
                 {messages.length > 0 && (
                   <p className="text-xs text-stone-600 dark:text-stone-300">
@@ -491,7 +662,7 @@ export default function ChatPage() {
           )}
 
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-y-auto p-3" ref={chatAreaRef}>
             {conversationRounds.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="max-w-md">
@@ -517,14 +688,13 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-0">
+              <div className="space-y-2 pb-4">
                 {conversationRounds.map((round, index) => (
                   <ConversationRound
-                    key={index}
+                    key={round.userMessage.id || `round-${index}`}
                     userMessage={round.userMessage}
                     assistantMessages={round.assistantMessages}
                     roundIndex={index}
-                    isLatest={index === conversationRounds.length - 1}
                   />
                 ))}
               </div>
@@ -534,6 +704,7 @@ export default function ChatPage() {
           {/* Input Area */}
           <div className="border-t border-stone-200 p-2 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
             <div className="max-w-4xl mx-auto">
+              <FeatureStatusIndicator />
               <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
@@ -572,6 +743,31 @@ export default function ChatPage() {
                             strokeLinejoin="round"
                             strokeWidth={2}
                             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: 'Project Settings...',
+                      onClick: () => navigate('/settings'),
+                      icon: (
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                           />
                         </svg>
                       ),

@@ -32,79 +32,111 @@ function parsePriceToNumber(priceStr: string): number {
   return -1; // Unknown pricing
 }
 
+// Process raw pricing data into our format
+function processPricingData(rawData: Record<string, unknown>): PricingData {
+  const pricingData: PricingData = {};
+
+  // Convert the raw data to our format
+  for (const [provider, models] of Object.entries(rawData)) {
+    const providerKey = provider.toLowerCase();
+    pricingData[providerKey] = {};
+
+    for (const [modelName, pricing] of Object.entries(models as Record<string, any>)) {
+      let inputPrice = -1;
+      let outputPrice = -1;
+
+      const pricingObj = pricing as Record<string, unknown>;
+      if (
+        pricingObj.input_price &&
+        pricingObj.output_price &&
+        typeof pricingObj.input_price === 'string' &&
+        typeof pricingObj.output_price === 'string'
+      ) {
+        inputPrice = parsePriceToNumber(pricingObj.input_price);
+        outputPrice = parsePriceToNumber(pricingObj.output_price);
+      } else if (pricingObj.pricing) {
+        // Handle special pricing like gpt-4.1-mini
+        inputPrice = 0;
+        outputPrice = 0;
+      }
+
+      pricingData[providerKey][modelName] = {
+        prompt: inputPrice,
+        completion: outputPrice,
+      };
+    }
+  }
+
+  // Map Gemini models correctly
+  if (pricingData.google) {
+    pricingData.gemini = {
+      'models/gemini-2.5-flash-preview': pricingData.google['gemini-2.5-flash-preview'] || {
+        prompt: 0.00035,
+        completion: 0.00175,
+      },
+      'models/gemini-2.5-pro-thinking': pricingData.google['gemini-2.5-pro-thinking'] || {
+        prompt: 0.00125,
+        completion: 0.01,
+      },
+    };
+  }
+
+  return pricingData;
+}
+
 // Load pricing data from the JSON file
 export async function loadPricingData(): Promise<PricingData> {
   try {
-    // Try to load from the file system
+    // Check if we're in a Node.js environment (testing)
+    if (typeof window === 'undefined') {
+      // Node.js environment - use dynamic import
+      const path = await import('path');
+      const fs = await import('fs');
+      const filePath = path.resolve(process.cwd(), 'AI Model Pricing JSON.json');
+      const rawData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      return processPricingData(rawData);
+    }
+
+    // Browser environment - use fetch
     const response = await fetch('/AI Model Pricing JSON.json');
     if (!response.ok) {
       throw new Error('Failed to load pricing data');
     }
 
     const rawData = await response.json();
-    const pricingData: PricingData = {};
-
-    // Convert the raw data to our format
-    for (const [provider, models] of Object.entries(rawData)) {
-      const providerKey = provider.toLowerCase();
-      pricingData[providerKey] = {};
-
-      for (const [modelName, pricing] of Object.entries(models as any)) {
-        let inputPrice = -1;
-        let outputPrice = -1;
-
-        const pricingObj = pricing as any;
-        if (pricingObj.input_price && pricingObj.output_price) {
-          inputPrice = parsePriceToNumber(pricingObj.input_price);
-          outputPrice = parsePriceToNumber(pricingObj.output_price);
-        } else if (pricingObj.pricing) {
-          // Handle special pricing like gpt-4.1-mini
-          inputPrice = 0;
-          outputPrice = 0;
-        }
-
-        pricingData[providerKey][modelName] = {
-          prompt: inputPrice,
-          completion: outputPrice,
-        };
-      }
-    }
-
-    // Map Gemini models correctly
-    if (pricingData.google) {
-      pricingData.gemini = {
-        'models/gemini-2.5-flash-preview': pricingData.google['gemini-2.5-flash-preview'] || {
-          prompt: 0.00035,
-          completion: 0.00175,
-        },
-        'models/gemini-2.5-pro-thinking': pricingData.google['gemini-2.5-pro-thinking'] || {
-          prompt: 0.00125,
-          completion: 0.01,
-        },
-      };
-    }
-
-    return pricingData;
+    return processPricingData(rawData);
   } catch (error) {
     console.error('Failed to load pricing data, using defaults:', error);
 
-    // Return default pricing if loading fails
+    // Return default pricing if loading fails (values in per-1K tokens)
     return {
       openai: {
-        'o3-2025-04-16': { prompt: 2, completion: 8 },
-        'gpt-4.1-mini': { prompt: 0.4, completion: 1.6 },
+        'gpt-4.1': { prompt: 0.002, completion: 0.008 },
+        'gpt-4.1-mini': { prompt: 0.0004, completion: 0.0016 },
+        'gpt-4.1-nano': { prompt: 0.0001, completion: 0.0004 },
+        'gpt-4o': { prompt: 0.0025, completion: 0.005 },
+        'gpt-4o-mini': { prompt: 0.0006, completion: 0.0024 },
+        'gpt-3.5-turbo': { prompt: 0.0005, completion: 0.0015 },
+        'o3-2025-04-16': { prompt: 0.002, completion: 0.008 },
       },
       anthropic: {
-        'claude-opus-4-20250514': { prompt: 15, completion: 75 },
-        'claude-3-haiku': { prompt: 0.8, completion: 4 },
+        'claude-opus-4-20250514': { prompt: 0.015, completion: 0.075 },
+        'claude-sonnet-4': { prompt: 0.003, completion: 0.015 },
+        'claude-3-5-sonnet-20241022': { prompt: 0.003, completion: 0.015 },
+        'claude-3-5-haiku': { prompt: 0.0008, completion: 0.004 },
+        'claude-3-7-sonnet': { prompt: 0.003, completion: 0.015 },
+        'claude-3-haiku-20240307': { prompt: 0.00025, completion: 0.00125 },
+        'claude-3-opus-20240229': { prompt: 0.015, completion: 0.075 },
+        'claude-3-sonnet-20240229': { prompt: 0.003, completion: 0.015 },
+        'claude-3-haiku': { prompt: 0.0008, completion: 0.004 },
       },
       grok: {
-        'grok-3': { prompt: 3, completion: 15 },
-        'grok-3-mini': { prompt: 0.3, completion: 0.5 },
+        'grok-3': { prompt: 0.003, completion: 0.015 },
+        'grok-3-mini': { prompt: 0.0003, completion: 0.0005 },
       },
       gemini: {
-        'models/gemini-2.5-flash-preview': { prompt: 0.35, completion: 1.75 },
-        'models/gemini-2.5-pro-thinking': { prompt: 1.25, completion: 10 },
+        'models/gemini-2.5-flash-preview': { prompt: 0.00035, completion: 0.00175 },
+        'models/gemini-2.5-pro-thinking': { prompt: 0.00125, completion: 0.01 },
       },
     };
   }

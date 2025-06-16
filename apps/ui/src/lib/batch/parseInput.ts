@@ -1,6 +1,8 @@
 import Papa from 'papaparse';
 import type { BatchRow, RowError } from '../../types/batch';
 
+type _ParsedCsvRow = Record<string, string | undefined>;
+
 export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors: RowError[] }> {
   const rows: BatchRow[] = [];
   const errors: RowError[] = [];
@@ -27,6 +29,7 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
     }
 
     // Process each row
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     results.data.forEach((row: any, index: number) => {
       try {
         if (!row.prompt || row.prompt.trim() === '') {
@@ -44,6 +47,7 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
           model: row.model?.trim(),
           system: row.system?.trim(),
           temperature: row.temperature ? parseFloat(row.temperature) : undefined,
+          data: row,
         };
 
         // Validate temperature if provided
@@ -90,7 +94,8 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
       const data = JSON.parse(text);
       const items = Array.isArray(data) ? data : [data];
 
-      items.forEach((item, index) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      items.forEach((item: any, index) => {
         try {
           if (!item.prompt || typeof item.prompt !== 'string') {
             errors.push({
@@ -107,6 +112,7 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
             model: item.model?.trim(),
             system: item.system?.trim(),
             temperature: typeof item.temperature === 'number' ? item.temperature : undefined,
+            data: item,
           };
 
           // Validate temperature if provided
@@ -145,4 +151,22 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
   }
 
   return { rows, errors };
+}
+
+export function substituteTemplateVars(
+  prompt: string,
+  row: Record<string, unknown>
+): { output: string; missing: string[] } {
+  const missing: string[] = [];
+
+  const output = prompt.replace(/\{\{(.*?)\}\}/g, (_, raw) => {
+    const key = raw.trim();
+    if (key in row && row[key] !== undefined && row[key] !== '') {
+      return String(row[key]);
+    }
+    missing.push(key);
+    return `{{${key}}}`; // keep placeholder for easier diffing
+  });
+
+  return { output, missing };
 }

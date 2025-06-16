@@ -3,52 +3,58 @@ import { loadPricingData, getProviderAndModel } from '../../apps/ui/src/lib/batc
 import { calculateActualCost } from '../../apps/ui/src/lib/batch/estimateCost';
 import type { BatchRow } from '../../apps/ui/src/types/batch';
 
-// Mock fetch to return our pricing data
+const mockPricingData = {
+  OpenAI: {
+    'o3-2025-04-16': {
+      input_price: '$2.00 per 1M tokens',
+      output_price: '$8.00 per 1M tokens',
+    },
+    'gpt-4.1-mini': {
+      input_price: '$0.40 per 1M tokens',
+      output_price: '$1.60 per 1M tokens',
+    },
+  },
+  Anthropic: {
+    'claude-opus-4-20250514': {
+      input_price: '$15 per 1M tokens',
+      output_price: '$75 per 1M tokens',
+    },
+    'claude-3-haiku': {
+      input_price: '$0.80 per 1M tokens',
+      output_price: '$4.00 per 1M tokens',
+    },
+  },
+  Google: {
+    'gemini-2.5-pro-thinking': {
+      input_price: '$1.25 per 1M tokens for <200K tokens, $2.50 per 1M tokens for >200K tokens',
+      output_price: '$10.00 per 1M tokens for <200K tokens, $15.00 per 1M tokens for >200K tokens',
+    },
+    'gemini-2.5-flash-preview': {
+      input_price: '$0.35 per 1M tokens',
+      output_price: '$1.75 per 1M tokens',
+    },
+  },
+  Grok: {
+    'grok-3': {
+      input_price: '$3.00 per 1M tokens',
+      output_price: '$15.00 per 1M tokens',
+    },
+    'grok-3-mini': {
+      input_price: '$0.30 per 1M tokens',
+      output_price: '$0.50 per 1M tokens',
+    },
+  },
+};
+
+// Mock fs module for Node.js environment
+vi.mock('fs', () => ({
+  readFileSync: vi.fn(() => JSON.stringify(mockPricingData)),
+}));
+
+// Mock fetch for browser environment
 global.fetch = vi.fn().mockResolvedValue({
   ok: true,
-  json: async () => ({
-    OpenAI: {
-      'o3-2025-04-16': {
-        input_price: '$2.00 per 1M tokens',
-        output_price: '$8.00 per 1M tokens',
-      },
-      'gpt-4.1-mini': {
-        input_price: '$0.40 per 1M tokens',
-        output_price: '$1.60 per 1M tokens',
-      },
-    },
-    Anthropic: {
-      'claude-opus-4-20250514': {
-        input_price: '$15 per 1M tokens',
-        output_price: '$75 per 1M tokens',
-      },
-      'claude-3-haiku': {
-        input_price: '$0.80 per 1M tokens',
-        output_price: '$4.00 per 1M tokens',
-      },
-    },
-    Google: {
-      'gemini-2.5-pro-thinking': {
-        input_price: '$1.25 per 1M tokens for <200K tokens, $2.50 per 1M tokens for >200K tokens',
-        output_price:
-          '$10.00 per 1M tokens for <200K tokens, $15.00 per 1M tokens for >200K tokens',
-      },
-      'gemini-2.5-flash-preview': {
-        input_price: '$0.35 per 1M tokens',
-        output_price: '$1.75 per 1M tokens',
-      },
-    },
-    Grok: {
-      'grok-3': {
-        input_price: '$3.00 per 1M tokens',
-        output_price: '$15.00 per 1M tokens',
-      },
-      'grok-3-mini': {
-        input_price: '$0.30 per 1M tokens',
-        output_price: '$0.50 per 1M tokens',
-      },
-    },
-  }),
+  json: async () => mockPricingData,
 });
 
 describe('Pricing Integration', () => {

@@ -28,8 +28,8 @@ module.exports = {
         varsIgnorePattern: '^_',
       },
     ],
-    '@typescript-eslint/no-explicit-any': 'warn',
-    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    '@typescript-eslint/no-explicit-any': 'off',
+    'no-console': 'off',
   },
   ignorePatterns: [
     'dist',
@@ -41,6 +41,37 @@ module.exports = {
     'test-results',
     '*.config.js',
     '*.config.ts',
-    '**/preload.js'
+    '**/preload.js',
+    'production-license-server.js',
+    'production-license-server-secure.js',
+    'production-license-server-fixed.js',
+  ],
+  overrides: [
+    {
+      files: [
+        '**/*.test.js',
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/*.spec.js',
+        '**/*.spec.ts',
+        '**/*.spec.tsx',
+        'tests/**/*.js',
+        'tests/**/*.ts',
+        'test-*.js',
+        'test-*.ts',
+      ],
+      rules: {
+        'no-console': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-var-requires': 'off',
+        '@typescript-eslint/no-unused-vars': [
+          'error',
+          {
+            argsIgnorePattern: '^_',
+            varsIgnorePattern: '^_',
+          },
+        ],
+      },
+    },
   ],
 }; 

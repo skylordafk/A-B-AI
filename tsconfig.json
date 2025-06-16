@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
-    "lib": ["ES2022"],
+    "module": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -15,6 +15,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["tests/**/*.ts", "apps/**/*.ts"],
+  "include": ["tests/**/*.ts", "apps/**/*.ts", "apps/**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

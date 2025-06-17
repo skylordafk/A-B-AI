@@ -12,35 +12,45 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+
     steps:
-      - name: Determine deploy necessity
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        with:
+          enablement: true
+
+      - name: Decide
         id: decide
         run: |
-          if [[ "${{ github.ref }}" =~ refs/tags/v.* ]]; then
-            echo "deploy_docs=true" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v.* ]]; then
+            echo "deploy=true" >> $GITHUB_OUTPUT
           else
-            echo "deploy_docs=false" >> $GITHUB_OUTPUT
+            echo "deploy=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout repo
+      - name: Checkout docs
+        if: steps.decide.outputs.deploy == 'true'
         uses: actions/checkout@v4
-        if: steps.decide.outputs.deploy_docs == 'true'
 
-      - name: Upload docs for tag deploy
-        if: steps.decide.outputs.deploy_docs == 'true'
+      - name: Upload real docs
+        if: steps.decide.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
 
-      - name: Upload placeholder for regular push
-        if: steps.decide.outputs.deploy_docs == 'false'
-        run: echo '<!doctype html><title>No Pages deploy for this commit</title>' > index.html
+      - name: Make placeholder
+        if: steps.decide.outputs.deploy == 'false'
+        run: |
+          mkdir stub
+          echo '<!doctype html><title>No deploy for this commit</title>' > stub/index.html
 
-      - name: Upload placeholder artifact
-        if: steps.decide.outputs.deploy_docs == 'false'
+      - name: Upload placeholder
+        if: steps.decide.outputs.deploy == 'false'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: stub
 
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4 
+      - name: Deploy
+        uses: actions/deploy-pages@v4

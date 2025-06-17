@@ -24,12 +24,19 @@
       const rel = await resp.json();
       const tag = rel.tag_name;
 
-      // helper to find asset by substring
-      const findAsset = (substr) => rel.assets.find(a => a.name.includes(substr));
+      // helper to find asset by substring (case insensitive)
+      const findAsset = (patterns) => {
+        for (const pattern of patterns) {
+          const asset = rel.assets.find(a => a.name.toLowerCase().includes(pattern.toLowerCase()));
+          if (asset) return asset;
+        }
+        return null;
+      };
 
-      const win = findAsset('Setup.exe');
-      const macArm = findAsset('arm64.dmg');
-      const macIntel = findAsset('x64.dmg');
+      // Try multiple patterns for each platform
+      const win = findAsset(['Setup.exe', 'windows', '.exe']);
+      const macArm = findAsset(['arm64.dmg', 'apple-silicon', 'aarch64']);
+      const macIntel = findAsset(['x64.dmg', 'intel', 'x86_64']);
 
       if (win) {
         document.getElementById('win-link').href = win.browser_download_url;

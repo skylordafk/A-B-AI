@@ -53,4 +53,5 @@ jobs:
           path: stub
 
       - name: Deploy
+        if: steps.decide.outputs.deploy == 'true'
         uses: actions/deploy-pages@v4

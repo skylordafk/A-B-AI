@@ -6,13 +6,59 @@
   <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" rel="stylesheet">
 </head>
 <body class="section">
-  <h1 class="title">Download A-B/AI Nightly</h1>
-  <ul>
-    <li><a href="https://github.com/skylordafk/A-B-AI/releases/download/v1.1.0/A-B-AI-1.1.0-Setup.exe">Windows installer</a></li>
-    <li><a href="https://github.com/skylordafk/A-B-AI/releases/download/v1.1.0/A-B-AI-1.1.0-arm64.dmg">macOS (Apple Silicon)</a></li>
-    <li><a href="https://github.com/skylordafk/A-B-AI/releases/download/v1.1.0/A-B-AI-1.1.0-x64.dmg">macOS (Intel)</a></li>
+  <h1 class="title">Download A-B/AI – Latest Release</h1>
+  <p id="loading">Fetching latest release information...</p>
+  <ul id="links" style="display:none">
+    <li><a id="win-link" href="#">Windows installer</a></li>
+    <li><a id="mac-arm-link" href="#">macOS (Apple&nbsp;Silicon)</a></li>
+    <li><a id="mac-intel-link" href="#">macOS (Intel)</a></li>
   </ul>
-  <p><em>SHA-256 checksums available on the <a href="https://github.com/skylordafk/A-B-AI/releases/tag/v1.1.0">release page</a>.</em></p>
+  <p id="sha-note" style="display:none"><em>SHA-256 checksums available on the <a id="release-page" href="#">release page</a>.</em></p>
   <p>See the <a href="../USAGE.md">Quick-start guide</a>.</p>
+
+  <script>
+  (async () => {
+    try {
+      const resp = await fetch('https://api.github.com/repos/skylordafk/A-B-AI/releases/latest');
+      if (!resp.ok) throw new Error('HTTP '+resp.status);
+      const rel = await resp.json();
+      const tag = rel.tag_name;
+
+      // helper to find asset by substring
+      const findAsset = (substr) => rel.assets.find(a => a.name.includes(substr));
+
+      const win = findAsset('Setup.exe');
+      const macArm = findAsset('arm64.dmg');
+      const macIntel = findAsset('x64.dmg');
+
+      if (win) {
+        document.getElementById('win-link').href = win.browser_download_url;
+      } else {
+        document.getElementById('win-link').textContent += ' (not available)';
+      }
+      if (macArm) {
+        document.getElementById('mac-arm-link').href = macArm.browser_download_url;
+      } else {
+        document.getElementById('mac-arm-link').textContent += ' (not available)';
+      }
+      if (macIntel) {
+        document.getElementById('mac-intel-link').href = macIntel.browser_download_url;
+      } else {
+        document.getElementById('mac-intel-link').textContent += ' (not available)';
+      }
+
+      const releasePage = `https://github.com/skylordafk/A-B-AI/releases/tag/${tag}`;
+      const relLinkElem = document.getElementById('release-page');
+      relLinkElem.href = releasePage;
+      relLinkElem.textContent = 'release page';
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('links').style.display = '';
+      document.getElementById('sha-note').style.display = '';
+    } catch (e) {
+      document.getElementById('loading').textContent = 'Failed to fetch release info. Please see the releases page.';
+    }
+  })();
+  </script>
 </body>
 </html> 

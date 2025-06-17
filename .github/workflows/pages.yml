@@ -22,36 +22,12 @@ jobs:
           enablement: true
 
       - name: Decide
-        id: decide
-        run: |
-          if [[ "${{ github.ref }}" =~ ^refs/tags/v.* ]]; then
-            echo "deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "deploy=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout docs
-        if: steps.decide.outputs.deploy == 'true'
         uses: actions/checkout@v4
 
-      - name: Upload real docs
-        if: steps.decide.outputs.deploy == 'true'
+      - name: Upload docs
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
 
-      - name: Make placeholder
-        if: steps.decide.outputs.deploy == 'false'
-        run: |
-          mkdir stub
-          echo '<!doctype html><title>No deploy for this commit</title>' > stub/index.html
-
-      - name: Upload placeholder
-        if: steps.decide.outputs.deploy == 'false'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: stub
-
       - name: Deploy
-        if: steps.decide.outputs.deploy == 'true'
         uses: actions/deploy-pages@v4

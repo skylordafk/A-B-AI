@@ -1,180 +1,91 @@
-# ABAI Desktop App
+# A-B/AI – Your Multi-Model Desktop Copilot
 
-[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/skylordafk/A-B-AI/releases)
-[![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/skylordafk/A-B-AI/releases)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Version](https://img.shields.io/github/v/release/skylordafk/A-B-AI?include_prereleases&label=Version)](https://github.com/skylordafk/A-B-AI/releases)
+[![Downloads](https://img.shields.io/github/downloads/skylordafk/A-B-AI/total?label=Downloads)](https://github.com/skylordafk/A-B-AI/releases)
+[![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white)](https://skylordafk.github.io/A-B-AI/download.html)
+[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)](https://skylordafk.github.io/A-B-AI/download.html)
+[![GitHub stars](https://img.shields.io/github/stars/skylordafk/A-B-AI?style=social)](https://github.com/skylordafk/A-B-AI/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/skylordafk/A-B-AI?label=Issues)](https://github.com/skylordafk/A-B-AI/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/skylordafk/A-B-AI)](https://github.com/skylordafk/A-B-AI/commits/master)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Download](https://img.shields.io/badge/Download-App-brightgreen?logo=github)](https://skylordafk.github.io/A-B-AI/download.html)
+
+> **A-B/AI** lets you chat with multiple AI models side-by-side, crunch thousands of prompts in bulk, and compare costs – all in a slick cross-platform desktop app.
+
+---
+
+## ✨ Highlights
+
+|                                 |                                                                                                                                                                 |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 💬 **Multi-Model Chat**         | Converse with OpenAI, Anthropic, Gemini, Grok and more in one tab – complete with token & cost tracking.                                                        |
+| 📊 **Batch Processing**         | Import CSV/JSON, estimate cost, run thousands of prompts in parallel, stream results live, and export to CSV – with automatic retries & per-row error handling. |
+| 🧮 **Real-Time Cost Analytics** | Built-in pricing DB for 30+ models. Know the bill _before_ you click _Send_.                                                                                    |
+| 📈 **Diff Viewer**              | Quickly visualise model output differences and regressions.                                                                                                     |
+| 🌓 **Beautiful Themes**         | Light & Dark (and it actually remembers your choice).                                                                                                           |
+| 🔑 **License Activation**       | Offline-friendly commercial licensing with encrypted local storage.                                                                                             |
+| 🖇️ **Plugin SDK**               | Extend A-B/AI with custom providers or tools – see [`packages/abai-plugin-sdk`](packages/abai-plugin-sdk).                                                      |
+| ⚡ **Blazing Fast**             | Vite + React + Electron and a carefully-tuned cache layer.                                                                                                      |
+
+---
 
 ## 📥 Download
 
-Download the latest version of A-B/AI for your platform:
+Grab the latest signed installers from the **Download** badge above or head to our GitHub Pages mirror:
 
-| Platform | Download                                                                                               | Version |
-| -------- | ------------------------------------------------------------------------------------------------------ | ------- |
-| Windows  | [A-BAI-Setup.exe](https://github.com/skylordafk/A-B-AI/releases/latest/download/A-BAI-1.0.2-Setup.exe) | v1.0.2  |
-| macOS    | Coming Soon                                                                                            | -       |
+👉 **https://skylordafk.github.io/A-B-AI/download.html**
 
-> **Note**: macOS support is in development. For now, macOS users can build from source using the instructions below.
+The page always points to the most recent stable release on the [Releases](https://github.com/skylordafk/A-B-AI/releases) tab.
 
-## 🚀 30-Second Quick Start
+---
+
+## 🔧 Build From Source (Dev Mode)
 
 ```bash
-# Clone and install
-git clone https://github.com/skylordafk/A-B-AI.git
-cd A-B-AI
-pnpm install
+# 1. Clone
+ git clone https://github.com/skylordafk/A-B-AI.git && cd A-B-AI
 
-# Run the app
-pnpm dev
+# 2. Install deps (monorepo managed by pnpm)
+ pnpm install --frozen-lockfile
 
-# Enter your API keys in Settings (File → Settings)
-# Start chatting with multiple AI models!
+# 3. Run the app with hot reload
+ pnpm dev
 ```
 
-**That's it!** The app will open automatically. See [First Model Guide](docs/first-model.md) for detailed setup.
+The Electron window will pop up automatically, pointing to the Vite dev server. Hack away! 🛠️
 
 ---
 
-## 📊 Batch Prompting MVP
-
-Process multiple prompts efficiently with our new batch processing feature:
-
-- **CSV/JSON Import**: Upload files with multiple prompts
-- **Cost Estimation**: Preview costs before running
-- **Parallel Processing**: Adjust concurrency (1-10 requests)
-- **Progress Tracking**: Real-time updates with ETA
-- **Export Results**: Download CSV results and job manifests
-
-### Quick Example
-
-1. Click the dropdown arrow next to "Send" → "Open Batch Prompting..."
-2. Upload a CSV file with your prompts:
-   ```csv
-   prompt,model,system,temperature
-   "What is AI?",openai/gpt-4.1-mini,"You are a helpful assistant",0.7
-   "Explain ML",anthropic/claude-3-haiku,,0.5
-   ```
-3. Review cost estimate and click "Run Batch"
-4. Export results when complete
-
-See [Batch Documentation](docs/batch.md) for detailed instructions.
-
----
-
-## About
-
-A desktop application built with Electron, Vite, and React for AI model comparison and cost analysis.
-
-## Project Structure
-
-This is a monorepo managed by pnpm with the following structure:
+## 🗂️ Repository Layout
 
 ```
 ABAI/
-├── apps/
-│   ├── main/      # Electron main process
-│   └── ui/        # React UI (Vite)
-├── docs/          # Documentation
-├── tests/         # Test files
-└── package.json   # Root workspace config
+├── apps/          # Electron main & React renderer
+│   ├── main/
+│   └── ui/
+├── docs/          # User & dev docs (served via GitHub Pages)
+├── packages/      # Plugin SDK & shared libs
+├── tests/         # Unit, integration & E2E tests (Vitest + Playwright)
+└── .github/       # CI/CD workflows (build, release, pages)
 ```
 
-## Prerequisites
+---
 
-- Node.js >= 18.0.0
-- pnpm >= 8.0.0
+## 🚚 Release Flow (TL;DR)
 
-## Setup
+1. `pnpm version <major|minor|patch>` – bumps version & creates a _vX.Y.Z_ tag 2._GitHub Actions_ build platform installers → create Release → deploy Docs page
+   3.Download badges & Pages site auto-update via workflow
 
-1. Clone the repository:
+Full details in [RELEASE.md](RELEASE.md).
 
-```bash
-git clone https://github.com/skylordafk/A-B-AI.git
-cd A-B-AI
-```
+---
 
-2. Install dependencies:
+## 👩‍💻 Contributing
 
-```bash
-pnpm install
-```
+Got an idea or found a bug? Open an [issue](https://github.com/skylordafk/A-B-AI/issues) or a PR! Contributions of all sizes and experience levels are welcome.
 
-## Development
+---
 
-Run the app in development mode with hot-reload:
+## 📝 License
 
-```bash
-pnpm dev
-```
-
-This will:
-
-- Start the Vite dev server for the React UI
-- Launch Electron with the dev server URL
-- Open DevTools in detached mode
-
-## Building
-
-Build all packages:
-
-```bash
-pnpm build
-```
-
-## Production
-
-Run the built app:
-
-```bash
-pnpm start:prod
-```
-
-## Scripts
-
-- `pnpm dev` - Start development environment
-- `pnpm build` - Build all packages
-- `pnpm start:prod` - Run production build
-- `pnpm lint` - Run ESLint
-- `pnpm format` - Format code with Prettier
-
-## Architecture
-
-- **Main Process** (`apps/main`): Handles window management, native menus, and system integration
-- **Renderer Process** (`apps/ui`): React application with Tailwind CSS for styling
-- **Preload Script**: Provides secure IPC communication between main and renderer
-
-## Menu
-
-The app includes a native menu with:
-
-- File → Settings (placeholder for future implementation)
-- File → Quit
-
-## Technology Stack
-
-- **Electron** - Desktop framework
-- **React** - UI framework
-- **Vite** - Build tool and dev server
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Utility-first CSS
-- **pnpm** - Package management
-- **ESLint** & **Prettier** - Code quality
-- **Husky** & **lint-staged** - Git hooks
-
-## CI/CD
-
-GitHub Actions workflow runs on push/PR to:
-
-- Lint code
-- Build packages
-- Test on Windows and macOS with Node.js 18.x and 20.x
-
-## Documentation
-
-- [Release Process](./RELEASE.md) - Step-by-step guide for creating new releases
-- [Batch Processing Guide](./docs/batch.md) - Detailed documentation on batch processing features
-- [Usage Guide](./USAGE.md) - Complete application usage instructions
-- [Model & Pricing Updates](./docs/MODEL_PRICING_UPDATE_PROCESS.md) - How to update AI models and pricing
-
-## Next Steps
-
-Refer to `docs/ROADMAP.md` for the complete development roadmap.
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.

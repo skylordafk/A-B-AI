@@ -37,20 +37,30 @@
       const win = findAsset(['Setup.exe', 'windows', '.exe']);
       const macArm = findAsset(['arm64.dmg', 'apple-silicon', 'aarch64']);
       const macIntel = findAsset(['x64.dmg', 'intel', 'x86_64']);
+      
+      // If no specific arch found, look for generic .dmg
+      const genericMac = (!macArm && !macIntel) ? findAsset(['.dmg']) : null;
 
       if (win) {
         document.getElementById('win-link').href = win.browser_download_url;
       } else {
         document.getElementById('win-link').textContent += ' (not available)';
       }
-      if (macArm) {
+      
+      if (genericMac) {
+        // Single universal macOS build
+        document.getElementById('mac-arm-link').href = genericMac.browser_download_url;
+        document.getElementById('mac-arm-link').textContent = 'macOS (Universal)';
+        document.getElementById('mac-intel-link').style.display = 'none';
+      } else if (macArm) {
         document.getElementById('mac-arm-link').href = macArm.browser_download_url;
+        if (macIntel) {
+          document.getElementById('mac-intel-link').href = macIntel.browser_download_url;
+        } else {
+          document.getElementById('mac-intel-link').textContent += ' (not available)';
+        }
       } else {
         document.getElementById('mac-arm-link').textContent += ' (not available)';
-      }
-      if (macIntel) {
-        document.getElementById('mac-intel-link').href = macIntel.browser_download_url;
-      } else {
         document.getElementById('mac-intel-link').textContent += ' (not available)';
       }
 

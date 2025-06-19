@@ -18,12 +18,12 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
       transformHeader: (header) => header.trim().toLowerCase(),
     });
 
-    // Validate required columns
+    // Validate required columns – either prompt or developer must exist
     const headers = results.meta.fields || [];
-    if (!headers.includes('prompt')) {
+    if (!headers.includes('prompt') && !headers.includes('developer')) {
       errors.push({
         row: 0,
-        message: 'CSV must have a "prompt" column',
+        message: 'CSV must have either a "prompt" or "developer" column',
       });
       return { rows, errors };
     }
@@ -32,13 +32,20 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     results.data.forEach((row: any, index: number) => {
       try {
-        if (!row.prompt || row.prompt.trim() === '') {
+        if (
+          (!row.prompt || row.prompt.trim() === '') &&
+          (!row.developer || row.developer.trim() === '')
+        ) {
           errors.push({
             row: index + 2, // +2 because CSV is 1-indexed and has header
             message: 'Row missing prompt',
             data: row,
           });
           return;
+        }
+
+        if (!row.prompt && row.developer) {
+          row.prompt = row.developer;
         }
 
         const devPrompt = row.developer?.trim();

@@ -631,6 +631,54 @@ ipcMain.handle(
   }
 );
 
+ipcMain.handle(
+  'chat:sendToModelBatch',
+  async (_, modelId: string, prompt: string, systemPrompt?: string, _temperature?: number) => {
+    const [providerName, ...modelParts] = modelId.split('/');
+    const modelName = modelParts.join('/');
+
+    const provider = allProviders.find((p) => p && p.id === providerName);
+    if (!provider) throw new Error(`Unknown provider: ${providerName}`);
+
+    const apiKey = getKey(provider.id as ProviderId);
+    if (!apiKey) throw new Error(`Missing API key for provider: ${providerName}`);
+
+    try {
+      let fullPrompt = prompt;
+      if (systemPrompt) fullPrompt = `${systemPrompt}\n\n${prompt}`;
+
+      const result = await provider.chat(fullPrompt, modelId);
+
+      const modelInfo = provider
+        .listModels()
+        .find((m) => modelId.includes(m.id) || m.id.includes(modelName));
+      const modelLabel = modelInfo ? modelInfo.name : provider.label;
+
+      return {
+        answer: result.answer,
+        promptTokens: result.promptTokens,
+        answerTokens: result.answerTokens,
+        costUSD: result.costUSD,
+        usage: {
+          prompt_tokens: result.promptTokens,
+          completion_tokens: result.answerTokens,
+        },
+        cost: result.costUSD,
+        provider: modelLabel,
+        model: modelId,
+      };
+    } catch (error: any) {
+      if (error.status === 401 || error.status === 403) {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win) {
+          win.webContents.send('settings:invalidKey', provider.id);
+        }
+      }
+      throw error;
+    }
+  }
+);
+
 app.whenReady().then(async () => {
   console.info('[Main] App is ready');
   console.info('[Main] isDev:', isDev);

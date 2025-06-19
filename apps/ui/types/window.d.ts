@@ -109,6 +109,24 @@ declare global {
       // License management
       storeLicense?: (licenseKey: string) => Promise<boolean>;
       validateLicense?: () => Promise<{ valid: boolean; plan?: string; expires?: string }>;
+      sendToModelBatch?: (
+        modelId: string,
+        prompt: string,
+        systemPrompt?: string,
+        temperature?: number
+      ) => Promise<{
+        answer: string;
+        promptTokens: number;
+        answerTokens: number;
+        costUSD: number;
+        usage: {
+          prompt_tokens: number;
+          completion_tokens: number;
+        };
+        cost: number;
+        provider: string;
+        model: string;
+      }>;
     };
     ipc: {
       onOpenSettings: (callback: () => void) => void;

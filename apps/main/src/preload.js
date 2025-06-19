@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('api', {
   // Enhanced model prompt with advanced features
   sendToModelWithFeatures: (modelId, prompt, options) =>
     ipcRenderer.invoke('chat:sendToModelWithFeatures', modelId, prompt, options),
+  // Model-specific prompt for batch processing
+  sendToModelBatch: (modelId, prompt, systemPrompt, temperature) =>
+    ipcRenderer.invoke('chat:sendToModelBatch', modelId, prompt, systemPrompt, temperature),
   // Get available models
   getAvailableModels: () => ipcRenderer.invoke('models:getAvailable'),
   // Count tokens for a text

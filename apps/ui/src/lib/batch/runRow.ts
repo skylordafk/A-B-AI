@@ -71,15 +71,24 @@ export async function runRow(
 
     let response: ModelResponse | ExtendedModelResponse;
 
-    // For Claude models, use enhanced features if available
-    if (
+    const isO = model.startsWith('openai/o');
+
+    if (isO && (window as any).api.sendToModelBatch) {
+      // Use Batch API path
+      response = await (window as any).api.sendToModelBatch(
+        model,
+        processedPrompt,
+        row.developer ?? row.system,
+        row.temperature
+      );
+    } else if (
       provider === 'anthropic' &&
       options?.enablePromptCaching &&
       (window as any).api.sendToModelWithFeatures
     ) {
       // Use the enhanced method with caching options
       response = await (window as any).api.sendToModelWithFeatures(model, processedPrompt, {
-        systemPrompt: row.system,
+        systemPrompt: row.developer ?? row.system,
         temperature: row.temperature,
         enablePromptCaching: options.enablePromptCaching,
         cacheTTL: options.cacheTTL || '5m',
@@ -90,7 +99,7 @@ export async function runRow(
       response = await (window as any).api.sendToModel(
         model,
         processedPrompt,
-        row.system,
+        row.developer ?? row.system,
         row.temperature
       );
     }

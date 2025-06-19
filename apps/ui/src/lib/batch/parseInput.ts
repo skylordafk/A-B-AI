@@ -41,14 +41,21 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
           return;
         }
 
+        const devPrompt = row.developer?.trim();
         const batchRow: BatchRow = {
           id: `row-${index + 1}`,
           prompt: row.prompt.trim(),
           model: row.model?.trim(),
-          system: row.system?.trim(),
+          system: row.system?.trim() || undefined,
+          developer: devPrompt,
           temperature: row.temperature ? parseFloat(row.temperature) : undefined,
           data: row,
         };
+
+        // Fallback: if system prompt is missing but developer is provided, treat developer as system for non-o models later
+        if (!batchRow.system && batchRow.developer) {
+          batchRow.system = batchRow.developer;
+        }
 
         // Validate temperature if provided
         if (
@@ -110,7 +117,8 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
             id: `row-${index + 1}`,
             prompt: item.prompt.trim(),
             model: item.model?.trim(),
-            system: item.system?.trim(),
+            system: item.system?.trim() || undefined,
+            developer: (item.developer as string | undefined)?.trim(),
             temperature: typeof item.temperature === 'number' ? item.temperature : undefined,
             data: item,
           };
@@ -126,6 +134,11 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
               data: item,
             });
             return;
+          }
+
+          // Fallback: if system prompt is missing but developer is provided, treat developer as system for non-o models later
+          if (!batchRow.system && batchRow.developer) {
+            batchRow.system = batchRow.developer;
           }
 
           rows.push(batchRow);

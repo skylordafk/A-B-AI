@@ -31,6 +31,11 @@ const MODEL_PRICING = {
     input: 0.5, // $0.50 per 1M tokens
     output: 1.5, // $1.50 per 1M tokens
   },
+  // New o-series reasoning model (canonical id)
+  o3: {
+    input: 2.0, // $2.00 per 1M tokens
+    output: 8.0, // $8.00 per 1M tokens
+  },
   // Legacy model (keeping for backward compatibility)
   'o3-2025-04-16': {
     input: 10.0, // $10.00 per 1M tokens
@@ -45,7 +50,87 @@ const WEB_SEARCH_SUPPORTED_MODELS = [
   'gpt-4.1-nano',
   'gpt-4o',
   'gpt-4o-mini',
+  'o3',
 ];
+
+/**
+ * Normalize a requested model id to an actual model alias used in API calls.
+ * Any id that starts with "o" (e.g. "o1", "o3-mini") is mapped to the
+ * canonical "o3" family by default unless it already references a
+ * known o-series variant like "o4-mini".
+ */
+function normalizeModel(id?: string): string {
+  if (!id) return DEFAULT_MODEL;
+
+  // If provider prefix present (e.g. "openai/o3") take the part after slash
+  const modelName = id.includes('/') ? id.split('/')[1] : id;
+
+  // Explicit handling for legacy names we keep
+  if (modelName === 'o3-2025-04-16') return 'o3-2025-04-16';
+
+  // Any id starting with the letter "o" is considered an o-series model.
+  if (/^o\d/.test(modelName)) {
+    // At the moment we only officially support o3. Additional variants like
+    // "o4-mini" can map to themselves if needed.
+    return modelName;
+  }
+
+  // Otherwise use existing mapping logic
+  if (
+    modelName.startsWith('gpt-4.1') &&
+    !modelName.includes('mini') &&
+    !modelName.includes('nano')
+  ) {
+    return 'gpt-4.1';
+  }
+  if (modelName.startsWith('gpt-4.1') && modelName.includes('mini')) {
+    return 'gpt-4.1-mini';
+  }
+  if (modelName.startsWith('gpt-4.1') && modelName.includes('nano')) {
+    return 'gpt-4.1-nano';
+  }
+  if (modelName === 'gpt-4o' || (modelName.startsWith('gpt-4o') && !modelName.includes('mini'))) {
+    return 'gpt-4o';
+  }
+  if (modelName.startsWith('gpt-4o') && modelName.includes('mini')) {
+    return 'gpt-4o-mini';
+  }
+  if (modelName.startsWith('gpt-3.5')) {
+    return 'gpt-3.5-turbo';
+  }
+
+  return DEFAULT_MODEL;
+}
+
+/**
+ * Build parameter object for OpenAI chat / responses API calls.
+ * Automatically handles o-series differences (max_completion_tokens / reasoning_effort).
+ */
+function buildParams(
+  model: string,
+  maxOut: number,
+  extra: Record<string, any> = {}
+): Record<string, any> {
+  const isO = model.startsWith('o');
+  const base: Record<string, any> = { model };
+
+  if (maxOut > 0) {
+    if (isO) {
+      base.max_completion_tokens = maxOut;
+    } else {
+      base.max_tokens = maxOut;
+    }
+  }
+
+  if (isO) {
+    base.reasoning_effort = (globalThis as any).getReasoningEffort?.() ?? 'high';
+  }
+
+  return {
+    ...base,
+    ...extra,
+  };
+}
 
 export const openaiProvider: BaseProvider = {
   id: 'openai',
@@ -124,41 +209,33 @@ export const openaiProvider: BaseProvider = {
 
     const openai = new OpenAI({ apiKey });
 
-    // Determine which model to use
-    let model = DEFAULT_MODEL;
-    if (modelId) {
-      // Extract just the model name if it includes provider prefix
-      const modelName = modelId.includes('/') ? modelId.split('/')[1] : modelId;
+    // Canonicalize the requested model id
+    const model = normalizeModel(modelId);
 
-      // Map to actual model IDs
-      if (
-        modelName === 'gpt-4.1' ||
-        (modelName.includes('gpt-4.1') &&
-          !modelName.includes('mini') &&
-          !modelName.includes('nano'))
-      ) {
-        model = 'gpt-4.1';
-      } else if (
-        modelName === 'gpt-4.1-mini' ||
-        (modelName.includes('gpt-4.1') && modelName.includes('mini'))
-      ) {
-        model = 'gpt-4.1-mini';
-      } else if (
-        modelName === 'gpt-4.1-nano' ||
-        (modelName.includes('gpt-4.1') && modelName.includes('nano'))
-      ) {
-        model = 'gpt-4.1-nano';
-      } else if (modelName === 'gpt-4o' && !modelName.includes('mini')) {
-        model = 'gpt-4o';
-      } else if (
-        modelName === 'gpt-4o-mini' ||
-        (modelName.includes('gpt-4o') && modelName.includes('mini'))
-      ) {
-        model = 'gpt-4o-mini';
-      } else if (modelName === 'gpt-3.5-turbo' || modelName.includes('3.5')) {
-        model = 'gpt-3.5-turbo';
-      } else if (modelName === 'o3-2025-04-16' || modelName.includes('o3')) {
-        model = 'o3-2025-04-16';
+    const isO = model.startsWith('o');
+
+    // ------------------------------------------------------------
+    // Merge developer role into the first system message for o-series
+    // ------------------------------------------------------------
+    const preparedMessages: ChatMessage[] = [...messages];
+    if (isO) {
+      const devIdx = preparedMessages.findIndex((m) => m.role === 'developer');
+      if (devIdx !== -1) {
+        const devContent = preparedMessages[devIdx].content;
+        // Remove the developer entry
+        preparedMessages.splice(devIdx, 1);
+
+        const sysIdx = preparedMessages.findIndex((m) => m.role === 'system');
+        if (sysIdx !== -1) {
+          // Append developer content to existing system message
+          preparedMessages[sysIdx] = {
+            ...preparedMessages[sysIdx],
+            content: `${preparedMessages[sysIdx].content}\n${devContent}`,
+          };
+        } else {
+          // Prepend new system message
+          preparedMessages.unshift({ role: 'system', content: devContent });
+        }
       }
     }
 
@@ -173,18 +250,18 @@ export const openaiProvider: BaseProvider = {
     } else if (model.includes('gpt-3.5')) {
       encodingModel = 'gpt-3.5-turbo';
     } else {
-      encodingModel = 'gpt-4'; // Default fallback
+      encodingModel = 'gpt-4';
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enc = encoding_for_model(encodingModel as any);
 
     // Count tokens for all messages
-    const allMessageText = messages.map((m) => m.content).join('\n');
+    const allMessageText = preparedMessages.map((m) => m.content).join('\n');
     const promptTokens = enc.encode(allMessageText).length;
 
     // Convert our messages to OpenAI format
-    const openaiMessages = messages.map((msg) => ({
+    const openaiMessages = preparedMessages.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
@@ -197,28 +274,22 @@ export const openaiProvider: BaseProvider = {
 
     if (useWebSearch) {
       // ----------------- Responses API path (with web_search tool) -----------------
-      // Build request payload
+      const maxOutputTokens = (globalThis as any).getMaxOutputTokens?.() ?? 8192;
+
       const responsePayload: any = {
         model,
         tools: [{ type: 'web_search_preview' }],
-        // The Responses API accepts either a string or a message array for `input`.
-        // We pass the chat history as an array so the model has full context.
         input: openaiMessages,
+        reasoning_effort: 'high',
       };
 
-      // Get max output tokens setting (0 means no limit)
-      const maxOutputTokens = (globalThis as any).getMaxOutputTokens?.() ?? 8192;
-
-      // Respect the global max output tokens setting if provided (>0)
       if (maxOutputTokens > 0) {
         responsePayload.max_output_tokens = maxOutputTokens;
       }
 
-      // Call the Responses API
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res: any = await (openai as any).responses.create(responsePayload);
 
-      // Extract answer text. The SDK exposes `output_text` for convenience.
       const answer =
         res.output_text ||
         (res.output && res.output.length && res.output.at(-1)?.content?.[0]?.text) ||
@@ -226,8 +297,6 @@ export const openaiProvider: BaseProvider = {
 
       const answerTokens = enc.encode(answer).length;
 
-      // Calculate cost (web search calls currently billed per 1K searches – not token-based).
-      // We ignore the extra web search surcharge here for simplicity and only bill tokens.
       const costUSD =
         (promptTokens / 1000) * (pricing.input / 1000) +
         (answerTokens / 1000) * (pricing.output / 1000);
@@ -235,29 +304,24 @@ export const openaiProvider: BaseProvider = {
       return { answer, promptTokens, answerTokens, costUSD };
     }
 
-    // ----------------- Default Chat Completions path -----------------
-    // Configure request based on model type
-    const requestConfig: any = {
-      model,
-      messages: openaiMessages,
-    };
-
-    // Get max output tokens setting (0 means no limit)
+    // ----------------- Chat Completions path -----------------
     const maxOutputTokens = (globalThis as any).getMaxOutputTokens?.() ?? 8192;
 
-    // Use max_completion_tokens for o3 models, max_tokens for others
-    // Only set if maxOutputTokens > 0 (0 means no limit)
-    if (maxOutputTokens > 0) {
-      if (model === 'o3-2025-04-16') {
-        requestConfig.max_completion_tokens = maxOutputTokens;
-      } else {
-        requestConfig.max_tokens = maxOutputTokens;
-      }
-    }
+    let requestConfig = buildParams(model, maxOutputTokens, {
+      messages: openaiMessages,
+      response_format: (globalThis as any).getJsonMode?.() ? { type: 'json_object' } : undefined,
+    });
 
-    const res = await openai.chat.completions.create(requestConfig);
+    // Clean out undefined values to avoid API errors
+    requestConfig = Object.fromEntries(
+      Object.entries(requestConfig).filter(([, v]) => v !== undefined)
+    );
 
-    const answer = res.choices[0].message?.content || '';
+    // Cast to any to satisfy the SDK typings which may lag behind new params
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (openai.chat.completions as any).create(requestConfig);
+
+    const answer = res.choices?.[0]?.message?.content || '';
     const answerTokens = enc.encode(answer).length;
 
     // Calculate cost based on the model's pricing (convert from per-1M to per-1K)

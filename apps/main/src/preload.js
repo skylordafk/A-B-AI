@@ -55,6 +55,12 @@ contextBridge.exposeInMainWorld('api', {
   // Streaming settings
   setEnableStreaming: (value) => ipcRenderer.invoke('settings:setEnableStreaming', value),
   getEnableStreaming: () => ipcRenderer.invoke('settings:getEnableStreaming'),
+  // JSON Mode settings
+  setJsonMode: (value) => ipcRenderer.invoke('settings:setJsonMode', value),
+  getJsonMode: () => ipcRenderer.invoke('settings:getJsonMode'),
+  // Reasoning Effort settings
+  setReasoningEffort: (value) => ipcRenderer.invoke('settings:setReasoningEffort', value),
+  getReasoningEffort: () => ipcRenderer.invoke('settings:getReasoningEffort'),
   // Job queue state management
   saveJobQueueState: (batchId, state) => ipcRenderer.invoke('jobqueue:saveState', batchId, state),
   loadJobQueueState: (batchId) => ipcRenderer.invoke('jobqueue:loadState', batchId),

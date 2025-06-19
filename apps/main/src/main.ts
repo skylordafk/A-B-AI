@@ -24,6 +24,10 @@ import {
   getPromptCacheTTL,
   setEnableStreaming,
   getEnableStreaming,
+  getJsonMode,
+  getReasoningEffort,
+  setJsonMode,
+  setReasoningEffort,
 } from './settings';
 import { get_encoding } from '@dqbd/tiktoken';
 import { checkLicence } from './licensing/checkLicence';
@@ -69,6 +73,12 @@ const store = new Store<{
 };
 (globalThis as Record<string, unknown>).getEnableStreaming = () => {
   return getEnableStreaming();
+};
+(globalThis as Record<string, unknown>).getJsonMode = () => {
+  return getJsonMode();
+};
+(globalThis as Record<string, unknown>).getReasoningEffort = () => {
+  return getReasoningEffort();
 };
 
 // Initialize tiktoken encoder
@@ -186,6 +196,24 @@ ipcMain.handle('settings:setEnableStreaming', (_, value: boolean) => {
 
 ipcMain.handle('settings:getEnableStreaming', () => {
   return getEnableStreaming();
+});
+
+// JSON Mode Settings
+ipcMain.handle('settings:setJsonMode', (_, value: boolean) => {
+  setJsonMode(value);
+});
+
+ipcMain.handle('settings:getJsonMode', () => {
+  return getJsonMode();
+});
+
+// Reasoning Effort Settings
+ipcMain.handle('settings:setReasoningEffort', (_, value: 'low' | 'medium' | 'high') => {
+  setReasoningEffort(value);
+});
+
+ipcMain.handle('settings:getReasoningEffort', () => {
+  return getReasoningEffort();
 });
 
 // Job Queue State Management

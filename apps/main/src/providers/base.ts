@@ -1,7 +1,7 @@
 import { ModelMeta } from '../types/model';
 
 export interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system' | 'developer';
   content: string;
 }
 

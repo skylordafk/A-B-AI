@@ -3,6 +3,7 @@ export interface BatchRow {
   prompt: string;
   model?: string;
   system?: string;
+  developer?: string;
   temperature?: number;
   data?: Record<string, unknown>;
 }

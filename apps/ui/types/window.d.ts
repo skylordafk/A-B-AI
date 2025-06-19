@@ -89,6 +89,11 @@ declare global {
       // Streaming settings
       setEnableStreaming: (value: boolean) => Promise<void>;
       getEnableStreaming: () => Promise<boolean>;
+      // JSON mode & reasoning effort
+      setJsonMode?: (value: boolean) => Promise<void>;
+      getJsonMode?: () => Promise<boolean>;
+      setReasoningEffort?: (value: 'low' | 'medium' | 'high') => Promise<void>;
+      getReasoningEffort?: () => Promise<'low' | 'medium' | 'high'>;
       // Job queue state management
       saveJobQueueState: (batchId: string, state: JobQueueState) => Promise<void>;
       loadJobQueueState: (batchId: string) => Promise<JobQueueState | null>;

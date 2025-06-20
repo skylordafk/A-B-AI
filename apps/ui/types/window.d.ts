@@ -106,8 +106,8 @@ declare global {
       validateLicense?: () => Promise<{ valid: boolean; plan?: string; expires?: string }>;
     };
     ipc: {
-      onOpenSettings: (callback: () => void) => void;
-      onInvalidKey: (callback: (providerId: string) => void) => void;
+      onOpenSettings: (callback: () => void) => () => void;
+      onInvalidKey: (callback: (providerId: string) => void) => () => void;
     };
   }
 }

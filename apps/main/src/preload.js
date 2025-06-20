@@ -76,8 +76,11 @@ contextBridge.exposeInMainWorld('api', {
 contextBridge.exposeInMainWorld('ipc', {
   onOpenSettings: (cb) => {
     ipcRenderer.on('menu:openSettings', cb);
+    return () => ipcRenderer.removeListener('menu:openSettings', cb);
   },
   onInvalidKey: (cb) => {
-    ipcRenderer.on('settings:invalidKey', (_, providerId) => cb(providerId));
+    const listener = (_, providerId) => cb(providerId);
+    ipcRenderer.on('settings:invalidKey', listener);
+    return () => ipcRenderer.removeListener('settings:invalidKey', listener);
   },
 });

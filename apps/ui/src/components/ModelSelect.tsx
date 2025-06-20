@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface ModelMeta {
   id: string;
@@ -64,6 +64,13 @@ const AVAILABLE_MODELS: { provider: string; models: ModelMeta[] }[] = [
 
 export default function ModelSelect({ selectedModels, onSelectionChange }: ModelSelectProps) {
   const availableModels = AVAILABLE_MODELS;
+  const [openProviders, setOpenProviders] = useState<string[]>(['OpenAI', 'Anthropic']); // Default open
+
+  const handleProviderToggle = (provider: string) => {
+    setOpenProviders((prev) =>
+      prev.includes(provider) ? prev.filter((p) => p !== provider) : [...prev, provider]
+    );
+  };
 
   const handleModelToggle = (modelId: string) => {
     if (selectedModels.includes(modelId)) {
@@ -80,33 +87,56 @@ export default function ModelSelect({ selectedModels, onSelectionChange }: Model
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
       {availableModels.map(({ provider, models }) => (
         <div
           key={provider}
           className="border border-stone-300 rounded p-2 bg-stone-50 dark:bg-stone-700 dark:border-stone-600"
         >
-          <h4 className="text-xs font-semibold mb-1.5 text-stone-800 dark:text-stone-100 uppercase tracking-wide">
-            {provider}
-          </h4>
-          <div className="space-y-1">
-            {models.map((model) => (
-              <label key={model.id} className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={selectedModels.includes(model.id)}
-                  onChange={() => handleModelToggle(model.id)}
-                  className="cursor-pointer w-3 h-3 text-slate-600 bg-stone-100 dark:bg-stone-600/30 border-stone-300 dark:border-stone-500 rounded-sm focus:ring-slate-500 focus:ring-1"
-                />
-                <span className="text-xs font-medium text-stone-800 dark:text-stone-100 group-hover:text-stone-900 dark:group-hover:text-stone-50 transition-colors">
-                  {model.name}{' '}
-                  <span className="text-[10px] text-stone-600 dark:text-stone-300 font-normal">
-                    {getPriceBadge(model)}
+          <button
+            onClick={() => handleProviderToggle(provider)}
+            className="w-full flex justify-between items-center text-left"
+          >
+            <h4 className="text-xs font-semibold text-stone-800 dark:text-stone-100 uppercase tracking-wide">
+              {provider}
+            </h4>
+            <svg
+              className={`w-4 h-4 transform transition-transform ${
+                openProviders.includes(provider) ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          {openProviders.includes(provider) && (
+            <div className="mt-2 space-y-1">
+              {models.map((model) => (
+                <label key={model.id} className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={selectedModels.includes(model.id)}
+                    onChange={() => handleModelToggle(model.id)}
+                    className="cursor-pointer w-3 h-3 text-slate-600 bg-stone-100 dark:bg-stone-600/30 border-stone-300 dark:border-stone-500 rounded-sm focus:ring-slate-500 focus:ring-1"
+                  />
+                  <span className="text-xs font-medium text-stone-800 dark:text-stone-100 group-hover:text-stone-900 dark:group-hover:text-stone-50 transition-colors">
+                    {model.name}{' '}
+                    <span className="text-[10px] text-stone-600 dark:text-stone-300 font-normal">
+                      {getPriceBadge(model)}
+                    </span>
                   </span>
-                </span>
-              </label>
-            ))}
-          </div>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>

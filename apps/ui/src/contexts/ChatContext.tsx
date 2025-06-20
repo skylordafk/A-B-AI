@@ -35,6 +35,25 @@ interface ChatContextType {
   pushBatchSummary: (summary: BatchSummary) => void;
   updateChatTitle: (chatId: string, title: string) => void;
   clearAllChats: () => void;
+
+  /* ---- Fields expected by ChatPage.tsx ---- */
+  messages: Message[];
+  sendMessage: (prompt: string) => Promise<void>;
+  isThinking: boolean;
+
+  model: string;
+  setModel: (m: string) => void;
+  multiModel: boolean;
+  setMultiModel: (v: boolean) => void;
+  temperature: number;
+  setTemperature: (t: number) => void;
+  maxTokens: number;
+  setMaxTokens: (n: number) => void;
+  selectedProviders: string[];
+  setSelectedProviders: (ids: string[]) => void;
+  stop: () => void;
+  mode: string;
+  setMode: (m: string) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -222,6 +241,81 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return chats.find((chat) => chat.id === currentChatId) || null;
   }, [chats, currentChatId]);
 
+  /* ====== Extra state for ChatPage expectations ====== */
+  const [isThinking, setIsThinking] = useState(false);
+  const [model, setModel] = useState('');
+  const [multiModel, setMultiModel] = useState(false);
+  const [temperature, setTemperature] = useState(0.8);
+  const [maxTokens, setMaxTokens] = useState(4096);
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [mode, setMode] = useState('default');
+
+  // Derived flat list of messages for the active conversation
+  const messages: Message[] = useMemo(() => {
+    if (!currentChat) return [];
+    return currentChat.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+      provider: m.provider,
+      cost: m.cost,
+      tokens: m.tokens,
+      id: m.id,
+      timestamp: m.timestamp,
+    }));
+  }, [currentChat]);
+
+  /**
+   * Sends a prompt to the backend via `window.api` helpers and stores
+   * both the user prompt and the assistant responses in the chat history.
+   */
+  const sendMessage = async (prompt: string) => {
+    if (!prompt.trim()) return;
+
+    // Push the user message immediately
+    const userMsg: Message = { role: 'user', content: prompt, id: `user-${Date.now()}` };
+    pushMessage(userMsg);
+
+    setIsThinking(true);
+
+    try {
+      // Decide which IPC method to use
+      if (selectedProviders.length > 0 && window.api?.sendPrompts) {
+        const history = messages.map((m) => ({ role: m.role, content: m.content }));
+        const results = await window.api.sendPrompts(prompt, selectedProviders as any, history);
+
+        results.forEach((r: any) => {
+          const assistantMsg: Message = {
+            role: 'assistant',
+            content: r.answer,
+            provider: r.provider,
+            cost: r.costUSD,
+            id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          };
+          pushMessage(assistantMsg);
+        });
+      } else if (window.api?.sendPrompt) {
+        const r = await window.api.sendPrompt(prompt);
+        const assistantMsg: Message = {
+          role: 'assistant',
+          content: r.answer,
+          provider: 'Model',
+          cost: r.costUSD,
+          id: `assistant-${Date.now()}`,
+        };
+        pushMessage(assistantMsg);
+      }
+    } catch (err: any) {
+      pushMessage({ role: 'assistant', content: `Error: ${err.message}`, provider: 'Error' });
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const stop = () => {
+    // In future this could call an IPC channel to abort, but for now just unset thinking flag
+    setIsThinking(false);
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -236,6 +330,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         pushBatchSummary,
         updateChatTitle,
         clearAllChats,
+
+        // ---- Extended API ----
+        messages,
+        sendMessage,
+        isThinking,
+
+        model,
+        setModel,
+        multiModel,
+        setMultiModel,
+        temperature,
+        setTemperature,
+        maxTokens,
+        setMaxTokens,
+        selectedProviders,
+        setSelectedProviders,
+        stop,
+        mode,
+        setMode,
       }}
     >
       {children}

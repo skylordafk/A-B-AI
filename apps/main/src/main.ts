@@ -618,7 +618,7 @@ app.whenReady().then(async () => {
       const licenseEndpoint = process.env.LICENCE_ENDPOINT || 'https://license.spventerprises.com';
       console.info('[Main] License endpoint:', licenseEndpoint);
 
-      const isValid = await checkLicence(licenseEndpoint);
+      const isValid = await checkLicence();
       console.info('[Main] License check result:', isValid);
 
       if (!isValid) {

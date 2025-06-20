@@ -53,12 +53,7 @@ Your A-B/AI Stripe integration is fully operational:
 - Update `apps/ui/src/shared/stripe.ts` with your Price ID
 - Verify your Stripe publishable key is correct
 
-### 3. Disable Development Mode (Optional)
-
-- Remove `ALLOW_DEV_ACTIVATION=true` from server `.env` for full production security
-- Restart server: `pm2 restart abai-license-server`
-
-### 4. Test Complete Customer Flow
+### 3. Test Complete Customer Flow
 
 - Build your app in production mode
 - Test the full flow: app launch → email entry → Stripe checkout → license activation
@@ -74,3 +69,16 @@ Your customers can now:
 5. Use app immediately
 
 The integration handles payments, license creation, and validation automatically! 🚀
+
+### 4. Final Checks
+
+- [ ] **Run E2E tests**: `pnpm test:e2e`
+- [ ] **Review `electron-builder.yml`**: Confirm build configurations.
+- [ ] **Build for production**: `pnpm package`
+- [ ] **Test the packaged app**: Locate and run the executable in the `dist/` folder.
+- [ ] **Push to `main`**: Merge your feature branch.
+- [ ] **Tag a release**: `git tag v1.x.x && git push --tags`
+- [ ] **Create GitHub Release**: Draft release notes and upload build artifacts.
+- [ ] **Verify downloads**: Check that the new version is available on the download page.
+
+**Congratulations! You're ready for launch!** 🚀

@@ -20,12 +20,12 @@
     "axios": "^1.9.0",
     "electron-store": "8.1.0",
     "openai": "^5.1.1",
+    "pnpm": "^10.12.1",
     "stripe": "^18.2.1",
     "uuid": "^11.1.0"
   },
   "scripts": {
-    "dev": "concurrently -k -n UI,MAIN,LICENSE \"pnpm --filter ./apps/ui dev\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5174 pnpm --filter ./apps/main dev\" \"pnpm run license-server\"",
-    "license-server": "tsx scripts/licence-server.ts",
+    "dev": "concurrently -k -n UI,MAIN \"pnpm --filter ./apps/ui dev\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5174 pnpm --filter ./apps/main dev\"",
     "build": "pnpm -r run build",
     "start:prod": "pnpm --filter ./apps/main exec electron .",
     "test": "vitest",
@@ -47,6 +47,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.43.1",
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
     "@types/node": "^22.10.6",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
@@ -62,6 +65,7 @@
     "eslint-plugin-prettier": "^5.2.1",
     "fastify": "^5.3.3",
     "husky": "^9.1.6",
+    "jsdom": "^23.0.1",
     "lint-staged": "^15.2.10",
     "prettier": "^3.3.3",
     "tsx": "^4.19.2",

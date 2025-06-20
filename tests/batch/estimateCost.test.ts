@@ -2,6 +2,19 @@ import { describe, it, expect, vi } from 'vitest';
 import { estimateCost } from '../../apps/ui/src/lib/batch/estimateCost';
 import type { BatchRow } from '../../apps/ui/src/types/batch';
 
+// Mock pricing data
+vi.mock('../../apps/ui/src/lib/batch/loadPricingData', () => ({
+  loadPricingData: vi.fn().mockResolvedValue({
+    openai: {
+      'gpt-4.1-mini': { prompt: 0.0004, completion: 0.0016 },
+      'o3-2025-04-16': { prompt: 0.01, completion: 0.01 }, // Default
+    },
+    anthropic: {
+      'claude-3-haiku': { prompt: 0.00025, completion: 0.00125 },
+    },
+  }),
+}));
+
 // Mock tiktoken to avoid tokenization issues in tests
 vi.mock('@dqbd/tiktoken', () => ({
   get_encoding: () => ({

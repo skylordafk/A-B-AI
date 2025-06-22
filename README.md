@@ -7,6 +7,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/skylordafk/A-B-AI?label=Issues)](https://github.com/skylordafk/A-B-AI/issues)
 [![GitHub last commit](https://img.shields.io/github/last-commit/skylordafk/A-B-AI)](https://github.com/skylordafk/A-B-AI/commits/master)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/skylordafk/A-B-AI)
 [![Download](https://img.shields.io/badge/Download-App-brightgreen?logo=github)](https://skylordafk.github.io/A-B-AI/download.html)
 
 > **A-B/AI** lets you chat with multiple AI models side-by-side, crunch thousands of prompts in bulk, and compare costs – all in a slick cross-platform desktop app.

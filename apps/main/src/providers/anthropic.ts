@@ -247,4 +247,88 @@ export const anthropicProvider: BaseProvider = {
       return enc.encode(text).length;
     }
   },
+
+  // Batch API implementation for Anthropic
+  // Note: Anthropic's batch API may not be fully available yet
+  async submitBatch(_jobs: any[]): Promise<string> {
+    // For now, implement a mock batch system or throw an error
+    // When Anthropic releases their batch API, this can be updated
+    throw new Error(
+      'Anthropic Batch API is not yet available. Use regular chat API or OpenAI batch API instead.'
+    );
+
+    // Future implementation when Anthropic batch API is available:
+    /*
+    const apiKey = (globalThis as any).getApiKey?.('anthropic');
+    if (!apiKey) throw new Error('Anthropic API key missing');
+
+    const anthropic = new Anthropic({ apiKey });
+
+    // Convert jobs to Anthropic batch format (when available)
+    const batchRequests = jobs.map((job, index) => ({
+      custom_id: `request-${index}`,
+      params: {
+        model: job.model || DEFAULT_MODEL,
+        messages: [{ role: 'user', content: job.prompt }],
+        max_tokens: job.maxTokens || 4096,
+      },
+    }));
+
+    // Submit batch (when API is available)
+    const batch = await anthropic.batches.create({
+      requests: batchRequests,
+    });
+
+    return batch.id;
+    */
+  },
+
+  async getBatchStatus(_batchId: string): Promise<any> {
+    throw new Error(
+      'Anthropic Batch API is not yet available. Use regular chat API or OpenAI batch API instead.'
+    );
+
+    // Future implementation:
+    /*
+    const apiKey = (globalThis as any).getApiKey?.('anthropic');
+    if (!apiKey) throw new Error('Anthropic API key missing');
+
+    const anthropic = new Anthropic({ apiKey });
+    const batch = await anthropic.batches.retrieve(batchId);
+
+    return {
+      id: batch.id,
+      status: batch.status,
+      created_at: batch.created_at,
+      completed_at: batch.completed_at,
+      request_counts: batch.request_counts,
+    };
+    */
+  },
+
+  async retrieveBatchResults(_batchId: string): Promise<any[]> {
+    throw new Error(
+      'Anthropic Batch API is not yet available. Use regular chat API or OpenAI batch API instead.'
+    );
+
+    // Future implementation:
+    /*
+    const apiKey = (globalThis as any).getApiKey?.('anthropic');
+    if (!apiKey) throw new Error('Anthropic API key missing');
+
+    const anthropic = new Anthropic({ apiKey });
+    const batch = await anthropic.batches.retrieve(batchId);
+
+    if (batch.status !== 'completed') {
+      throw new Error(`Batch not completed. Status: ${batch.status}`);
+    }
+
+    return batch.results.map(result => ({
+      custom_id: result.custom_id,
+      response: result.result?.content?.[0]?.text || '',
+      error: result.error,
+      status: result.error ? 'failed' : 'completed',
+    }));
+    */
+  },
 };

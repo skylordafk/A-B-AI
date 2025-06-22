@@ -314,6 +314,96 @@ export const openaiProvider: BaseProvider = {
 
     return { answer, promptTokens, answerTokens, costUSD };
   },
+
+  // Batch API implementation for OpenAI
+  async submitBatch(jobs: any[]): Promise<string> {
+    const apiKey = (globalThis as any).getApiKey?.('openai');
+    if (!apiKey) throw new Error('OpenAI API key missing');
+
+    const openai = new OpenAI({ apiKey });
+
+    // Convert jobs to OpenAI batch format
+    const batchRequests = jobs.map((job, index) => ({
+      custom_id: `request-${index}`,
+      method: 'POST',
+      url: '/v1/chat/completions',
+      body: {
+        model: job.model || DEFAULT_MODEL,
+        messages: [{ role: 'user', content: job.prompt }],
+        max_tokens: job.maxTokens || 4096,
+      },
+    }));
+
+    // Create a JSONL file content
+    const jsonlContent = batchRequests.map((req) => JSON.stringify(req)).join('\n');
+
+    // Upload the file for batch processing
+    const file = await openai.files.create({
+      file: new Blob([jsonlContent], { type: 'application/jsonl' }),
+      purpose: 'batch',
+    });
+
+    // Create the batch
+    const batch = await openai.batches.create({
+      input_file_id: file.id,
+      endpoint: '/v1/chat/completions',
+      completion_window: '24h',
+    });
+
+    return batch.id;
+  },
+
+  async getBatchStatus(batchId: string): Promise<any> {
+    const apiKey = (globalThis as any).getApiKey?.('openai');
+    if (!apiKey) throw new Error('OpenAI API key missing');
+
+    const openai = new OpenAI({ apiKey });
+    const batch = await openai.batches.retrieve(batchId);
+
+    return {
+      id: batch.id,
+      status: batch.status,
+      created_at: batch.created_at,
+      completed_at: batch.completed_at,
+      failed_at: batch.failed_at,
+      request_counts: batch.request_counts,
+      metadata: batch.metadata,
+    };
+  },
+
+  async retrieveBatchResults(batchId: string): Promise<any[]> {
+    const apiKey = (globalThis as any).getApiKey?.('openai');
+    if (!apiKey) throw new Error('OpenAI API key missing');
+
+    const openai = new OpenAI({ apiKey });
+    const batch = await openai.batches.retrieve(batchId);
+
+    if (batch.status !== 'completed') {
+      throw new Error(`Batch not completed. Status: ${batch.status}`);
+    }
+
+    if (!batch.output_file_id) {
+      throw new Error('No output file available for completed batch');
+    }
+
+    // Download the results file
+    const fileContent = await openai.files.content(batch.output_file_id);
+    const text = await fileContent.text();
+
+    // Parse JSONL results
+    const results = text
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+      .map((result) => ({
+        custom_id: result.custom_id,
+        response: result.response?.body?.choices?.[0]?.message?.content || '',
+        error: result.error,
+        status: result.error ? 'failed' : 'completed',
+      }));
+
+    return results;
+  },
 };
 
 // Legacy function for backward compatibility

@@ -390,6 +390,78 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
         return { success: true, data: updatedJob };
       }
 
+      case 'batch:submit-native': {
+        const { projectId, rows, providerName } = request.payload || {};
+
+        // Find the provider
+        const provider = allProviders.find((p) => p && p.id === providerName);
+        if (!provider) {
+          throw new Error(`Unknown provider for batch: ${providerName}`);
+        }
+
+        // Check if provider supports batch API
+        const capabilities = provider.getCapabilities();
+        if (!capabilities.supportsBatchAPI) {
+          throw new Error(`Provider ${providerName} does not support batch API`);
+        }
+
+        // Check if API key exists
+        const apiKey = getKey(provider.id as ProviderId);
+        if (!apiKey) {
+          throw new Error(`Missing API key for provider: ${providerName}`);
+        }
+
+        // Submit batch to native provider API
+        const batchId = await provider.submitBatch!(rows);
+
+        // Create batch job in database
+        const batchJob = await database.createBatchJob({
+          projectId,
+          fileName: `native-batch-${Date.now()}.json`,
+          totalRows: rows.length,
+        });
+
+        return {
+          success: true,
+          data: {
+            jobId: batchJob.id,
+            nativeBatchId: batchId,
+            provider: providerName,
+            status: 'submitted',
+          },
+        };
+      }
+
+      case 'batch:get-status': {
+        const { nativeBatchId, providerName } = request.payload || {};
+
+        // Find the provider
+        const provider = allProviders.find((p) => p && p.id === providerName);
+        if (!provider) {
+          throw new Error(`Unknown provider for batch: ${providerName}`);
+        }
+
+        // Get batch status from provider
+        const status = await provider.getBatchStatus!(nativeBatchId);
+
+        return { success: true, data: status };
+      }
+
+      case 'batch:get-results': {
+        const { nativeBatchId, providerName } = request.payload || {};
+
+        // Find the provider
+        const provider = allProviders.find((p) => p && p.id === providerName);
+        if (!provider) {
+          throw new Error(`Unknown provider for batch: ${providerName}`);
+        }
+
+        // Get batch results from provider
+        const results = await provider.retrieveBatchResults!(nativeBatchId);
+
+        return { success: true, data: results };
+      }
+
       case 'activity:get': {
         const activity = await database.getActivityStats(request.payload?.projectId);
         return { success: true, data: activity };

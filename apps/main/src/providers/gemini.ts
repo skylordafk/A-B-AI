@@ -9,7 +9,7 @@ export class GeminiProvider implements BaseProvider {
   getCapabilities() {
     return {
       supportsJsonMode: true,
-      supportsBatchAPI: false,
+      supportsBatchAPI: false, // Gemini does not support batch API
       supportsStreaming: false,
       supportsPromptCaching: false,
       supportsExtendedThinking: true,
@@ -130,6 +130,26 @@ export class GeminiProvider implements BaseProvider {
       console.error('Gemini API error:', error);
       throw new Error(`Gemini API error: ${error.message || 'Unknown error'}`);
     }
+  }
+
+  // Batch API implementation for Gemini
+  // Note: Gemini does not currently support batch API
+  async submitBatch(_jobs: any[]): Promise<string> {
+    throw new Error(
+      'Gemini does not support batch API. Use regular chat API or OpenAI batch API instead.'
+    );
+  }
+
+  async getBatchStatus(_batchId: string): Promise<any> {
+    throw new Error(
+      'Gemini does not support batch API. Use regular chat API or OpenAI batch API instead.'
+    );
+  }
+
+  async retrieveBatchResults(_batchId: string): Promise<any[]> {
+    throw new Error(
+      'Gemini does not support batch API. Use regular chat API or OpenAI batch API instead.'
+    );
   }
 }
 

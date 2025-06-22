@@ -11,7 +11,7 @@ export class GrokProvider implements BaseProvider {
   getCapabilities() {
     return {
       supportsJsonMode: false,
-      supportsBatchAPI: false,
+      supportsBatchAPI: false, // Grok does not support batch API
       supportsStreaming: false,
       supportsPromptCaching: false,
       supportsExtendedThinking: false,
@@ -122,6 +122,26 @@ export class GrokProvider implements BaseProvider {
       console.error('Grok API error:', error);
       throw new Error(`Grok API error: ${error.message || 'Unknown error'}`);
     }
+  }
+
+  // Batch API implementation for Grok
+  // Note: Grok does not currently support batch API
+  async submitBatch(_jobs: any[]): Promise<string> {
+    throw new Error(
+      'Grok does not support batch API. Use regular chat API or OpenAI batch API instead.'
+    );
+  }
+
+  async getBatchStatus(_batchId: string): Promise<any> {
+    throw new Error(
+      'Grok does not support batch API. Use regular chat API or OpenAI batch API instead.'
+    );
+  }
+
+  async retrieveBatchResults(_batchId: string): Promise<any[]> {
+    throw new Error(
+      'Grok does not support batch API. Use regular chat API or OpenAI batch API instead.'
+    );
   }
 }
 

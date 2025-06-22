@@ -1,4 +1,4 @@
-import { BaseProvider, ChatResult, ChatMessage } from './base';
+import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
 import { createXai } from '@ai-sdk/xai';
 import { generateText } from 'ai';
@@ -42,11 +42,7 @@ export class GrokProvider implements BaseProvider {
     return this.MODELS;
   }
 
-  async chat(
-    userPrompt: string,
-    modelId?: string,
-    options?: { abortSignal?: AbortSignal }
-  ): Promise<ChatResult> {
+  async chat(userPrompt: string, modelId?: string, options?: ChatOptions): Promise<ChatResult> {
     // Convert single prompt to messages format and use the new method
     return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId, options);
   }
@@ -54,10 +50,16 @@ export class GrokProvider implements BaseProvider {
   async chatWithHistory(
     messages: ChatMessage[],
     modelId?: string,
-    options?: { abortSignal?: AbortSignal }
+    options?: ChatOptions
   ): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('grok');
     if (!apiKey) throw new Error('Grok API key missing');
+
+    // Get pricing from options (passed from ModelService)
+    const pricing = options?.pricing;
+    if (!pricing) {
+      throw new Error(`No pricing information provided for model: ${modelId}`);
+    }
 
     const xai = createXai({
       apiKey,
@@ -103,15 +105,17 @@ export class GrokProvider implements BaseProvider {
         signal: options?.abortSignal,
       } as any);
 
-      // Grok uses flat pricing, so we'll estimate based on message count
-      // Actual pricing would need to be obtained from xAI
-      const flatPricePerMessage = 0.01; // Example: $0.01 per message
-      const costUSD = flatPricePerMessage;
+      // Calculate cost using the dynamic pricing from ModelService
+      const promptTokens = usage?.promptTokens || 0;
+      const answerTokens = usage?.completionTokens || 0;
+      const costUSD =
+        (promptTokens / 1000) * (pricing.prompt / 1000) +
+        (answerTokens / 1000) * (pricing.completion / 1000);
 
       return {
         answer: text,
-        promptTokens: usage?.promptTokens || 0,
-        answerTokens: usage?.completionTokens || 0,
+        promptTokens,
+        answerTokens,
         costUSD,
       };
     } catch (error: any) {

@@ -1,47 +1,11 @@
 import OpenAI from 'openai';
 import { encoding_for_model } from '@dqbd/tiktoken';
-import { BaseProvider, ChatResult, ChatMessage } from './base';
+import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
 
 const DEFAULT_MODEL = 'gpt-4o';
 
-// Model pricing map (per 1M tokens)
-const MODEL_PRICING = {
-  'gpt-4.1': {
-    input: 2.0, // $2.00 per 1M tokens
-    output: 8.0, // $8.00 per 1M tokens
-  },
-  'gpt-4.1-mini': {
-    input: 0.4, // $0.40 per 1M tokens
-    output: 1.6, // $1.60 per 1M tokens
-  },
-  'gpt-4.1-nano': {
-    input: 0.1, // $0.10 per 1M tokens
-    output: 0.4, // $0.40 per 1M tokens
-  },
-  'gpt-4o': {
-    input: 2.5, // $2.50 per 1M tokens
-    output: 5.0, // $5.00 per 1M tokens
-  },
-  'gpt-4o-mini': {
-    input: 0.6, // $0.60 per 1M tokens
-    output: 2.4, // $2.40 per 1M tokens
-  },
-  'gpt-3.5-turbo': {
-    input: 0.5, // $0.50 per 1M tokens
-    output: 1.5, // $1.50 per 1M tokens
-  },
-  // New o-series reasoning model (canonical id)
-  o3: {
-    input: 2.0, // $2.00 per 1M tokens
-    output: 8.0, // $8.00 per 1M tokens
-  },
-  // Legacy model (keeping for backward compatibility)
-  'o3-2025-04-16': {
-    input: 10.0, // $10.00 per 1M tokens
-    output: 40.0, // $40.00 per 1M tokens
-  },
-};
+// Removed hardcoded MODEL_PRICING - now uses dynamic pricing from ModelService via ChatOptions
 
 // Add list of models that support the new web_search tool (preview)
 const WEB_SEARCH_SUPPORTED_MODELS = [
@@ -209,11 +173,7 @@ export const openaiProvider: BaseProvider = {
     ];
   },
 
-  async chat(
-    userPrompt: string,
-    modelId?: string,
-    options?: { abortSignal?: AbortSignal }
-  ): Promise<ChatResult> {
+  async chat(userPrompt: string, modelId?: string, options?: ChatOptions): Promise<ChatResult> {
     // Convert single prompt to messages format and use the new method
     return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId, options);
   },
@@ -221,7 +181,7 @@ export const openaiProvider: BaseProvider = {
   async chatWithHistory(
     messages: ChatMessage[],
     modelId?: string,
-    options?: { abortSignal?: AbortSignal }
+    options?: ChatOptions
   ): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('openai');
     if (!apiKey) throw new Error('OpenAI API key missing');
@@ -258,9 +218,11 @@ export const openaiProvider: BaseProvider = {
       }
     }
 
-    // Get pricing for the selected model
-    const pricing =
-      MODEL_PRICING[model as keyof typeof MODEL_PRICING] || MODEL_PRICING[DEFAULT_MODEL];
+    // Get pricing from options (passed from ModelService)
+    const pricing = options?.pricing;
+    if (!pricing) {
+      throw new Error(`No pricing information provided for model: ${model}`);
+    }
 
     // Use appropriate encoding based on model
     let encodingModel: string;
@@ -317,8 +279,8 @@ export const openaiProvider: BaseProvider = {
       const answerTokens = enc.encode(answer).length;
 
       const costUSD =
-        (promptTokens / 1000) * (pricing.input / 1000) +
-        (answerTokens / 1000) * (pricing.output / 1000);
+        (promptTokens / 1000) * (pricing.prompt / 1000) +
+        (answerTokens / 1000) * (pricing.completion / 1000);
 
       return { answer, promptTokens, answerTokens, costUSD };
     }
@@ -328,7 +290,7 @@ export const openaiProvider: BaseProvider = {
 
     let requestConfig = buildParams(model, maxOutputTokens, {
       messages: openaiMessages,
-      response_format: (globalThis as any).getJsonMode?.() ? { type: 'json_object' } : undefined,
+      response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
     });
 
     // Clean out undefined values to avoid API errors
@@ -347,8 +309,8 @@ export const openaiProvider: BaseProvider = {
 
     // Calculate cost based on the model's pricing (convert from per-1M to per-1K)
     const costUSD =
-      (promptTokens / 1000) * (pricing.input / 1000) +
-      (answerTokens / 1000) * (pricing.output / 1000);
+      (promptTokens / 1000) * (pricing.prompt / 1000) +
+      (answerTokens / 1000) * (pricing.completion / 1000);
 
     return { answer, promptTokens, answerTokens, costUSD };
   },

@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { encoding_for_model } from '@dqbd/tiktoken';
-import { BaseProvider, ChatResult, ChatMessage } from './base';
+import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
@@ -38,8 +38,8 @@ const _PROMPT_CACHING_SUPPORTED_MODELS = [
   'claude-3-7-sonnet',
 ];
 
-// Cache TTL options
-type CacheTTL = '5m' | '1h';
+// Cache TTL options (unused after refactoring but kept for potential future use)
+type _CacheTTL = '5m' | '1h';
 
 // Handle streaming responses for real-time display
 async function handleStreamingResponse(
@@ -75,91 +75,7 @@ async function handleStreamingResponse(
   };
 }
 
-// Model pricing map (per 1M tokens) - Updated with prompt caching prices
-const _MODEL_PRICING: Record<
-  string,
-  {
-    input: number;
-    output: number;
-    cacheWrite5m: number;
-    cacheWrite1h: number;
-    cacheRead: number;
-  }
-> = {
-  // Current generation models
-  'claude-opus-4-20250514': {
-    input: 15.0,
-    output: 75.0,
-    cacheWrite5m: 18.75, // 1.25x base
-    cacheWrite1h: 30.0, // 2x base
-    cacheRead: 1.5, // 0.1x base
-  },
-  'claude-3-5-sonnet-20241022': {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite5m: 3.75,
-    cacheWrite1h: 6.0,
-    cacheRead: 0.3,
-  },
-  'claude-3-haiku-20240307': {
-    input: 0.25,
-    output: 1.25,
-    cacheWrite5m: 0.3,
-    cacheWrite1h: 0.5,
-    cacheRead: 0.03,
-  },
-  // New models
-  'claude-sonnet-4': {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite5m: 3.75,
-    cacheWrite1h: 6.0,
-    cacheRead: 0.3,
-  },
-  'claude-3-5-haiku': {
-    input: 0.8,
-    output: 4.0,
-    cacheWrite5m: 1.0,
-    cacheWrite1h: 1.6,
-    cacheRead: 0.08,
-  },
-  'claude-3-5-sonnet': {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite5m: 3.75,
-    cacheWrite1h: 6.0,
-    cacheRead: 0.3,
-  },
-  'claude-3-sonnet-20240229': {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite5m: 3.75,
-    cacheWrite1h: 6.0,
-    cacheRead: 0.3,
-  },
-  'claude-3-opus-20240229': {
-    input: 15.0,
-    output: 75.0,
-    cacheWrite5m: 18.75,
-    cacheWrite1h: 30.0,
-    cacheRead: 1.5,
-  },
-  'claude-3-7-sonnet': {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite5m: 3.75,
-    cacheWrite1h: 6.0,
-    cacheRead: 0.3,
-  },
-  // Backwards compatibility aliases
-  'claude-3-haiku': {
-    input: 0.25,
-    output: 1.25,
-    cacheWrite5m: 0.3,
-    cacheWrite1h: 0.5,
-    cacheRead: 0.03,
-  },
-};
+// Removed hardcoded _MODEL_PRICING - now uses dynamic pricing from ModelService via ChatOptions
 
 export const anthropicProvider: BaseProvider = {
   id: 'anthropic',
@@ -250,11 +166,7 @@ export const anthropicProvider: BaseProvider = {
     ];
   },
 
-  async chat(
-    userPrompt: string,
-    modelId?: string,
-    options?: { abortSignal?: AbortSignal }
-  ): Promise<ChatResult> {
+  async chat(userPrompt: string, modelId?: string, options?: ChatOptions): Promise<ChatResult> {
     // Convert single prompt to messages format and use the new method
     return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId, options);
   },
@@ -262,15 +174,7 @@ export const anthropicProvider: BaseProvider = {
   async chatWithHistory(
     messages: ChatMessage[],
     modelId?: string,
-    options?: {
-      enablePromptCaching?: boolean;
-      cacheTTL?: CacheTTL;
-      systemPrompt?: string;
-      cacheSystemPrompt?: boolean;
-      enableStreaming?: boolean;
-      onStreamChunk?: (chunk: string) => void;
-      abortSignal?: AbortSignal;
-    }
+    options?: ChatOptions
   ): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('anthropic');
     if (!apiKey) throw new Error('Anthropic API key missing');
@@ -279,6 +183,12 @@ export const anthropicProvider: BaseProvider = {
 
     // Canonicalize the requested model id
     const model = modelId || DEFAULT_MODEL;
+
+    // Get pricing from options (passed from ModelService)
+    const pricing = options?.pricing;
+    if (!pricing) {
+      throw new Error(`No pricing information provided for model: ${model}`);
+    }
 
     // Get max output tokens from global settings
     const maxOutputTokens = (globalThis as any).getMaxOutputTokens?.() || 4096;
@@ -301,12 +211,16 @@ export const anthropicProvider: BaseProvider = {
 
     const answer = res.content[0]?.text ?? 'No response';
 
-    // Simplified response for now, token counting and cost can be added back later
+    // Calculate cost using the dynamic pricing from ModelService
+    const costUSD =
+      (res.usage.input_tokens / 1000) * (pricing.prompt / 1000) +
+      (res.usage.output_tokens / 1000) * (pricing.completion / 1000);
+
     return {
       answer,
       promptTokens: res.usage.input_tokens,
       answerTokens: res.usage.output_tokens,
-      costUSD: 0, // Placeholder
+      costUSD,
     };
   },
 

@@ -1,4 +1,4 @@
-import { BaseProvider, ChatResult, ChatMessage } from './base';
+import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
 
 /** Adapter for Google AI Gemini API */
@@ -37,21 +37,13 @@ export class GeminiProvider implements BaseProvider {
   ];
 
   // Model pricing map
-  private readonly MODEL_PRICING: Record<string, { pricePerKTokens: number }> = {
-    'gemini-1.5-pro': { pricePerKTokens: 0.00125 }, // Pro model pricing (using lower tier)
-    'gemini-1.5-flash': { pricePerKTokens: 0.00035 }, // Flash model pricing
-    'gemini-2.5-flash-preview': { pricePerKTokens: 0.00035 }, // New flash preview model
-  };
+  // Removed hardcoded MODEL_PRICING - now uses dynamic pricing from ModelService via ChatOptions
 
   listModels() {
     return this.MODELS;
   }
 
-  async chat(
-    userPrompt: string,
-    modelId?: string,
-    options?: { abortSignal?: AbortSignal }
-  ): Promise<ChatResult> {
+  async chat(userPrompt: string, modelId?: string, options?: ChatOptions): Promise<ChatResult> {
     // Convert single prompt to messages format and use the new method
     return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId, options);
   }
@@ -59,7 +51,7 @@ export class GeminiProvider implements BaseProvider {
   async chatWithHistory(
     messages: ChatMessage[],
     modelId?: string,
-    options?: { abortSignal?: AbortSignal }
+    options?: ChatOptions
   ): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('gemini');
     if (!apiKey) throw new Error('Gemini API key missing');
@@ -71,9 +63,14 @@ export class GeminiProvider implements BaseProvider {
     const genAI = new GoogleGenAI({ apiKey });
 
     try {
+      // Get pricing from options (passed from ModelService)
+      const pricing = options?.pricing;
+      if (!pricing) {
+        throw new Error(`No pricing information provided for model: ${modelId}`);
+      }
+
       // Determine which model to use
       let modelName = 'gemini-1.5-flash'; // Default to flash
-      let pricing = this.MODEL_PRICING['gemini-2.5-flash-preview'];
 
       if (modelId) {
         // Extract just the model name if it includes provider prefix
@@ -82,24 +79,26 @@ export class GeminiProvider implements BaseProvider {
         // Map our model IDs to actual Gemini API model names
         if (requestedModel.includes('pro-thinking') || requestedModel.includes('2.5-pro')) {
           modelName = 'gemini-1.5-pro'; // Use pro model for thinking requests
-          pricing = this.MODEL_PRICING['gemini-1.5-pro'];
         } else if (
           requestedModel.includes('flash-preview') ||
           requestedModel.includes('2.5-flash')
         ) {
           modelName = 'gemini-1.5-flash'; // Use flash for preview requests
-          pricing = this.MODEL_PRICING['gemini-2.5-flash-preview'];
         } else if (requestedModel.includes('flash') || requestedModel.includes('1.5-flash')) {
           modelName = 'gemini-1.5-flash';
-          pricing = this.MODEL_PRICING['gemini-1.5-flash'];
         }
       }
 
       // Convert conversation history to a single prompt for Gemini
       // Gemini API doesn't support full conversation history in the same way as OpenAI
-      const conversationPrompt = messages
+      let conversationPrompt = messages
         .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
         .join('\n\n');
+
+      // Add JSON mode instruction if requested
+      if (options?.jsonMode) {
+        conversationPrompt += '\n\nPlease respond with valid JSON only.';
+      }
 
       // Use the models API interface
       const response = await genAI.models.generateContent({
@@ -116,8 +115,10 @@ export class GeminiProvider implements BaseProvider {
       const promptTokens = Math.ceil(allMessageText.length / 4);
       const answerTokens = Math.ceil(answer.length / 4);
 
-      // Calculate cost based on the selected model's pricing
-      const costUSD = ((promptTokens + answerTokens) / 1000) * pricing.pricePerKTokens;
+      // Calculate cost using the dynamic pricing from ModelService
+      const costUSD =
+        (promptTokens / 1000) * (pricing.prompt / 1000) +
+        (answerTokens / 1000) * (pricing.completion / 1000);
 
       return {
         answer,

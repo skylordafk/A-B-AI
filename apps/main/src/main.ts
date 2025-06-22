@@ -227,7 +227,11 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
           throw new Error(`Missing API key for provider: ${providerName}`);
         }
 
-        // Model pricing is now handled dynamically by the provider
+        // Get pricing information from ModelService
+        const modelDefinition = modelService.getModelById(modelId);
+        if (!modelDefinition) {
+          throw new Error(`Model not found: ${modelId}`);
+        }
 
         try {
           let result;
@@ -238,20 +242,27 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
             fullPrompt = `${systemPrompt}\n\n${content}`;
           }
 
+          // Create ChatOptions with pricing and other options
+          const chatOptions = {
+            pricing: modelDefinition.pricing,
+            jsonMode: options?.jsonMode,
+            jsonSchema: options?.jsonSchema,
+            enablePromptCaching: options?.enablePromptCaching,
+            cacheTTL: options?.cacheTTL,
+            systemPrompt: systemPrompt,
+            temperature: options?.temperature,
+            abortSignal: options?.abortSignal,
+            enableStreaming: options?.enableStreaming,
+            onStreamChunk: options?.onStreamChunk,
+          };
+
           // Use enhanced features if available
           if (providerName === 'anthropic' && options?.enablePromptCaching) {
             const messages = [{ role: 'user' as const, content: fullPrompt }];
-            result = await (provider as any).chatWithHistory(messages, modelId, {
-              enablePromptCaching: options.enablePromptCaching,
-              cacheTTL: options.cacheTTL,
-              systemPrompt: systemPrompt,
-              cacheSystemPrompt: options.cacheSystemPrompt,
-              enableStreaming: options.enableStreaming,
-              onStreamChunk: options.onStreamChunk,
-            });
+            result = await (provider as any).chatWithHistory(messages, modelId, chatOptions);
           } else {
-            // Standard chat method
-            result = await provider.chat(fullPrompt, modelId);
+            // Standard chat method with pricing
+            result = await provider.chat(fullPrompt, modelId, chatOptions);
           }
 
           // Get the specific model details

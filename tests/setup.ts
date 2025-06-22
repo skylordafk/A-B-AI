@@ -7,11 +7,13 @@ afterEach(() => {
   cleanup();
 });
 
-// Mock window.api for tests that need IPC communication
-Object.defineProperty(window, 'api', {
-  value: {
-    countTokens: vi.fn(),
-    // Add other API methods as needed
-  },
-  writable: true,
-});
+// Mock window.api for tests that need IPC communication in a jsdom environment
+if (typeof window !== 'undefined' && typeof window.api === 'undefined') {
+  Object.defineProperty(window, 'api', {
+    value: {
+      countTokens: vi.fn(),
+      // Add other API methods as needed
+    },
+    writable: true,
+  });
+}

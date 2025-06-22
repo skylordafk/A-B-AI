@@ -1,4 +1,3 @@
-/*
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -156,4 +155,3 @@ describe('ModelSelect Component', () => {
     expect(screen.getByText('(premium)')).toBeInTheDocument();
   });
 });
-*/

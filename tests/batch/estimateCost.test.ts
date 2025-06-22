@@ -13,6 +13,15 @@ vi.mock('../../apps/ui/src/lib/batch/loadPricingData', () => ({
       'claude-3-haiku': { prompt: 0.00025, completion: 0.00125 },
     },
   }),
+  getProviderAndModel: vi.fn((modelString: string) => {
+    if (modelString && modelString.startsWith('openai/')) {
+      return { provider: 'openai', model: modelString.replace('openai/', '') };
+    }
+    if (modelString && modelString.startsWith('anthropic/')) {
+      return { provider: 'anthropic', model: modelString.replace('anthropic/', '') };
+    }
+    return { provider: 'openai', model: 'o3-2025-04-16' };
+  }),
 }));
 
 // Mock tiktoken to avoid tokenization issues in tests

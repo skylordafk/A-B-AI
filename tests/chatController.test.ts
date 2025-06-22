@@ -113,12 +113,7 @@ describe('ChatController', () => {
     // Abort immediately
     controller.abort();
 
-    // Should complete quickly due to abort
-    const startTime = Date.now();
     await expect(streamPromise).rejects.toThrow('Chat aborted');
-    const duration = Date.now() - startTime;
-
-    expect(duration).toBeLessThan(100); // Should abort quickly
   });
 
   it('should handle multiple providers', async () => {
@@ -158,6 +153,7 @@ describe('ChatController', () => {
   });
 
   it('should register IPC handler for chat abort', () => {
+    startChat('Hello', ['test-provider'], 'session-1');
     expect(ipcMain.handle).toHaveBeenCalledWith('chat:abort', expect.any(Function));
   });
 

@@ -1,70 +1,52 @@
 import React, { useState } from 'react';
-
-interface ModelMeta {
-  id: string;
-  name: string;
-  pricePrompt: number;
-}
+import { useProjectStore } from '../store/projectStore';
 
 interface ModelSelectProps {
   selectedModels: string[];
   onSelectionChange: (models: string[]) => void;
 }
 
-// Static list of available models based on the provider mapping
-const AVAILABLE_MODELS: { provider: string; models: ModelMeta[] }[] = [
-  {
-    provider: 'OpenAI',
-    models: [
-      { id: 'gpt-4.1', name: 'GPT-4.1', pricePrompt: 0.002 },
-      { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', pricePrompt: 0.0004 },
-      { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', pricePrompt: 0.0001 },
-      { id: 'gpt-4o', name: 'GPT-4o', pricePrompt: 0.0025 },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', pricePrompt: 0.0006 },
-      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', pricePrompt: 0.0005 },
-      { id: 'o3-2025-04-16', name: 'O3 2025-04-16 (Legacy)', pricePrompt: 0.01 },
-    ],
-  },
-  {
-    provider: 'Anthropic',
-    models: [
-      { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', pricePrompt: 0.015 },
-      { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', pricePrompt: 0.003 },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', pricePrompt: 0.003 },
-      { id: 'claude-3-5-haiku', name: 'Claude 3.5 Haiku', pricePrompt: 0.0008 },
-      { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet', pricePrompt: 0.003 },
-      { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', pricePrompt: 0.00025 },
-      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus (Legacy)', pricePrompt: 0.015 },
-      { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet (Legacy)', pricePrompt: 0.003 },
-    ],
-  },
-  {
-    provider: 'Grok',
-    models: [
-      { id: 'grok-3', name: 'Grok 3', pricePrompt: 0.01 },
-      { id: 'grok-3-mini', name: 'Grok 3 Mini', pricePrompt: 0.0005 },
-    ],
-  },
-  {
-    provider: 'Gemini',
-    models: [
-      {
-        id: 'models/gemini-2.5-pro-thinking',
-        name: 'Gemini 2.5 Pro Thinking',
-        pricePrompt: 0.00125,
-      },
-      {
-        id: 'models/gemini-2.5-flash-preview',
-        name: 'Gemini 2.5 Flash Preview',
-        pricePrompt: 0.00035,
-      },
-    ],
-  },
-];
-
 export default function ModelSelect({ selectedModels, onSelectionChange }: ModelSelectProps) {
-  const availableModels = AVAILABLE_MODELS;
-  const [openProviders, setOpenProviders] = useState<string[]>(['OpenAI', 'Anthropic']); // Default open
+  const { models } = useProjectStore();
+  const [openProviders, setOpenProviders] = useState<string[]>([
+    'openai',
+    'anthropic',
+    'grok',
+    'gemini',
+  ]); // Default all open
+
+  // Group models by provider and create properly formatted IDs
+  const modelsByProvider = models.reduce(
+    (acc, model) => {
+      if (!acc[model.provider]) {
+        acc[model.provider] = [];
+      }
+      // Create properly formatted model ID: provider/modelId
+      const formattedModel = {
+        ...model,
+        formattedId: `${model.provider}/${model.id}`,
+      };
+      acc[model.provider].push(formattedModel);
+      return acc;
+    },
+    {} as Record<string, Array<(typeof models)[0] & { formattedId: string }>>
+  );
+
+  // Define best models for highlighting
+  const bestModels = new Set([
+    'openai/gpt-4o',
+    'anthropic/claude-3-5-sonnet-20241022',
+    'gemini/gemini-1.5-pro-002',
+    'grok/grok-3',
+  ]);
+
+  // Provider display names
+  const providerNames: Record<string, string> = {
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    grok: 'Grok',
+    gemini: 'Gemini',
+  };
 
   const handleProviderToggle = (provider: string) => {
     setOpenProviders((prev) =>
@@ -72,73 +54,106 @@ export default function ModelSelect({ selectedModels, onSelectionChange }: Model
     );
   };
 
-  const handleModelToggle = (modelId: string) => {
-    if (selectedModels.includes(modelId)) {
-      onSelectionChange(selectedModels.filter((id) => id !== modelId));
+  const handleModelToggle = (formattedId: string) => {
+    if (selectedModels.includes(formattedId)) {
+      onSelectionChange(selectedModels.filter((id) => id !== formattedId));
     } else {
-      onSelectionChange([...selectedModels, modelId]);
+      onSelectionChange([...selectedModels, formattedId]);
     }
   };
 
-  const getPriceBadge = (model: ModelMeta) => {
-    if (model.pricePrompt === -1) return '(flat)';
-    if (model.pricePrompt <= 0.0006) return '(fast)';
-    return '(premium)';
+  const selectBestModels = () => {
+    const availableBestModels = Array.from(bestModels).filter((modelId) =>
+      models.some((m) => `${m.provider}/${m.id}` === modelId)
+    );
+    onSelectionChange(availableBestModels);
+  };
+
+  const getPriceBadge = (pricing: any, modelId: string) => {
+    if (!pricing) return '(unknown)';
+    const promptPrice = pricing.prompt || 0;
+    let badge = '';
+
+    if (promptPrice === 0) badge = '(free)';
+    else if (promptPrice <= 0.001) badge = '(fast)';
+    else if (promptPrice <= 0.005) badge = '(premium)';
+    else badge = '(expensive)';
+
+    // Add "best" indicator for recommended models
+    if (bestModels.has(modelId)) {
+      badge = '⭐ ' + badge;
+    }
+
+    return badge;
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-      {availableModels.map(({ provider, models }) => (
-        <div
-          key={provider}
-          className="border border-stone-300 rounded p-2 bg-stone-50 dark:bg-stone-700 dark:border-stone-600"
+    <div>
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="text-sm font-medium text-[var(--text-primary)]">Select Models</h3>
+        <button
+          onClick={selectBestModels}
+          className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
         >
-          <button
-            onClick={() => handleProviderToggle(provider)}
-            className="w-full flex justify-between items-center text-left"
+          Select Best Models
+        </button>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {Object.entries(modelsByProvider).map(([provider, providerModels]) => (
+          <div
+            key={provider}
+            className="border border-stone-300 rounded p-2 bg-stone-50 dark:bg-stone-700 dark:border-stone-600"
           >
-            <h4 className="text-xs font-semibold text-stone-800 dark:text-stone-100 uppercase tracking-wide">
-              {provider}
-            </h4>
-            <svg
-              className={`w-4 h-4 transform transition-transform ${
-                openProviders.includes(provider) ? 'rotate-180' : ''
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <button
+              onClick={() => handleProviderToggle(provider)}
+              className="w-full flex justify-between items-center text-left"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
+              <h4 className="text-xs font-semibold text-stone-800 dark:text-stone-100 uppercase tracking-wide">
+                {providerNames[provider] || provider}
+              </h4>
+              <svg
+                className={`w-4 h-4 transform transition-transform ${
+                  openProviders.includes(provider) ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
 
-          {openProviders.includes(provider) && (
-            <div className="mt-2 space-y-1">
-              {models.map((model) => (
-                <label key={model.id} className="flex items-center gap-2 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={selectedModels.includes(model.id)}
-                    onChange={() => handleModelToggle(model.id)}
-                    className="cursor-pointer w-3 h-3 text-slate-600 bg-stone-100 dark:bg-stone-600/30 border-stone-300 dark:border-stone-500 rounded-sm focus:ring-slate-500 focus:ring-1"
-                  />
-                  <span className="text-xs font-medium text-stone-800 dark:text-stone-100 group-hover:text-stone-900 dark:group-hover:text-stone-50 transition-colors">
-                    {model.name}{' '}
-                    <span className="text-[10px] text-stone-600 dark:text-stone-300 font-normal">
-                      {getPriceBadge(model)}
+            {openProviders.includes(provider) && (
+              <div className="mt-2 space-y-1">
+                {providerModels.map((model) => (
+                  <label
+                    key={model.formattedId}
+                    className="flex items-center gap-2 cursor-pointer group"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedModels.includes(model.formattedId)}
+                      onChange={() => handleModelToggle(model.formattedId)}
+                      className="cursor-pointer w-3 h-3 text-slate-600 bg-stone-100 dark:bg-stone-600/30 border-stone-300 dark:border-stone-500 rounded-sm focus:ring-slate-500 focus:ring-1"
+                    />
+                    <span className="text-xs font-medium text-stone-800 dark:text-stone-100 group-hover:text-stone-900 dark:group-hover:text-stone-50 transition-colors">
+                      {model.name}{' '}
+                      <span className="text-[10px] text-stone-600 dark:text-stone-300 font-normal">
+                        {getPriceBadge(model.pricing, model.formattedId)}
+                      </span>
                     </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

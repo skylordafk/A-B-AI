@@ -4,10 +4,12 @@ import ActivityHistory from '../ActivityHistory';
 
 export default function ActivitySidebar() {
   const [activeTab, setActiveTab] = useState<'history' | 'jobs' | 'settings'>('history');
-  const { jobs, currentProjectId } = useProjectStore();
+  const { batchJobs, currentProjectId } = useProjectStore();
 
-  const currentJobs = jobs.filter((j) => j.projectId === currentProjectId);
-  const runningJobs = currentJobs.filter((j) => j.status === 'running');
+  const currentJobs = batchJobs.filter((j) => j.projectId === currentProjectId);
+  const runningJobs = currentJobs.filter(
+    (j) => j.status === 'processing' || j.status === 'pending'
+  );
   const recentJobs = currentJobs.slice(0, 5);
 
   const tabs = [
@@ -45,7 +47,7 @@ export default function ActivitySidebar() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 'history' && (
           <div className="h-full overflow-y-auto">
-            <ActivityHistory />
+            <ActivityHistory projectId={currentProjectId || ''} />
           </div>
         )}
 
@@ -65,23 +67,23 @@ export default function ActivitySidebar() {
                       className="p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{job.name}</span>
+                        <span className="font-medium text-sm">{job.fileName || 'Batch Job'}</span>
                         <span className="text-xs text-yellow-600 dark:text-yellow-400">
-                          Running
+                          {job.status === 'processing' ? 'Running' : 'Pending'}
                         </span>
                       </div>
                       <div className="mt-2">
                         <div className="w-full bg-yellow-200 dark:bg-yellow-800 rounded-full h-2">
                           <div
                             className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${(job.completedCount / job.totalCount) * 100}%` }}
+                            style={{ width: `${(job.completedRows / job.totalRows) * 100}%` }}
                           />
                         </div>
                         <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-1">
                           <span>
-                            {job.completedCount} of {job.totalCount} completed
+                            {job.completedRows} of {job.totalRows} completed
                           </span>
-                          <span>{Math.round((job.completedCount / job.totalCount) * 100)}%</span>
+                          <span>{Math.round((job.completedRows / job.totalRows) * 100)}%</span>
                         </div>
                       </div>
                     </div>
@@ -105,7 +107,7 @@ export default function ActivitySidebar() {
                       className="p-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--border)]"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{job.name}</span>
+                        <span className="font-medium text-sm">{job.fileName || 'Batch Job'}</span>
                         <span
                           className={`text-xs px-2 py-1 rounded ${
                             job.status === 'completed'
@@ -119,10 +121,10 @@ export default function ActivitySidebar() {
                         </span>
                       </div>
                       <div className="text-xs text-[var(--text-secondary)] mt-2">
-                        {job.completedCount} of {job.totalCount} completed
+                        {job.completedRows} of {job.totalRows} completed
                       </div>
                       <div className="text-xs text-[var(--text-secondary)] mt-1">
-                        {new Date(job.createdAt).toLocaleDateString()}
+                        {new Date(job.created_at || Date.now()).toLocaleDateString()}
                       </div>
                     </div>
                   ))}

@@ -14,6 +14,7 @@ import ActivitySidebar from './components/sidebars/ActivitySidebar';
 import { useProjectStore } from './store/projectStore';
 import TerminalBlock from './components/TerminalBlock';
 import { useTheme } from './contexts/ThemeContext';
+import { apiClient } from './lib/api/client';
 // Message type for chat
 interface Message {
   id: string;
@@ -52,15 +53,31 @@ function FeatureStatusIndicator() {
   });
 
   useEffect(() => {
-    // Load feature status
+    // Load feature status using unified API
     Promise.all([
-      window.api.getEnableWebSearch(),
-      window.api.getEnableExtendedThinking(),
-      window.api.getEnablePromptCaching(),
-      window.api.getPromptCacheTTL(),
-    ]).then(([webSearch, extendedThinking, promptCaching, cacheTTL]) => {
-      setFeatures({ webSearch, extendedThinking, promptCaching, cacheTTL });
-    });
+      apiClient.request('settings:load', { key: 'enableWebSearch' }),
+      apiClient.request('settings:load', { key: 'enableExtendedThinking' }),
+      apiClient.request('settings:load', { key: 'enablePromptCaching' }),
+      apiClient.request('settings:load', { key: 'promptCacheTTL' }),
+    ])
+      .then(([webSearch, extendedThinking, promptCaching, cacheTTL]) => {
+        setFeatures({
+          webSearch: webSearch || false,
+          extendedThinking: extendedThinking || false,
+          promptCaching: promptCaching || false,
+          cacheTTL: cacheTTL || '5m',
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to load feature status:', error);
+        // Set default values on error
+        setFeatures({
+          webSearch: false,
+          extendedThinking: false,
+          promptCaching: false,
+          cacheTTL: '5m',
+        });
+      });
   }, []);
 
   const activeFeatures = [];
@@ -276,7 +293,9 @@ const ConversationRound = ({
   roundIndex: number;
 }) => {
   return (
-    <div key={`round-${roundIndex}`}>
+    <div
+      key={`${userMessage.id || 'user'}-${roundIndex}-${assistantMessages.map((a) => a.id).join('-')}`}
+    >
       {/* User Message */}
       <div className="mb-2">
         <div className="flex justify-end">
@@ -295,8 +314,8 @@ const ConversationRound = ({
       {assistantMessages.length > 1 ? (
         <AssistantComparison assistantMessages={assistantMessages} />
       ) : (
-        assistantMessages.map((msg, msgIdx) => (
-          <div key={msgIdx} className="mb-4">
+        assistantMessages.map((msg) => (
+          <div key={msg.id} className="mb-4">
             <div className="flex justify-start">
               <div className="max-w-3xl w-full">
                 <div className="flex items-center gap-2 mb-1">
@@ -344,7 +363,11 @@ export default function ChatPage() {
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [multiModel, setMultiModel] = useState(false);
-  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  // Updated default to include best models from each provider
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([
+    'openai/gpt-4o',
+    'anthropic/claude-3-5-sonnet-20241022',
+  ]);
 
   // JSON mode state
   const [jsonMode, setJsonMode] = useState(false);
@@ -354,7 +377,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
-  const currentMessages = currentConversationId ? messages.get(currentConversationId) || [] : [];
+  const currentMessages = currentConversationId ? messages[currentConversationId] || [] : [];
 
   // JSON schema validation
   const validateSchema = () => {
@@ -418,9 +441,14 @@ export default function ChatPage() {
         }
       }
 
-      // Use the Zustand store sendMessage function
+      // Check if models are selected
+      if (selectedProviders.length === 0) {
+        throw new Error('Please select at least one model');
+      }
+
+      // Use the Zustand store sendMessage function with selected models
       const schema = jsonMode && jsonSchema.trim() ? JSON.parse(jsonSchema) : undefined;
-      await sendMessage(text, jsonMode, schema);
+      await sendMessage(text, selectedProviders, jsonMode, schema);
     } catch (err: any) {
       console.error('Failed to send message:', err);
       // You could add error handling here if needed
@@ -442,7 +470,7 @@ export default function ChatPage() {
     }
   };
 
-  // Derive grouped messages
+  // Derive grouped messages - Fixed key duplication issue
   const groupedMessages = useMemo(() => {
     const groups: { user: Message; assistants: Message[] }[] = [];
     let currentUserMessage: Message | null = null;
@@ -501,7 +529,7 @@ export default function ChatPage() {
             <div className="space-y-4 pb-4">
               {groupedMessages.map((round, index) => (
                 <ConversationRound
-                  key={round.user.id || `round-${index}`}
+                  key={`${round.user.id || 'user'}-${index}-${round.assistants.map((a) => a.id).join('-')}`}
                   userMessage={round.user}
                   assistantMessages={round.assistants}
                   roundIndex={index}

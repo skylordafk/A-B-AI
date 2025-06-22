@@ -51,23 +51,78 @@ async function handleStreamingResponse(
   let fullContent = '';
   let usage: any = {};
   const _citations: any[] = [];
-  let webSearchRequests = 0;
+  const webSearchRequests = 0;
 
-  const stream = await anthropic.messages.create(requestConfig, { signal: abortSignal });
+  // Check if we should use streaming (when onStreamChunk is provided and not a no-op function)
+  const shouldStream = onStreamChunk && onStreamChunk.toString() !== '() => {}';
 
-  for await (const event of stream) {
-    if (event.type === 'content_block_delta' && event.delta?.text) {
-      const chunk = event.delta.text;
-      fullContent += chunk;
-      onStreamChunk(chunk);
-    } else if (event.type === 'message_delta' && event.usage) {
-      usage = { ...usage, ...event.usage };
-    } else if (event.type === 'server_tool_use' && event.name === 'web_search') {
-      webSearchRequests++;
+  if (shouldStream) {
+    // Use streaming for interactive chat to avoid timeout issues
+    const stream = await anthropic.messages.create(
+      {
+        ...requestConfig,
+        stream: true,
+      },
+      { signal: abortSignal }
+    );
+
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+        fullContent += chunk.delta.text;
+        onStreamChunk(chunk.delta.text);
+      } else if (chunk.type === 'message_delta' && chunk.usage) {
+        usage = chunk.usage;
+      }
+    }
+
+    // Get final usage if not provided in stream
+    if (!usage.input_tokens && stream.message) {
+      usage = stream.message.usage || {};
+    }
+  } else {
+    // For batch processing, use non-streaming but with extended timeout
+    try {
+      const response = await anthropic.messages.create(
+        {
+          ...requestConfig,
+          stream: false,
+        },
+        {
+          signal: abortSignal,
+          // Increase timeout for batch operations
+          timeout: 600000, // 10 minutes
+        }
+      );
+
+      fullContent = response.content[0]?.text || '';
+      usage = response.usage || {};
+    } catch (error: any) {
+      // If it's a timeout error, retry with streaming
+      if (error.message?.includes('Streaming is strongly recommended')) {
+        console.warn('[Anthropic] Switching to streaming mode due to timeout warning');
+
+        const stream = await anthropic.messages.create(
+          {
+            ...requestConfig,
+            stream: true,
+          },
+          { signal: abortSignal }
+        );
+
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+            fullContent += chunk.delta.text;
+          } else if (chunk.type === 'message_delta' && chunk.usage) {
+            usage = chunk.usage;
+          }
+        }
+      } else {
+        throw error;
+      }
     }
   }
 
-  // Return in the same format as non-streaming response
+  // Return in the same format as before
   return {
     content: [{ type: 'text', text: fullContent }],
     usage,
@@ -104,7 +159,7 @@ export const anthropicProvider: BaseProvider = {
         priceCompletion: 75.0,
       },
       {
-        id: 'claude-sonnet-4',
+        id: 'claude-sonnet-4-20250514',
         name: 'Claude Sonnet 4',
         description:
           'Optimal balance of intelligence, cost, and speed. Supports web search, extended thinking, and prompt caching.',
@@ -181,8 +236,18 @@ export const anthropicProvider: BaseProvider = {
 
     const anthropic = new Anthropic({ apiKey });
 
-    // Canonicalize the requested model id
-    const model = modelId || DEFAULT_MODEL;
+    // Canonicalize the requested model id - strip provider prefix if present
+    let model = modelId || DEFAULT_MODEL;
+    if (model.includes('/')) {
+      model = model.split('/')[1]; // Remove provider prefix like "anthropic/"
+    }
+
+    // Map frontend model IDs to API model names
+    if (model === 'claude-4-sonnet') {
+      model = 'claude-sonnet-4-20250514';
+    } else if (model === 'claude-4-opus') {
+      model = 'claude-opus-4-20250514';
+    }
 
     // Get pricing from options (passed from ModelService)
     const pricing = options?.pricing;
@@ -191,7 +256,14 @@ export const anthropicProvider: BaseProvider = {
     }
 
     // Get max output tokens from global settings
-    const maxOutputTokens = (globalThis as any).getMaxOutputTokens?.() || 4096;
+    let maxOutputTokens = (globalThis as any).getMaxOutputTokens?.() || 4096;
+
+    // Cap max tokens based on model limits
+    if (model.includes('claude-3-5-sonnet') || model.includes('claude-3-5-haiku')) {
+      maxOutputTokens = Math.min(maxOutputTokens, 8192);
+    } else if (model.includes('claude-3')) {
+      maxOutputTokens = Math.min(maxOutputTokens, 4096);
+    }
 
     // Prepare messages for Anthropic API
     const systemPrompt = messages.find((m) => m.role === 'system')?.content;

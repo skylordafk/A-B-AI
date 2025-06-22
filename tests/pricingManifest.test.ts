@@ -1,45 +1,67 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { openaiProvider } from '../apps/main/src/providers/openai';
-import { anthropicProvider } from '../apps/main/src/providers/anthropic';
-import { grokProvider } from '../apps/main/src/providers/grok';
-import { geminiProvider } from '../apps/main/src/providers/gemini';
+import type { ModelDefinition } from '../shared/types';
 
-describe('Model Pricing Manifest', () => {
-  // Dataset moved to /data for cleaner repo structure
-  const pricingManifest = JSON.parse(readFileSync('./data/model-pricing.json', 'utf-8'));
+describe('Model Pricing Data', () => {
+  // New centralized model data structure
+  const models: ModelDefinition[] = JSON.parse(readFileSync('./data/models.json', 'utf-8'));
 
-  const providers = [
-    { name: 'openai', provider: openaiProvider },
-    { name: 'anthropic', provider: anthropicProvider },
-    { name: 'grok', provider: grokProvider },
-    { name: 'gemini', provider: geminiProvider },
-  ];
+  it('should have valid pricing for all models', () => {
+    models.forEach((model) => {
+      // Skip checking if model uses free pricing (0 values)
+      if (model.pricing.prompt === 0 && model.pricing.completion === 0) {
+        return;
+      }
 
-  providers.forEach(({ name, provider }) => {
-    describe(`${name} provider models`, () => {
-      it('should have pricing entries for all models', () => {
-        const models = provider.listModels();
+      expect(model.pricing, `Model ${model.id} should have pricing object`).toBeDefined();
+      expect(
+        model.pricing.prompt,
+        `Model ${model.id} should have prompt pricing`
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        model.pricing.completion,
+        `Model ${model.id} should have completion pricing`
+      ).toBeGreaterThanOrEqual(0);
+    });
+  });
 
-        models.forEach((model) => {
-          // Skip checking if model uses flat pricing (-1 values)
-          if (model.pricePrompt === -1 && model.priceCompletion === -1) {
-            return;
-          }
+  it('should have valid provider assignments', () => {
+    const validProviders = ['openai', 'anthropic', 'grok', 'gemini'];
 
-          expect(
-            pricingManifest[name],
-            `Pricing manifest should have entry for provider ${name}`
-          ).toBeDefined();
+    models.forEach((model) => {
+      expect(validProviders, `Model ${model.id} should have valid provider`).toContain(
+        model.provider
+      );
+    });
+  });
 
-          expect(
-            pricingManifest[name][model.id],
-            `Pricing manifest should have entry for model ${model.id} in provider ${name}`
-          ).toBeDefined();
+  it('should have models for each provider', () => {
+    const providerCounts = models.reduce(
+      (acc, model) => {
+        acc[model.provider] = (acc[model.provider] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
-          expect(pricingManifest[name][model.id]).toHaveProperty('prompt');
-          expect(pricingManifest[name][model.id]).toHaveProperty('completion');
-        });
+    expect(providerCounts.openai, 'Should have OpenAI models').toBeGreaterThan(0);
+    expect(providerCounts.anthropic, 'Should have Anthropic models').toBeGreaterThan(0);
+    expect(providerCounts.grok, 'Should have Grok models').toBeGreaterThan(0);
+    expect(providerCounts.gemini, 'Should have Gemini models').toBeGreaterThan(0);
+  });
+
+  it('should have valid features array', () => {
+    const validFeatures = ['web_search', 'extended_thinking', 'prompt_caching', 'json_mode'];
+
+    models.forEach((model) => {
+      expect(Array.isArray(model.features), `Model ${model.id} should have features array`).toBe(
+        true
+      );
+
+      model.features.forEach((feature) => {
+        expect(validFeatures, `Model ${model.id} has invalid feature: ${feature}`).toContain(
+          feature
+        );
       });
     });
   });

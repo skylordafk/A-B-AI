@@ -14,11 +14,12 @@ export default function ProjectOnboarding() {
 
     setIsCreating(true);
     try {
-      createProject(projectName.trim(), description.trim() || undefined);
-      // Navigate to project settings to set up API keys
-      navigate('/settings');
+      await createProject(projectName.trim(), description.trim() || undefined);
+      // Navigate to dashboard after successful project creation
+      navigate('/dashboard');
     } catch (error) {
       console.error('Failed to create project:', error);
+      alert('Failed to create project. Please try again.');
     } finally {
       setIsCreating(false);
     }

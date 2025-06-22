@@ -288,9 +288,19 @@ export const openaiProvider: BaseProvider = {
     // ----------------- Chat Completions path -----------------
     const maxOutputTokens = (globalThis as any).getMaxOutputTokens?.() ?? 8192;
 
+    // Only enable JSON mode if the prompt contains "json" and jsonMode is requested
+    const shouldUseJsonMode =
+      options?.jsonMode &&
+      openaiMessages.some(
+        (msg) =>
+          msg.content &&
+          typeof msg.content === 'string' &&
+          msg.content.toLowerCase().includes('json')
+      );
+
     let requestConfig = buildParams(model, maxOutputTokens, {
       messages: openaiMessages,
-      response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
+      response_format: shouldUseJsonMode ? { type: 'json_object' } : undefined,
     });
 
     // Clean out undefined values to avoid API errors

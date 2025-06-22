@@ -5,7 +5,10 @@ export interface BatchRow {
   system?: string;
   developer?: string;
   temperature?: number;
-  data?: Record<string, unknown>;
+  data?: Record<string, unknown> & {
+    jsonMode?: boolean;
+    jsonSchema?: string;
+  };
 }
 
 export interface BatchResult {

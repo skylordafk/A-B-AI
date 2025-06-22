@@ -6,10 +6,33 @@ This document centralises the base neutrals used across the application. Wheneve
 | ------------------ | --------------------- | --------------------- | ------------------------------ |
 | `--bg-primary`     | `#f5f5f4` (stone-100) | `#292524` (stone-800) | `bg-[var(--bg-primary)]`       |
 | `--bg-secondary`   | `#fafaf9` (stone-50)  | `#1c1917` (stone-900) | `bg-[var(--bg-secondary)]`     |
+| `--bg-tertiary`    | `#e7e5e4`             | `#44403c`             | `bg-[var(--bg-tertiary)]`      |
+| `--bg-hover`       | `#d6d3d1`             | `#57534e`             | `bg-[var(--bg-hover)]`         |
 | `--border`         | `#d6d3d1` (stone-300) | `#44403c` (stone-700) | `border-[var(--border)]`       |
 | `--text-primary`   | `#1c1917` (stone-900) | `#fafaf9` (stone-50)  | `text-[var(--text-primary)]`   |
 | `--text-secondary` | `#3f3f3f` (stone-700) | `#d6d3d1` (stone-300) | `text-[var(--text-secondary)]` |
 | `--text-muted`     | `#57534e` (stone-600) | `#d6d3d1` (stone-300) | `text-[var(--text-muted)]`     |
+
+## Accent Colors
+
+| Token                    | Light value | Dark value | Usage                       |
+| ------------------------ | ----------- | ---------- | --------------------------- |
+| `--accent-primary`       | `#3b82f6`   | `#2563eb`  | Primary buttons, links      |
+| `--accent-primary-hover` | `#2563eb`   | `#3b82f6`  | Primary button hover state  |
+| `--accent-success`       | `#10b981`   | `#059669`  | Success buttons, indicators |
+| `--accent-success-hover` | `#059669`   | `#10b981`  | Success button hover state  |
+| `--accent-danger`        | `#ef4444`   | `#dc2626`  | Delete buttons, warnings    |
+| `--accent-danger-hover`  | `#dc2626`   | `#ef4444`  | Danger button hover state   |
+
+## Tab Bar Colors
+
+| Token               | Light value | Dark value | Usage                  |
+| ------------------- | ----------- | ---------- | ---------------------- |
+| `--tab-bg`          | `#e7e5e4`   | `#44403c`  | Tab button background  |
+| `--tab-hover`       | `#d6d3d1`   | `#57534e`  | Tab button hover state |
+| `--tab-active`      | `#3b82f6`   | `#3b82f6`  | Active tab background  |
+| `--tab-text`        | `#1c1917`   | `#fafaf9`  | Tab button text        |
+| `--tab-text-active` | `#ffffff`   | `#ffffff`  | Active tab text        |
 
 ## How to use tokens
 
@@ -19,6 +42,8 @@ This document centralises the base neutrals used across the application. Wheneve
 :root {
   --bg-primary: #f5f5f4;
   --bg-secondary: #fafaf9;
+  --bg-tertiary: #e7e5e4;
+  --bg-hover: #d6d3d1;
   --border: #d6d3d1;
   --text-primary: #1c1917;
   --text-secondary: #3f3f3f;
@@ -27,6 +52,8 @@ This document centralises the base neutrals used across the application. Wheneve
 .dark {
   --bg-primary: #292524;
   --bg-secondary: #1c1917;
+  --bg-tertiary: #44403c;
+  --bg-hover: #57534e;
   --border: #44403c;
   --text-primary: #fafaf9;
   --text-secondary: #d6d3d1;

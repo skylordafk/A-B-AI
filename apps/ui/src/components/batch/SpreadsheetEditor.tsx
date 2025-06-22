@@ -1,8 +1,49 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import type { BatchRow } from '../../types/batch';
-// import { useProjectStore } from '../../store/projectStore';
-import Papa from 'papaparse';
+import {
+  FIXED_INPUT_COLUMNS,
+  OUTPUT_COLUMNS,
+  MODELS,
+  RESERVED_KEYS,
+  getCellValue,
+  setCellValueInRow,
+  createEmptyRow,
+  normalizeRows,
+  exportToCSV,
+  getNextEditableCell,
+  type Column,
+} from '../../lib/batch/spreadsheetUtils';
+import {
+  performDragFill,
+  type CellSelection,
+  type DragPreview,
+} from '../../lib/batch/dragFillUtils';
+import { copySelection, pasteClipboard, deleteSelection } from '../../lib/batch/clipboardUtils';
+import {
+  calculateRowCost,
+  calculateBatchCosts,
+  formatCost,
+  formatTokens,
+  type CostBreakdown,
+} from '../../lib/batch/tokenCalculator';
+import { parseSmartCSV, generateInitialRows } from '../../lib/batch/smartCsvImport';
+import {
+  bulkChangeTemperature,
+  fillDown,
+  findAndReplace,
+  getPromptSuggestions,
+  getModelSuggestions,
+} from '../../lib/batch/multiCellOperations';
 import '../../styles/spreadsheet.css';
+
+// Extended BatchRow type that includes execution results
+type ExtendedBatchRow = BatchRow & {
+  status?: string;
+  response?: string;
+  cost_usd?: number;
+  latency_ms?: number;
+  error?: string;
+};
 
 interface SpreadsheetEditorProps {
   rows: BatchRow[];
@@ -13,92 +54,287 @@ interface SpreadsheetEditorProps {
   currentJobId?: string;
 }
 
-interface CellSelection {
-  startRow: number;
-  startCol: number;
-  endRow: number;
-  endCol: number;
+// Unified state interface
+interface SpreadsheetState {
+  rows: ExtendedBatchRow[];
+  dynamicColumns: Column[];
+  selection: CellSelection | null;
+  editing: {
+    cell: { row: number; col: number } | null;
+    value: string;
+  };
+  interaction: {
+    isSelecting: boolean;
+    isDragging: boolean;
+    dragPreview: DragPreview | null;
+    dragPreviewCells: Array<{ row: number; col: number }>;
+    selectionMode: 'cell' | 'column' | 'row';
+  };
+  ui: {
+    editingColumnName: number | null;
+    columnWidths: Record<string, string>;
+    resizing: {
+      column: number | null;
+      startX: number;
+      startWidth: number;
+    };
+    suggestions: {
+      visible: boolean;
+      items: string[];
+      selectedIndex: number;
+      position: { x: number; y: number };
+    };
+    contextMenu: {
+      visible: boolean;
+      position: { x: number; y: number };
+      selection: CellSelection | null;
+    };
+  };
+  costs: {
+    rowCosts: Map<string, CostBreakdown>;
+    batchTotal: {
+      totalCost: number;
+      totalInputTokens: number;
+      totalOutputTokens: number;
+    };
+    isCalculating: boolean;
+  };
+  history: {
+    states: { rows: ExtendedBatchRow[]; columns: Column[] }[];
+    index: number;
+  };
 }
 
-const INPUT_COLUMNS = [
-  { key: 'prompt', label: 'Prompt', width: '30%', editable: true },
-  { key: 'system', label: 'System Message', width: '20%', editable: true },
-  { key: 'model', label: 'Model', width: '15%', editable: true },
-  { key: 'temperature', label: 'Temperature', width: '10%', editable: true },
-] as const;
+// Action types for the reducer
+type SpreadsheetAction =
+  | { type: 'SET_ROWS'; rows: ExtendedBatchRow[] }
+  | { type: 'SET_DYNAMIC_COLUMNS'; columns: Column[] }
+  | { type: 'SET_SELECTION'; selection: CellSelection | null }
+  | { type: 'START_EDITING'; row: number; col: number; value: string }
+  | { type: 'UPDATE_EDIT_VALUE'; value: string }
+  | { type: 'FINISH_EDITING' }
+  | { type: 'CANCEL_EDITING' }
+  | { type: 'SET_INTERACTION'; field: keyof SpreadsheetState['interaction']; value: any }
+  | { type: 'SET_UI'; field: keyof SpreadsheetState['ui']; value: any }
+  | { type: 'START_COLUMN_RESIZE'; column: number; startX: number; startWidth: number }
+  | { type: 'UPDATE_COLUMN_WIDTH'; column: string; width: string }
+  | { type: 'FINISH_COLUMN_RESIZE' }
+  | { type: 'UPDATE_ROW_COST'; rowId: string; cost: CostBreakdown }
+  | {
+      type: 'UPDATE_BATCH_TOTAL';
+      total: { totalCost: number; totalInputTokens: number; totalOutputTokens: number };
+    }
+  | { type: 'SET_CALCULATING'; isCalculating: boolean }
+  | { type: 'SHOW_SUGGESTIONS'; items: string[]; position: { x: number; y: number } }
+  | { type: 'HIDE_SUGGESTIONS' }
+  | { type: 'UPDATE_SUGGESTION_SELECTION'; index: number }
+  | { type: 'SHOW_CONTEXT_MENU'; position: { x: number; y: number }; selection: CellSelection }
+  | { type: 'HIDE_CONTEXT_MENU' }
+  | { type: 'SET_DRAG_PREVIEW_CELLS'; cells: Array<{ row: number; col: number }> }
+  | { type: 'SAVE_TO_HISTORY'; rows: ExtendedBatchRow[]; columns: Column[] }
+  | { type: 'UNDO' }
+  | { type: 'REDO' }
+  | { type: 'RESET_STATE'; rows: ExtendedBatchRow[]; columns: Column[] };
 
-const OUTPUT_COLUMNS = [
-  { key: 'status', label: 'Status', width: '8%', editable: false },
-  { key: 'response', label: 'Response', width: '25%', editable: false },
-  { key: 'cost_usd', label: 'Cost ($)', width: '6%', editable: false },
-  { key: 'latency_ms', label: 'Latency (ms)', width: '8%', editable: false },
-  { key: 'error', label: 'Error', width: '15%', editable: false },
-];
+// State reducer
+function spreadsheetReducer(state: SpreadsheetState, action: SpreadsheetAction): SpreadsheetState {
+  switch (action.type) {
+    case 'SET_ROWS':
+      return { ...state, rows: action.rows };
 
-const ALL_COLUMNS = [...INPUT_COLUMNS, ...OUTPUT_COLUMNS];
+    case 'SET_DYNAMIC_COLUMNS':
+      return { ...state, dynamicColumns: action.columns };
 
-const MODELS = [
-  // OpenAI models
-  { value: 'gpt-4.1', label: 'GPT-4.1' },
-  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-  { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano' },
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-  // Anthropic models
-  { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
-  { value: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-  { value: 'claude-3-5-haiku', label: 'Claude 3.5 Haiku' },
-  { value: 'claude-3-7-sonnet', label: 'Claude 3.7 Sonnet' },
-  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
-  { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Legacy)' },
-  { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet (Legacy)' },
-  // Grok models
-  { value: 'grok-3', label: 'Grok 3' },
-  { value: 'grok-3-mini', label: 'Grok 3 Mini' },
-  // Gemini models
-  { value: 'models/gemini-2.5-pro-thinking', label: 'Gemini 2.5 Pro Thinking' },
-  { value: 'models/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash Preview' },
-  // Legacy
-  { value: 'o3-2025-04-16', label: 'OpenAI o3 (Legacy)' },
-  { value: 'o1-preview', label: 'o1-preview' },
-  { value: 'o1-mini', label: 'o1-mini' },
-];
+    case 'SET_SELECTION':
+      return { ...state, selection: action.selection };
 
-// Status indicator component
-const StatusCell = ({ status }: { status?: string }) => {
-  switch (status) {
-    case 'processing':
-      return (
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs text-blue-600">Processing</span>
-        </div>
-      );
-    case 'completed':
-      return (
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <span className="text-xs text-green-600">Done</span>
-        </div>
-      );
-    case 'failed':
-      return (
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <span className="text-xs text-red-600">Failed</span>
-        </div>
-      );
+    case 'START_EDITING':
+      return {
+        ...state,
+        editing: { cell: { row: action.row, col: action.col }, value: action.value },
+        selection: {
+          startRow: action.row,
+          startCol: action.col,
+          endRow: action.row,
+          endCol: action.col,
+        },
+      };
+
+    case 'UPDATE_EDIT_VALUE':
+      return { ...state, editing: { ...state.editing, value: action.value } };
+
+    case 'FINISH_EDITING':
+    case 'CANCEL_EDITING':
+      return { ...state, editing: { cell: null, value: '' } };
+
+    case 'SET_INTERACTION':
+      return { ...state, interaction: { ...state.interaction, [action.field]: action.value } };
+
+    case 'SET_UI':
+      return { ...state, ui: { ...state.ui, [action.field]: action.value } };
+
+    case 'START_COLUMN_RESIZE':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          resizing: { column: action.column, startX: action.startX, startWidth: action.startWidth },
+        },
+      };
+
+    case 'UPDATE_COLUMN_WIDTH':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          columnWidths: { ...state.ui.columnWidths, [action.column]: action.width },
+        },
+      };
+
+    case 'FINISH_COLUMN_RESIZE':
+      return {
+        ...state,
+        ui: { ...state.ui, resizing: { column: null, startX: 0, startWidth: 0 } },
+      };
+
+    case 'UPDATE_ROW_COST': {
+      const newRowCosts = new Map(state.costs.rowCosts);
+      newRowCosts.set(action.rowId, action.cost);
+      return {
+        ...state,
+        costs: { ...state.costs, rowCosts: newRowCosts },
+      };
+    }
+
+    case 'UPDATE_BATCH_TOTAL':
+      return {
+        ...state,
+        costs: { ...state.costs, batchTotal: action.total },
+      };
+
+    case 'SET_CALCULATING':
+      return {
+        ...state,
+        costs: { ...state.costs, isCalculating: action.isCalculating },
+      };
+
+    case 'SHOW_SUGGESTIONS':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          suggestions: {
+            visible: true,
+            items: action.items,
+            selectedIndex: 0,
+            position: action.position,
+          },
+        },
+      };
+
+    case 'HIDE_SUGGESTIONS':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          suggestions: { ...state.ui.suggestions, visible: false },
+        },
+      };
+
+    case 'UPDATE_SUGGESTION_SELECTION':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          suggestions: { ...state.ui.suggestions, selectedIndex: action.index },
+        },
+      };
+
+    case 'SHOW_CONTEXT_MENU':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          contextMenu: {
+            visible: true,
+            position: action.position,
+            selection: action.selection,
+          },
+        },
+      };
+
+    case 'HIDE_CONTEXT_MENU':
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          contextMenu: { ...state.ui.contextMenu, visible: false },
+        },
+      };
+
+    case 'SET_DRAG_PREVIEW_CELLS':
+      return {
+        ...state,
+        interaction: { ...state.interaction, dragPreviewCells: action.cells },
+      };
+
+    case 'SAVE_TO_HISTORY': {
+      const newHistory = [
+        ...state.history.states.slice(0, state.history.index + 1),
+        { rows: action.rows, columns: action.columns },
+      ];
+      return {
+        ...state,
+        history: {
+          states: newHistory.slice(-50), // Keep last 50 states
+          index: Math.min(state.history.index + 1, 49),
+        },
+      };
+    }
+
+    case 'UNDO': {
+      if (state.history.index > 0) {
+        const idx = state.history.index - 1;
+        const historyState = state.history.states[idx];
+        return {
+          ...state,
+          rows: historyState.rows,
+          dynamicColumns: historyState.columns,
+          history: { ...state.history, index: idx },
+        };
+      }
+      return state;
+    }
+
+    case 'REDO': {
+      if (state.history.index < state.history.states.length - 1) {
+        const idx = state.history.index + 1;
+        const historyState = state.history.states[idx];
+        return {
+          ...state,
+          rows: historyState.rows,
+          dynamicColumns: historyState.columns,
+          history: { ...state.history, index: idx },
+        };
+      }
+      return state;
+    }
+
+    case 'RESET_STATE':
+      return {
+        ...state,
+        rows: action.rows,
+        dynamicColumns: action.columns,
+        history: {
+          states: [{ rows: action.rows, columns: action.columns }],
+          index: 0,
+        },
+      };
+
     default:
-      return (
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-          <span className="text-xs text-gray-500">Pending</span>
-        </div>
-      );
+      return state;
   }
-};
+}
 
 export default function SpreadsheetEditor({
   rows: initialRows,
@@ -108,626 +344,1135 @@ export default function SpreadsheetEditor({
   jobResults,
   currentJobId,
 }: SpreadsheetEditorProps) {
-  const [rows, setRows] = useState<BatchRow[]>(initialRows);
-  const [selection, setSelection] = useState<CellSelection | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragPreview, setDragPreview] = useState<{ row: number; col: number } | null>(null);
+  // Initialize state with reducer
+  const initialState: SpreadsheetState = {
+    rows: initialRows?.length ? initialRows : generateInitialRows(8),
+    dynamicColumns: [],
+    selection: null,
+    editing: { cell: null, value: '' },
+    interaction: {
+      isSelecting: false,
+      isDragging: false,
+      dragPreview: null,
+      dragPreviewCells: [],
+      selectionMode: 'cell',
+    },
+    ui: {
+      editingColumnName: null,
+      columnWidths: {},
+      resizing: { column: null, startX: 0, startWidth: 0 },
+      suggestions: {
+        visible: false,
+        items: [],
+        selectedIndex: 0,
+        position: { x: 0, y: 0 },
+      },
+      contextMenu: {
+        visible: false,
+        position: { x: 0, y: 0 },
+        selection: null,
+      },
+    },
+    costs: {
+      rowCosts: new Map(),
+      batchTotal: { totalCost: 0, totalInputTokens: 0, totalOutputTokens: 0 },
+      isCalculating: false,
+    },
+    history: { states: [], index: -1 },
+  };
+
+  const [state, dispatch] = useReducer(spreadsheetReducer, initialState);
+  const [showTempMenu, setShowTempMenu] = useState(false);
+
   const tableRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Computed values from state
+  const { rows, dynamicColumns, selection, editing, interaction, ui, costs } = state;
+  const allColumns = [...FIXED_INPUT_COLUMNS, ...dynamicColumns, ...OUTPUT_COLUMNS];
+
+  // Update rows when initialRows prop changes (for template/CSV loading)
   useEffect(() => {
-    setRows(initialRows);
+    if (initialRows && initialRows.length > 0) {
+      // Extract dynamic columns from the new data
+      const keys = new Set<string>();
+      initialRows.forEach((row) => {
+        if (row.data) {
+          Object.keys(row.data).forEach((key) => {
+            if (!RESERVED_KEYS.includes(key)) keys.add(key);
+          });
+        }
+      });
+
+      const cols: Column[] = Array.from(keys).map((key) => ({
+        key,
+        label: key,
+        width: '150px',
+        editable: true,
+        isDynamic: true,
+      }));
+
+      dispatch({ type: 'RESET_STATE', rows: initialRows, columns: cols });
+    }
   }, [initialRows]);
 
-  // Real-time update handling for batch results
-  useEffect(() => {
-    if (!currentJobId || !jobResults) return;
+  // Helper functions using dispatch
+  const saveToHistory = useCallback((newRows: BatchRow[], newColumns: Column[]) => {
+    dispatch({ type: 'SAVE_TO_HISTORY', rows: newRows, columns: newColumns });
+  }, []);
 
-    // Update rows with results when batch results change
-    setRows((prevRows) =>
-      prevRows.map((row) => {
-        const result = jobResults.get(row.id);
-        if (result) {
-          return {
-            ...row,
-            status: result.status || 'pending',
-            response: result.response || '',
-            cost_usd: result.cost_usd || 0,
-            latency_ms: result.latency_ms || 0,
-            error: result.error || '',
-          };
+  const undo = useCallback(() => {
+    dispatch({ type: 'UNDO' });
+  }, []);
+
+  const redo = useCallback(() => {
+    dispatch({ type: 'REDO' });
+  }, []);
+
+  // Cost calculation functions
+  const updateRowCost = useCallback(async (row: ExtendedBatchRow) => {
+    try {
+      const costBreakdown = await calculateRowCost(row);
+      dispatch({ type: 'UPDATE_ROW_COST', rowId: row.id, cost: costBreakdown });
+    } catch (error) {
+      console.error('Failed to calculate row cost:', error);
+    }
+  }, []);
+
+  const updateBatchCosts = useCallback(async () => {
+    dispatch({ type: 'SET_CALCULATING', isCalculating: true });
+    try {
+      const batchCosts = await calculateBatchCosts(rows);
+      dispatch({ type: 'UPDATE_BATCH_TOTAL', total: batchCosts });
+
+      // Update individual row costs
+      batchCosts.rowCosts.forEach((cost, index) => {
+        const row = rows[index];
+        if (row) {
+          dispatch({ type: 'UPDATE_ROW_COST', rowId: row.id, cost });
+        }
+      });
+    } catch (error) {
+      console.error('Failed to calculate batch costs:', error);
+    } finally {
+      dispatch({ type: 'SET_CALCULATING', isCalculating: false });
+    }
+  }, [rows]);
+
+  const startEditing = useCallback(
+    (row: number, col: number) => {
+      if (!allColumns[col]?.editable) return;
+      const value = getCellValue(rows[row], allColumns[col].key);
+      dispatch({ type: 'START_EDITING', row, col, value });
+
+      // Focus management
+      setTimeout(() => {
+        const colKey = allColumns[col].key;
+        if (['prompt', 'system', 'jsonSchema'].includes(colKey) || allColumns[col].isDynamic) {
+          textareaRef.current?.focus();
+        } else if (['model', 'jsonMode'].includes(colKey)) {
+          if (selectRef.current) {
+            selectRef.current.focus();
+            setTimeout(() => selectRef.current?.click(), 0);
+          }
+        } else {
+          inputRef.current?.focus();
+        }
+      }, 0);
+    },
+    [allColumns, rows]
+  );
+
+  const finishEditing = useCallback(() => {
+    if (!editing.cell) return;
+    const { row, col } = editing.cell;
+    const newRows = [...rows];
+    const updatedRow = setCellValueInRow(rows[row], allColumns[col].key, editing.value, allColumns);
+    newRows[row] = updatedRow;
+
+    dispatch({ type: 'SET_ROWS', rows: newRows });
+    dispatch({ type: 'FINISH_EDITING' });
+    saveToHistory(newRows, dynamicColumns);
+
+    // Update cost calculation for the edited row if it affects cost-relevant fields
+    const costRelevantFields = ['prompt', 'system', 'model', 'jsonSchema'];
+    if (costRelevantFields.includes(allColumns[col].key) || allColumns[col].isDynamic) {
+      updateRowCost(updatedRow);
+    }
+  }, [editing, rows, allColumns, dynamicColumns, saveToHistory, updateRowCost]);
+
+  const handleCellMouseDown = useCallback(
+    (row: number, col: number, e: React.MouseEvent) => {
+      e.preventDefault();
+
+      if (!allColumns[col]?.editable) return;
+
+      // Set initial selection
+      const newSelection =
+        e.shiftKey && selection
+          ? { ...selection, endRow: row, endCol: col }
+          : { startRow: row, startCol: col, endRow: row, endCol: col };
+
+      dispatch({ type: 'SET_SELECTION', selection: newSelection });
+      dispatch({ type: 'SET_INTERACTION', field: 'selectionMode', value: 'cell' });
+
+      // Only start selecting mode on mouse down - will be enabled if mouse moves
+      dispatch({ type: 'SET_INTERACTION', field: 'isSelecting', value: false });
+    },
+    [selection, allColumns]
+  );
+
+  const handleCellMouseMove = useCallback(
+    (row: number, col: number, _e: React.MouseEvent) => {
+      // Only extend selection if we're actively selecting (mouse is down and moved)
+      if (!interaction.isSelecting || !selection) return;
+
+      dispatch({
+        type: 'SET_SELECTION',
+        selection: { ...selection, endRow: row, endCol: col },
+      });
+    },
+    [interaction.isSelecting, selection]
+  );
+
+  const handleCellDoubleClick = useCallback(
+    (row: number, col: number) => {
+      if (!allColumns[col]?.editable) return;
+      startEditing(row, col);
+      dispatch({ type: 'SET_INTERACTION', field: 'isSelecting', value: false });
+    },
+    [allColumns, startEditing]
+  );
+
+  const _handleSave = useCallback(() => {
+    onSave(normalizeRows(rows, dynamicColumns));
+    const msg = document.createElement('div');
+    msg.textContent = 'Saved!';
+    msg.className =
+      'fixed bottom-4 right-4 bg-[var(--accent-success)] text-[var(--accent-success-foreground)] px-4 py-2 rounded shadow-lg z-50';
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 2000);
+  }, [rows, dynamicColumns, onSave]);
+
+  const handleExportCSV = useCallback(() => {
+    exportToCSV(rows, allColumns, dynamicColumns, fileName);
+  }, [rows, allColumns, dynamicColumns, fileName]);
+
+  const handleAddColumn = useCallback(() => {
+    const key = `column_${Date.now()}`;
+    const newCol: Column = {
+      key,
+      label: 'New Column',
+      width: '150px',
+      editable: true,
+      isDynamic: true,
+    };
+    const newCols = [...dynamicColumns, newCol];
+    const newRows = rows.map((row) => ({ ...row, data: { ...row.data, [key]: '' } }));
+
+    dispatch({ type: 'SET_DYNAMIC_COLUMNS', columns: newCols });
+    dispatch({ type: 'SET_ROWS', rows: newRows });
+    saveToHistory(newRows, newCols);
+
+    setTimeout(
+      () =>
+        dispatch({
+          type: 'SET_UI',
+          field: 'editingColumnName',
+          value: FIXED_INPUT_COLUMNS.length + dynamicColumns.length,
+        }),
+      0
+    );
+  }, [dynamicColumns, rows, saveToHistory]);
+
+  const handleDeleteColumn = useCallback(
+    (colKey: string) => {
+      const column = dynamicColumns.find((col) => col.key === colKey);
+      if (!column) return;
+
+      const newColumns = dynamicColumns.filter((col) => col.key !== colKey);
+
+      // Remove data from all rows
+      const newRows = rows.map((row) => {
+        if (row.data && row.data[colKey] !== undefined) {
+          const { [colKey]: _, ...restData } = row.data;
+          return { ...row, data: restData };
         }
         return row;
-      })
-    );
-  }, [currentJobId, jobResults]);
+      });
 
+      dispatch({ type: 'SET_DYNAMIC_COLUMNS', columns: newColumns });
+      dispatch({ type: 'SET_ROWS', rows: newRows });
+      saveToHistory(newRows, newColumns);
+    },
+    [dynamicColumns, rows, saveToHistory]
+  );
+
+  // Smart CSV import handler
+  const handleCsvImport = useCallback(async (file: File) => {
+    try {
+      const { rows: csvRows, errors } = await parseSmartCSV(file);
+
+      if (errors.length > 0) {
+        // Show import errors to user
+        const errorMessage = errors
+          .slice(0, 3)
+          .map((e) => `Row ${e.row}: ${e.message}`)
+          .join('\n');
+        alert(
+          `Import completed with ${errors.length} error(s):\n${errorMessage}${errors.length > 3 ? '\n...' : ''}`
+        );
+      }
+
+      if (csvRows.length > 0) {
+        // Extract dynamic columns from imported data
+        const keys = new Set<string>();
+        csvRows.forEach((row) => {
+          if (row.data) {
+            Object.keys(row.data).forEach((key) => {
+              if (!RESERVED_KEYS.includes(key)) keys.add(key);
+            });
+          }
+        });
+
+        const cols: Column[] = Array.from(keys).map((key) => ({
+          key,
+          label: key,
+          width: '150px',
+          editable: true,
+          isDynamic: true,
+        }));
+
+        dispatch({ type: 'RESET_STATE', rows: csvRows, columns: cols });
+
+        // Show import success
+        const msg = document.createElement('div');
+        msg.textContent = 'CSV imported successfully!';
+        msg.className =
+          'fixed bottom-4 right-4 bg-[var(--accent-success)] text-[var(--accent-success-foreground)] px-4 py-2 rounded shadow-lg z-50';
+        document.body.appendChild(msg);
+        setTimeout(() => msg.remove(), 3000);
+      }
+    } catch (error) {
+      console.error('CSV import failed:', error);
+      alert('Failed to import CSV file. Please check the file format and try again.');
+    }
+  }, []);
+
+  // Advanced operation handlers
+  const handleFillDown = useCallback(() => {
+    if (!selection) return;
+    const newRows = fillDown(rows, selection, allColumns);
+    dispatch({ type: 'SET_ROWS', rows: newRows });
+    saveToHistory(newRows, dynamicColumns);
+  }, [selection, rows, allColumns, dynamicColumns, saveToHistory]);
+
+  const handleSelectAll = useCallback(() => {
+    if (rows.length === 0 || allColumns.length === 0) return;
+    dispatch({
+      type: 'SET_SELECTION',
+      selection: {
+        startRow: 0,
+        startCol: 0,
+        endRow: rows.length - 1,
+        endCol: allColumns.length - 1,
+      },
+    });
+  }, [rows.length, allColumns.length]);
+
+  const handleFindReplace = useCallback(() => {
+    const findText = prompt('Find:');
+    if (!findText) return;
+
+    const replaceText = prompt('Replace with:');
+    if (replaceText === null) return;
+
+    const { rows: newRows, matchCount } = findAndReplace(rows, findText, replaceText);
+
+    if (matchCount > 0) {
+      dispatch({ type: 'SET_ROWS', rows: newRows });
+      saveToHistory(newRows, dynamicColumns);
+      alert(`Replaced ${matchCount} occurrence(s)`);
+    } else {
+      alert('No matches found');
+    }
+  }, [rows, dynamicColumns, saveToHistory]);
+
+  // Batch operations for temperature
+  const handleBatchTemperature = useCallback(
+    (temperature: number) => {
+      const newRows = bulkChangeTemperature(rows, temperature);
+      dispatch({ type: 'SET_ROWS', rows: newRows });
+      saveToHistory(newRows, dynamicColumns);
+    },
+    [rows, dynamicColumns, saveToHistory]
+  );
+
+  // Calculate drag preview cells for visual feedback
+  const calculateDragPreviewCells = useCallback(
+    (selection: CellSelection, dragPreview: DragPreview): Array<{ row: number; col: number }> => {
+      const cells: Array<{ row: number; col: number }> = [];
+      const { startRow, endRow, startCol, endCol } = selection;
+      const minRow = Math.min(startRow, endRow);
+      const maxRow = Math.max(startRow, endRow);
+      const minCol = Math.min(startCol, endCol);
+      const maxCol = Math.max(startCol, endCol);
+
+      // Calculate the fill area based on drag direction
+      const fillStartRow =
+        dragPreview.row > maxRow ? maxRow + 1 : Math.min(minRow, dragPreview.row);
+      const fillEndRow =
+        dragPreview.row > maxRow ? dragPreview.row : Math.max(maxRow, dragPreview.row);
+      const fillStartCol =
+        dragPreview.col > maxCol ? maxCol + 1 : Math.min(minCol, dragPreview.col);
+      const fillEndCol =
+        dragPreview.col > maxCol ? dragPreview.col : Math.max(maxCol, dragPreview.col);
+
+      // Add cells in the fill area to preview
+      for (let row = fillStartRow; row <= fillEndRow; row++) {
+        for (let col = fillStartCol; col <= fillEndCol; col++) {
+          // Don't include cells that are already selected
+          if (row >= minRow && row <= maxRow && col >= minCol && col <= maxCol) continue;
+          cells.push({ row, col });
+        }
+      }
+
+      return cells;
+    },
+    []
+  );
+
+  // Auto-suggestion handler
+  const handleSuggestionTrigger = useCallback(
+    (value: string, cellElement: HTMLElement) => {
+      const colKey = allColumns[editing.cell?.col || 0]?.key;
+      let suggestions: string[] = [];
+
+      if (colKey === 'prompt' && value.length > 2) {
+        suggestions = getPromptSuggestions(value);
+      } else if (colKey === 'model' && value.length > 1) {
+        suggestions = getModelSuggestions(value);
+      }
+
+      if (suggestions.length > 0) {
+        const rect = cellElement.getBoundingClientRect();
+        dispatch({
+          type: 'SHOW_SUGGESTIONS',
+          items: suggestions,
+          position: { x: rect.left, y: rect.bottom },
+        });
+      } else {
+        dispatch({ type: 'HIDE_SUGGESTIONS' });
+      }
+    },
+    [allColumns, editing.cell]
+  );
+
+  // Close menus on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      // Only close if clicking outside the menu or its trigger button
+      if (showTempMenu && !target.closest('.relative')) {
+        setShowTempMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showTempMenu]);
+
+  // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (editingCell) return;
+      if (editing.cell && e.key === 'Tab') {
+        e.preventDefault();
+        finishEditing();
+        const next = getNextEditableCell(
+          editing.cell.row,
+          editing.cell.col,
+          allColumns,
+          rows.length,
+          e.shiftKey ? 'backward' : 'forward'
+        );
+        if (next) {
+          dispatch({
+            type: 'SET_SELECTION',
+            selection: {
+              startRow: next.row,
+              startCol: next.col,
+              endRow: next.row,
+              endCol: next.col,
+            },
+          });
+          startEditing(next.row, next.col);
+        }
+        return;
+      }
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        handleCopy();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        handlePaste();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
-        handleCut();
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        handleDelete();
-      } else if (e.key === 'Escape') {
-        setSelection(null);
+      if (editing.cell) return;
+
+      const handlers: Record<string, () => void> = {
+        z: () => (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.preventDefault(), undo()),
+        y: () => (e.ctrlKey || e.metaKey) && (e.preventDefault(), redo()),
+        Z: () => (e.ctrlKey || e.metaKey) && e.shiftKey && (e.preventDefault(), redo()),
+        c: () =>
+          (e.ctrlKey || e.metaKey) &&
+          selection &&
+          copySelection(rows, selection, allColumns, interaction.selectionMode),
+        v: () =>
+          (e.ctrlKey || e.metaKey) &&
+          selection &&
+          pasteClipboard(rows, selection, allColumns).then((r) => {
+            dispatch({ type: 'SET_ROWS', rows: r });
+            saveToHistory(r, dynamicColumns);
+          }),
+        x: () =>
+          (e.ctrlKey || e.metaKey) &&
+          selection &&
+          (copySelection(rows, selection, allColumns, interaction.selectionMode),
+          dispatch({ type: 'SET_ROWS', rows: deleteSelection(rows, selection, allColumns) })),
+        Delete: () =>
+          selection &&
+          (dispatch({ type: 'SET_ROWS', rows: deleteSelection(rows, selection, allColumns) }),
+          saveToHistory(rows, dynamicColumns)),
+        Backspace: () =>
+          selection &&
+          (dispatch({ type: 'SET_ROWS', rows: deleteSelection(rows, selection, allColumns) }),
+          saveToHistory(rows, dynamicColumns)),
+        Enter: () => selection && startEditing(selection.startRow, selection.startCol),
+        Tab: () => {
+          if (!selection) return;
+          e.preventDefault();
+          const next = getNextEditableCell(
+            selection.startRow,
+            selection.startCol,
+            allColumns,
+            rows.length,
+            e.shiftKey ? 'backward' : 'forward'
+          );
+          if (next)
+            dispatch({
+              type: 'SET_SELECTION',
+              selection: {
+                startRow: next.row,
+                startCol: next.col,
+                endRow: next.row,
+                endCol: next.col,
+              },
+            });
+        },
+        // Advanced shortcuts
+        d: () => (e.ctrlKey || e.metaKey) && selection && (e.preventDefault(), handleFillDown()),
+        f: () => (e.ctrlKey || e.metaKey) && (e.preventDefault(), handleFindReplace()),
+        h: () => (e.ctrlKey || e.metaKey) && (e.preventDefault(), handleFindReplace()),
+        a: () => (e.ctrlKey || e.metaKey) && (e.preventDefault(), handleSelectAll()),
+      };
+
+      if (e.key in handlers) {
+        handlers[e.key]();
       } else if (
         selection &&
-        (e.key === 'ArrowUp' ||
-          e.key === 'ArrowDown' ||
-          e.key === 'ArrowLeft' ||
-          e.key === 'ArrowRight')
+        interaction.selectionMode === 'cell' &&
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)
       ) {
         e.preventDefault();
-        handleArrowNavigation(e.key);
-      } else if (e.key === 'Enter' && selection) {
         const { startRow, startCol } = selection;
-        startEditing(startRow, startCol);
+        const moves = {
+          ArrowUp: { row: Math.max(0, startRow - 1), col: startCol },
+          ArrowDown: { row: Math.min(rows.length - 1, startRow + 1), col: startCol },
+          ArrowLeft: { row: startRow, col: Math.max(0, startCol - 1) },
+          ArrowRight: { row: startRow, col: Math.min(allColumns.length - 1, startCol + 1) },
+        };
+        const move = moves[e.key as keyof typeof moves];
+        dispatch({
+          type: 'SET_SELECTION',
+          selection: { startRow: move.row, startCol: move.col, endRow: move.row, endCol: move.col },
+        });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selection, editingCell, rows]);
+  }, [
+    selection,
+    editing,
+    rows,
+    allColumns,
+    interaction.selectionMode,
+    dynamicColumns,
+    startEditing,
+    finishEditing,
+    saveToHistory,
+    undo,
+    redo,
+  ]);
 
-  const getCellValue = (row: BatchRow, colKey: string): string => {
-    const value = row[colKey as keyof BatchRow];
-    return value?.toString() || '';
-  };
+  // Mouse handlers
+  useEffect(() => {
+    let mouseDownPos: { x: number; y: number } | null = null;
 
-  const setCellValue = (rowIndex: number, colKey: string, value: string) => {
-    const newRows = [...rows];
-    const row = { ...newRows[rowIndex] };
-
-    switch (colKey) {
-      case 'temperature': {
-        const temp = parseFloat(value);
-        row.temperature = isNaN(temp) ? undefined : temp;
-        break;
-      }
-      case 'prompt':
-        row.prompt = value || '';
-        break;
-      case 'system':
-        row.system = value || undefined;
-        break;
-      case 'model':
-        row.model = value || undefined;
-        break;
-    }
-
-    newRows[rowIndex] = row;
-    setRows(newRows);
-  };
-
-  const startEditing = (row: number, col: number) => {
-    // Only allow editing of input columns
-    if (!ALL_COLUMNS[col]?.editable) return;
-
-    setEditingCell({ row, col });
-    const colKey = ALL_COLUMNS[col].key;
-    setEditValue(getCellValue(rows[row], colKey));
-
-    // Focus input after state update
-    setTimeout(() => {
-      if (colKey === 'prompt' || colKey === 'system') {
-        textareaRef.current?.focus();
-        textareaRef.current?.select();
-      } else if (colKey === 'model') {
-        selectRef.current?.focus();
-      } else {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    }, 0);
-  };
-
-  const finishEditing = () => {
-    if (editingCell) {
-      const { row, col } = editingCell;
-      setCellValue(row, ALL_COLUMNS[col].key, editValue);
-      setEditingCell(null);
-      setEditValue('');
-    }
-  };
-
-  const handleCellMouseDown = (row: number, col: number, e: React.MouseEvent) => {
-    if (e.shiftKey && selection) {
-      // Extend selection
-      setSelection({
-        startRow: selection.startRow,
-        startCol: selection.startCol,
-        endRow: row,
-        endCol: col,
-      });
-    } else {
-      // Start new selection
-      setSelection({ startRow: row, startCol: col, endRow: row, endCol: col });
-      setIsSelecting(true);
-    }
-  };
-
-  const handleCellMouseEnter = (row: number, col: number) => {
-    if (isSelecting && selection) {
-      setSelection({
-        ...selection,
-        endRow: row,
-        endCol: col,
-      });
-    }
-    if (isDragging && dragPreview) {
-      setDragPreview({ row, col });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsSelecting(false);
-    if (isDragging && dragPreview && selection) {
-      handleDragFill();
-    }
-    setIsDragging(false);
-    setDragPreview(null);
-  };
-
-  const handleFillHandleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragFill = () => {
-    if (!selection || !dragPreview) return;
-
-    const { startRow, startCol, endRow, endCol } = selection;
-    const fillToRow = dragPreview.row;
-
-    const newRows = [...rows];
-
-    // Get the pattern from selected cells
-    const selectedData: string[][] = [];
-    for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
-      const rowData: string[] = [];
-      for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-        rowData.push(getCellValue(rows[r], ALL_COLUMNS[c].key));
-      }
-      selectedData.push(rowData);
-    }
-
-    // Fill down
-    if (fillToRow > Math.max(startRow, endRow)) {
-      let patternIndex = 0;
-      for (let r = Math.max(startRow, endRow) + 1; r <= fillToRow; r++) {
-        if (r >= newRows.length) {
-          newRows.push({
-            id: `row-${newRows.length + 1}`,
-            prompt: '',
-            model: 'gpt-4o',
-            temperature: 0.7,
-          });
-        }
-
-        for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-          const colIndex = c - Math.min(startCol, endCol);
-          const value = selectedData[patternIndex][colIndex];
-          setCellValue(r, ALL_COLUMNS[c].key, value);
-        }
-
-        patternIndex = (patternIndex + 1) % selectedData.length;
-      }
-    }
-
-    setRows(newRows);
-  };
-
-  const handleCopy = () => {
-    if (!selection) return;
-
-    const { startRow, startCol, endRow, endCol } = selection;
-    const data: string[][] = [];
-
-    for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
-      const rowData: string[] = [];
-      for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-        rowData.push(getCellValue(rows[r], ALL_COLUMNS[c].key));
-      }
-      data.push(rowData);
-    }
-
-    const text = data.map((row) => row.join('\t')).join('\n');
-    navigator.clipboard.writeText(text);
-  };
-
-  const handleCut = () => {
-    handleCopy();
-    handleDelete();
-  };
-
-  const handlePaste = async () => {
-    if (!selection) return;
-
-    try {
-      const text = await navigator.clipboard.readText();
-      const lines = text.split('\n').filter((line) => line.trim());
-      const data = lines.map((line) => line.split('\t'));
-
-      const { startRow, startCol } = selection;
-      const newRows = [...rows];
-
-      data.forEach((rowData, i) => {
-        const targetRow = startRow + i;
-
-        // Add new rows if needed
-        while (targetRow >= newRows.length) {
-          newRows.push({
-            id: `row-${newRows.length + 1}`,
-            prompt: '',
-            model: 'gpt-4o',
-            temperature: 0.7,
-          });
-        }
-
-        rowData.forEach((cellValue, j) => {
-          const targetCol = startCol + j;
-          if (targetCol < ALL_COLUMNS.length && ALL_COLUMNS[targetCol].editable) {
-            const colKey = ALL_COLUMNS[targetCol].key;
-            const row = newRows[targetRow];
-
-            switch (colKey) {
-              case 'temperature': {
-                const temp = parseFloat(cellValue);
-                row.temperature = isNaN(temp) ? undefined : temp;
-                break;
-              }
-              case 'prompt':
-                row.prompt = cellValue || '';
-                break;
-              case 'system':
-                row.system = cellValue || undefined;
-                break;
-              case 'model':
-                row.model = cellValue || undefined;
-                break;
-            }
-          }
-        });
-      });
-
-      setRows(newRows);
-    } catch (err) {
-      console.error('Failed to paste:', err);
-    }
-  };
-
-  const handleDelete = () => {
-    if (!selection) return;
-
-    const { startRow, startCol, endRow, endCol } = selection;
-
-    for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
-      for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-        if (ALL_COLUMNS[c].editable) {
-          setCellValue(r, ALL_COLUMNS[c].key, '');
+    const handleMouseMove = (e: MouseEvent) => {
+      // If mouse moved significantly from initial position, enable selecting mode
+      if (mouseDownPos && !interaction.isSelecting) {
+        const distance = Math.sqrt(
+          Math.pow(e.clientX - mouseDownPos.x, 2) + Math.pow(e.clientY - mouseDownPos.y, 2)
+        );
+        if (distance > 5) {
+          // 5px threshold for drag detection
+          dispatch({ type: 'SET_INTERACTION', field: 'isSelecting', value: true });
         }
       }
-    }
-  };
 
-  const handleArrowNavigation = (key: string) => {
-    if (!selection) return;
-
-    const { startRow, startCol } = selection;
-    let newRow = startRow;
-    let newCol = startCol;
-
-    switch (key) {
-      case 'ArrowUp':
-        newRow = Math.max(0, startRow - 1);
-        break;
-      case 'ArrowDown':
-        newRow = Math.min(rows.length - 1, startRow + 1);
-        break;
-      case 'ArrowLeft':
-        newCol = Math.max(0, startCol - 1);
-        break;
-      case 'ArrowRight':
-        newCol = Math.min(ALL_COLUMNS.length - 1, startCol + 1);
-        break;
-    }
-
-    setSelection({
-      startRow: newRow,
-      startCol: newCol,
-      endRow: newRow,
-      endCol: newCol,
-    });
-  };
-
-  const handleAddRow = () => {
-    const newRow: BatchRow = {
-      id: `row-${rows.length + 1}`,
-      prompt: '',
-      model: 'gpt-4o',
-      temperature: 0.7,
+      // Update drag preview cells for visual feedback during drag operations
+      if (interaction.isDragging && selection && interaction.dragPreview) {
+        const previewCells = calculateDragPreviewCells(selection, interaction.dragPreview);
+        dispatch({ type: 'SET_DRAG_PREVIEW_CELLS', cells: previewCells });
+      }
     };
-    setRows([...rows, newRow]);
-  };
 
-  const handleDeleteRows = () => {
-    if (!selection) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      mouseDownPos = { x: e.clientX, y: e.clientY };
+    };
 
-    const { startRow, endRow } = selection;
-    const minRow = Math.min(startRow, endRow);
-    const maxRow = Math.max(startRow, endRow);
+    const handleMouseUp = () => {
+      mouseDownPos = null;
+      dispatch({ type: 'SET_INTERACTION', field: 'isSelecting', value: false });
 
-    const newRows = rows.filter((_, index) => index < minRow || index > maxRow);
-    setRows(newRows);
-    setSelection(null);
-  };
+      if (interaction.isDragging && interaction.dragPreview && selection) {
+        const newRows = performDragFill(rows, selection, interaction.dragPreview, allColumns);
+        dispatch({ type: 'SET_ROWS', rows: newRows });
+        saveToHistory(newRows, dynamicColumns);
+      }
 
-  const handleExportCSV = () => {
-    const csvData = rows.map((row) => ({
-      prompt: row.prompt,
-      model: row.model || '',
-      system: row.system || '',
-      temperature: row.temperature || '',
-    }));
+      // Clear all drag-related state
+      dispatch({ type: 'SET_INTERACTION', field: 'isDragging', value: false });
+      dispatch({ type: 'SET_INTERACTION', field: 'dragPreview', value: null });
+      dispatch({ type: 'SET_DRAG_PREVIEW_CELLS', cells: [] });
+    };
 
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
 
-    link.setAttribute('href', url);
-    link.setAttribute('download', fileName || 'edited-template.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [
+    interaction.isDragging,
+    interaction.dragPreview,
+    interaction.isSelecting,
+    selection,
+    rows,
+    allColumns,
+    dynamicColumns,
+    saveToHistory,
+  ]);
 
-  const isCellSelected = (row: number, col: number) => {
-    if (!selection) return false;
-    const { startRow, startCol, endRow, endCol } = selection;
+  // Column resize handler
+  useEffect(() => {
+    if (ui.resizing.column === null) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (ui.resizing.column === null) return;
+      const width = `${Math.max(50, ui.resizing.startWidth + e.clientX - ui.resizing.startX)}px`;
+      const colKey = allColumns[ui.resizing.column].key;
+      dispatch({ type: 'UPDATE_COLUMN_WIDTH', column: colKey, width });
+
+      if (allColumns[ui.resizing.column].isDynamic) {
+        const newCols = dynamicColumns.map((col) => (col.key === colKey ? { ...col, width } : col));
+        dispatch({ type: 'SET_DYNAMIC_COLUMNS', columns: newCols });
+      }
+    };
+
+    const handleMouseUp = () => {
+      const resizingColumn = ui.resizing.column;
+      dispatch({ type: 'FINISH_COLUMN_RESIZE' });
+      if (resizingColumn !== null && allColumns[resizingColumn]?.isDynamic)
+        saveToHistory(rows, dynamicColumns);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [ui.resizing, allColumns, rows, dynamicColumns, saveToHistory]);
+
+  // Real-time results update
+  useEffect(() => {
+    if (!currentJobId || !jobResults) return;
+
+    const updatedRows = rows.map((row) => {
+      const result = jobResults.get(row.id);
+      if (!result) return row;
+
+      const statusMap: Record<string, string> = {
+        success: 'completed',
+        error: 'failed',
+        'error-api': 'failed',
+        'error-missing-key': 'failed',
+        failed: 'failed',
+        processing: 'processing',
+      };
+
+      return {
+        ...row,
+        status: statusMap[result.status] || 'pending',
+        response: result.response || '',
+        cost_usd: result.cost_usd || 0,
+        latency_ms: result.latency_ms || 0,
+        error: result.error || '',
+      };
+    });
+
+    dispatch({ type: 'SET_ROWS', rows: updatedRows });
+  }, [currentJobId, jobResults, rows]);
+
+  // Effect to calculate costs when rows change significantly
+  useEffect(() => {
+    // Debounce cost calculations to avoid excessive API calls
+    const timeoutId = setTimeout(() => {
+      updateBatchCosts();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [rows.length, updateBatchCosts]);
+
+  const renderCell = (row: ExtendedBatchRow, col: Column, rowIdx: number, colIdx: number) => {
+    const isEditing = editing.cell?.row === rowIdx && editing.cell?.col === colIdx;
+    const value = getCellValue(row, col.key);
+
+    if (isEditing) {
+      if (col.key === 'model') {
+        return (
+          <select
+            ref={selectRef}
+            value={editing.value}
+            onChange={(e) => dispatch({ type: 'UPDATE_EDIT_VALUE', value: e.target.value })}
+            onBlur={finishEditing}
+            className="w-full px-1 py-0.5 border rounded outline-none bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)]"
+            autoFocus
+          >
+            <option value="">Default</option>
+            {MODELS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+
+      if (['prompt', 'system', 'jsonSchema'].includes(col.key) || col.isDynamic) {
+        return (
+          <textarea
+            ref={textareaRef}
+            value={editing.value}
+            onChange={(e) => {
+              dispatch({ type: 'UPDATE_EDIT_VALUE', value: e.target.value });
+              if (col.key === 'prompt') handleSuggestionTrigger(e.target.value, e.target);
+            }}
+            onBlur={finishEditing}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === 'Return') && !e.shiftKey) {
+                e.preventDefault();
+                finishEditing();
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                dispatch({ type: 'CANCEL_EDITING' });
+              }
+            }}
+            className="w-full min-h-[24px] px-1 py-0.5 border rounded outline-none resize-none bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)]"
+          />
+        );
+      }
+
+      return (
+        <input
+          ref={inputRef}
+          type={col.key === 'temperature' ? 'number' : 'text'}
+          value={editing.value}
+          onChange={(e) => {
+            dispatch({ type: 'UPDATE_EDIT_VALUE', value: e.target.value });
+            if (col.key === 'model') handleSuggestionTrigger(e.target.value, e.target);
+          }}
+          onBlur={finishEditing}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              finishEditing();
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              dispatch({ type: 'CANCEL_EDITING' });
+            }
+            if (col.key === 'temperature' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+              e.preventDefault();
+              const v = parseFloat(editing.value || '0');
+              dispatch({
+                type: 'UPDATE_EDIT_VALUE',
+                value: (e.key === 'ArrowUp' ? Math.min(2, v + 0.1) : Math.max(0, v - 0.1)).toFixed(
+                  1
+                ),
+              });
+            }
+          }}
+          step={col.key === 'temperature' ? '0.1' : undefined}
+          min={col.key === 'temperature' ? '0' : undefined}
+          max={col.key === 'temperature' ? '2' : undefined}
+          className="w-full px-1 py-0.5 border rounded outline-none bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)]"
+          autoFocus
+        />
+      );
+    }
+
+    if (col.key === 'status') {
+      const cls = {
+        pending: 'text-gray-500',
+        processing: 'text-blue-500',
+        completed: 'text-green-500',
+        failed: 'text-red-500',
+      };
+      return (
+        <span className={cls[value as keyof typeof cls] || 'text-gray-500'}>
+          {value || 'pending'}
+        </span>
+      );
+    }
+
+    if (col.key === 'model') {
+      const model = MODELS.find((m) => m.value === value);
+      return (
+        <span className="cursor-pointer" title="Click to edit">
+          {model?.label || value || 'Default'}
+        </span>
+      );
+    }
+
+    if (col.key === 'cost_usd') {
+      const rowCost = costs.rowCosts.get(row.id);
+      if (rowCost) {
+        return (
+          <span className="flex flex-col text-xs">
+            <span className="font-medium">{formatCost(rowCost.totalCost)}</span>
+            <span className="text-gray-500">{formatTokens(rowCost.inputTokens)}t in</span>
+          </span>
+        );
+      }
+      return <span className="text-gray-400">Calculating...</span>;
+    }
+
+    // Add token count preview for prompt/system fields
+    if (['prompt', 'system'].includes(col.key) && value) {
+      const rowCost = costs.rowCosts.get(row.id);
+      return (
+        <span className="truncate group relative" title={value}>
+          {value}
+          {rowCost && (
+            <span className="absolute top-0 right-0 bg-blue-100 text-blue-800 text-xs px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+              {formatTokens(rowCost.inputTokens)}t
+            </span>
+          )}
+        </span>
+      );
+    }
+
     return (
-      row >= Math.min(startRow, endRow) &&
-      row <= Math.max(startRow, endRow) &&
-      col >= Math.min(startCol, endCol) &&
-      col <= Math.max(startCol, endCol)
-    );
-  };
-
-  const isCellInDragPreview = (row: number, col: number) => {
-    if (!selection || !dragPreview) return false;
-    const { startRow, endRow } = selection;
-    const maxSelectedRow = Math.max(startRow, endRow);
-    return (
-      row > maxSelectedRow &&
-      row <= dragPreview.row &&
-      col >= Math.min(selection.startCol, selection.endCol) &&
-      col <= Math.max(selection.startCol, selection.endCol)
+      <span className="truncate" title={value}>
+        {value}
+      </span>
     );
   };
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-primary)]">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-        <div>
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Batch Spreadsheet</h2>
-          <p className="text-[var(--text-secondary)] text-sm mt-1">
-            {fileName ? `File: ${fileName}` : 'Create and manage your batch processing data'}
-          </p>
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center mb-4 gap-4">
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+            {fileName ? `Editing: ${fileName}` : 'Batch Spreadsheet Editor'}
+          </h2>
+          <div className="flex items-center gap-4 mt-1 text-sm text-[var(--text-secondary)]">
+            <span>{rows.length} rows</span>
+            <span>•</span>
+            <span>
+              Est. Cost:{' '}
+              {costs.isCalculating ? 'Calculating...' : formatCost(costs.batchTotal.totalCost)}
+            </span>
+            <span>•</span>
+            <span>Input Tokens: {formatTokens(costs.batchTotal.totalInputTokens)}</span>
+            {costs.batchTotal.totalOutputTokens > 0 && (
+              <>
+                <span>•</span>
+                <span>Output Tokens: {formatTokens(costs.batchTotal.totalOutputTokens)}</span>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleAddRow}
-            className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
-          >
-            Add Row
-          </button>
-          <button
-            onClick={handleDeleteRows}
-            disabled={!selection}
-            className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
-          >
-            Delete Rows
-          </button>
-          <button
-            onClick={handleExportCSV}
-            className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors text-sm"
-          >
-            Export CSV
-          </button>
-          <button
-            onClick={() => onSave(rows)}
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-          >
-            Apply Changes
-          </button>
-          <button
-            onClick={onCancel}
-            className="px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors text-sm"
-          >
-            Cancel
-          </button>
+        <div className="flex gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleCsvImport(file);
+              e.target.value = ''; // Reset for re-import
+            }}
+            className="hidden"
+          />
+
+          {/* Import/Export Group */}
+          <div className="flex gap-1 border-r border-[var(--border)] pr-3">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1 text-sm bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border)] rounded hover:bg-[var(--bg-secondary)]"
+              title="Import CSV file with smart column detection"
+            >
+              📥 Import CSV
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="px-3 py-1 text-sm bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border)] rounded hover:bg-[var(--bg-secondary)]"
+              title="Export spreadsheet as CSV"
+            >
+              📤 Export CSV
+            </button>
+          </div>
+
+          {/* Add Content Group */}
+          <div className="flex gap-1 border-r border-[var(--border)] pr-3">
+            <button
+              onClick={() => {
+                const newRows = [...rows, createEmptyRow(`row-${rows.length + 1}`)];
+                dispatch({ type: 'SET_ROWS', rows: newRows });
+                saveToHistory(newRows, dynamicColumns);
+              }}
+              className="px-3 py-1 text-sm bg-[var(--accent-success)] text-[var(--accent-success-foreground)] rounded hover:bg-opacity-90"
+              title="Add a new row"
+            >
+              + Row
+            </button>
+            <button
+              onClick={handleAddColumn}
+              className="px-3 py-1 text-sm bg-[var(--accent-primary)] text-[var(--accent-primary-foreground)] rounded hover:bg-opacity-90"
+              title="Add a new column"
+            >
+              + Column
+            </button>
+          </div>
+
+          {/* Actions Group */}
+          <div className="flex gap-1">
+            <button
+              onClick={onCancel}
+              className="px-4 py-1 text-sm bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border)] rounded hover:bg-[var(--bg-secondary)]"
+              title="Clear spreadsheet and reset to defaults"
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Spreadsheet */}
       <div
         ref={tableRef}
-        className="flex-1 overflow-auto p-4"
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        className={`flex-1 overflow-auto relative spreadsheet-editor ${interaction.isSelecting ? 'selecting' : ''} ${interaction.isDragging ? 'dragging' : ''}`}
       >
-        <div className="inline-block min-w-full">
-          <table className="border-collapse">
-            <thead>
-              <tr>
-                <th className="border border-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 w-12">
-                  #
-                </th>
-                {ALL_COLUMNS.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 ${
-                      col.editable
-                        ? 'bg-blue-50 dark:bg-blue-900/20'
-                        : 'bg-gray-100 dark:bg-gray-800'
-                    }`}
-                    style={{ width: col.width }}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={row.id}>
-                  <td className="border border-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 text-sm text-center text-gray-600 dark:text-gray-400">
-                    {rowIndex + 1}
-                  </td>
-                  {ALL_COLUMNS.map((col, colIndex) => {
-                    const isSelected = isCellSelected(rowIndex, colIndex);
-                    const isEditing =
-                      editingCell?.row === rowIndex && editingCell?.col === colIndex;
-                    const isInDragPreview = isCellInDragPreview(rowIndex, colIndex);
-                    const showFillHandle =
-                      selection &&
-                      rowIndex === Math.max(selection.startRow, selection.endRow) &&
-                      colIndex === Math.max(selection.startCol, selection.endCol);
-
-                    return (
-                      <td
-                        key={col.key}
-                        className={`
-                            border border-gray-300 px-1 py-0.5 text-sm relative
-                            ${
-                              isSelected
-                                ? 'bg-blue-100 dark:bg-blue-900/30'
-                                : col.editable
-                                  ? 'bg-white dark:bg-gray-900'
-                                  : 'bg-gray-50 dark:bg-gray-800'
-                            }
-                            ${isInDragPreview ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
-                            ${isEditing ? 'p-0' : col.editable ? 'cursor-cell' : 'cursor-default'}
-                          `}
-                        onMouseDown={(e) =>
-                          !isEditing && handleCellMouseDown(rowIndex, colIndex, e)
-                        }
-                        onMouseEnter={() => handleCellMouseEnter(rowIndex, colIndex)}
-                        onDoubleClick={() => !isEditing && startEditing(rowIndex, colIndex)}
-                      >
-                        {isEditing ? (
-                          col.key === 'model' ? (
-                            <select
-                              ref={selectRef}
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={finishEditing}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') finishEditing();
-                                if (e.key === 'Escape') setEditingCell(null);
-                              }}
-                              className="w-full h-full px-1 py-0.5 border-0 outline-none bg-white dark:bg-gray-900"
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th
+                className="border border-[var(--border)] px-2 py-1 bg-[var(--bg-tertiary)] sticky left-0 z-10 text-[var(--text-primary)]"
+                style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
+              >
+                #
+              </th>
+              {allColumns.map((col, idx) => (
+                <th
+                  key={`${col.key}-${idx}`}
+                  className="border border-[var(--border)] px-2 py-1 bg-[var(--bg-tertiary)] relative text-[var(--text-primary)]"
+                  style={{ width: ui.columnWidths[col.key] || col.width }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      onDoubleClick={() =>
+                        col.isDynamic &&
+                        dispatch({ type: 'SET_UI', field: 'editingColumnName', value: idx })
+                      }
+                    >
+                      {col.label}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {col.key === 'temperature' && (
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTempMenu(!showTempMenu);
+                            }}
+                            className="text-xs px-1 py-0.5 bg-[var(--accent-primary)] text-[var(--accent-primary-foreground)] rounded hover:bg-opacity-80"
+                            title="Batch set temperature"
+                          >
+                            ⚙
+                          </button>
+                          {showTempMenu && (
+                            <div
+                              className="absolute top-full left-0 mt-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded shadow-lg z-50 min-w-32"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <option value="">Default</option>
-                              {MODELS.map((model) => (
-                                <option key={model.value} value={model.value}>
-                                  {model.label}
-                                </option>
-                              ))}
-                            </select>
-                          ) : col.key === 'prompt' || col.key === 'system' ? (
-                            <textarea
-                              ref={textareaRef}
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={finishEditing}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  finishEditing();
-                                }
-                                if (e.key === 'Escape') setEditingCell(null);
-                              }}
-                              className="w-full min-h-[24px] px-1 py-0.5 border-0 outline-none resize-none bg-white dark:bg-gray-900"
-                              style={{ height: 'auto' }}
-                            />
-                          ) : (
-                            <input
-                              ref={inputRef}
-                              type={col.key === 'temperature' ? 'number' : 'text'}
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={finishEditing}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') finishEditing();
-                                if (e.key === 'Escape') setEditingCell(null);
-                              }}
-                              step={col.key === 'temperature' ? '0.1' : undefined}
-                              min={col.key === 'temperature' ? '0' : undefined}
-                              max={col.key === 'temperature' ? '2' : undefined}
-                              className="w-full h-full px-1 py-0.5 border-0 outline-none bg-white dark:bg-gray-900"
-                            />
-                          )
-                        ) : (
-                          <div className="truncate">
-                            {col.key === 'status' ? (
-                              <StatusCell status={getCellValue(row, col.key)} />
-                            ) : col.key === 'model' ? (
-                              MODELS.find((m) => m.value === getCellValue(row, col.key))?.label ||
-                              getCellValue(row, col.key) ||
-                              'Default'
-                            ) : col.key === 'cost_usd' ? (
-                              getCellValue(row, col.key) ? (
-                                `$${parseFloat(getCellValue(row, col.key)).toFixed(6)}`
-                              ) : (
-                                ''
-                              )
-                            ) : (
-                              getCellValue(row, col.key)
-                            )}
-                          </div>
-                        )}
-                        {showFillHandle && (
-                          <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair"
-                            onMouseDown={handleFillHandleMouseDown}
-                          />
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBatchTemperature(0);
+                                    setShowTempMenu(false);
+                                  }}
+                                  className="block w-full px-3 py-1 text-left hover:bg-[var(--bg-secondary)] text-sm"
+                                >
+                                  0 (Deterministic)
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBatchTemperature(0.3);
+                                    setShowTempMenu(false);
+                                  }}
+                                  className="block w-full px-3 py-1 text-left hover:bg-[var(--bg-secondary)] text-sm"
+                                >
+                                  0.3 (Focused)
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBatchTemperature(0.7);
+                                    setShowTempMenu(false);
+                                  }}
+                                  className="block w-full px-3 py-1 text-left hover:bg-[var(--bg-secondary)] text-sm"
+                                >
+                                  0.7 (Balanced)
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBatchTemperature(1.0);
+                                    setShowTempMenu(false);
+                                  }}
+                                  className="block w-full px-3 py-1 text-left hover:bg-[var(--bg-secondary)] text-sm"
+                                >
+                                  1.0 (Creative)
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBatchTemperature(1.5);
+                                    setShowTempMenu(false);
+                                  }}
+                                  className="block w-full px-3 py-1 text-left hover:bg-[var(--bg-secondary)] text-sm"
+                                >
+                                  1.5 (Very Creative)
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {col.isDynamic && (
+                        <button
+                          onClick={() => handleDeleteColumn(col.key)}
+                          className="ml-1 text-[var(--accent-danger)]"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    className="column-resize-handle"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      dispatch({
+                        type: 'START_COLUMN_RESIZE',
+                        column: idx,
+                        startX: e.clientX,
+                        startWidth: parseInt(ui.columnWidths[col.key] || col.width),
+                      });
+                    }}
+                  />
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIdx) => (
+              <tr key={row.id}>
+                <td
+                  className="border border-[var(--border)] px-2 py-1 bg-[var(--bg-tertiary)] text-center sticky left-0 z-10 text-[var(--text-primary)]"
+                  style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
+                >
+                  {rowIdx + 1}
+                </td>
+                {allColumns.map((col, colIdx) => {
+                  const isSelected =
+                    selection &&
+                    rowIdx >= Math.min(selection.startRow, selection.endRow) &&
+                    rowIdx <= Math.max(selection.startRow, selection.endRow) &&
+                    colIdx >= Math.min(selection.startCol, selection.endCol) &&
+                    colIdx <= Math.max(selection.startCol, selection.endCol);
+                  const isDragHandle =
+                    selection && rowIdx === selection.endRow && colIdx === selection.endCol;
+                  const isDragPreview = interaction.dragPreviewCells.some(
+                    (cell) => cell.row === rowIdx && cell.col === colIdx
+                  );
 
-      {/* Footer */}
-      <div className="px-4 py-2 border-t border-[var(--border)] bg-[var(--bg-secondary)]">
-        <div className="flex items-center justify-between text-sm text-[var(--text-muted)]">
-          <div>
-            {rows.length} row{rows.length !== 1 ? 's' : ''}
-          </div>
-          <div>
-            Tips: Double-click to edit input cells • Ctrl+C/V to copy/paste • Drag corner handle to
-            fill down • Shift+click to select range • Blue columns are editable
-          </div>
-        </div>
+                  return (
+                    <td
+                      key={`${col.key}-${colIdx}-${rowIdx}`}
+                      data-testid={`cell-${rowIdx}-${colIdx}`}
+                      className={`border border-[var(--border)] px-2 py-1 relative spreadsheet-cell ${isSelected ? 'selected' : ''} ${isDragPreview ? 'drag-preview' : ''} ${col.editable ? 'cursor-text' : 'cursor-default'} text-[var(--text-primary)]`}
+                      style={{ width: ui.columnWidths[col.key] || col.width }}
+                      onMouseDown={(e) => col.editable && handleCellMouseDown(rowIdx, colIdx, e)}
+                      onMouseEnter={(e) => {
+                        if (interaction.isSelecting && selection)
+                          handleCellMouseMove(rowIdx, colIdx, e);
+                        if (interaction.isDragging) {
+                          dispatch({
+                            type: 'SET_INTERACTION',
+                            field: 'dragPreview',
+                            value: { row: rowIdx, col: colIdx },
+                          });
+                        }
+                      }}
+                      onDoubleClick={() => col.editable && handleCellDoubleClick(rowIdx, colIdx)}
+                    >
+                      {renderCell(row, col, rowIdx, colIdx)}
+                      {isDragHandle && col.editable && (
+                        <div
+                          className="drag-handle group"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            dispatch({ type: 'SET_INTERACTION', field: 'isDragging', value: true });
+                          }}
+                          title="Drag to fill cells"
+                        >
+                          <div className="drag-handle-icon">⊞</div>
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

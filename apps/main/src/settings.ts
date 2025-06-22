@@ -1,5 +1,6 @@
 import Store from 'electron-store';
 import { ProviderId, allProviders } from './providers';
+import { ChatOptions } from './providers/base';
 
 export interface StoreSchema {
   openaiKey?: string;
@@ -18,7 +19,7 @@ export interface StoreSchema {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const store = new Store<StoreSchema>() as any;
+const store = new Store() as any;
 
 export function getAllKeys(): Record<ProviderId, { configured: boolean }> {
   return {
@@ -152,8 +153,11 @@ export async function validateKey(provider: ProviderId): Promise<boolean> {
   }
 
   try {
-    // Try a simple test prompt
-    await providerInstance.chat('Hello');
+    // Try a simple test prompt with minimal pricing info
+    const testOptions: ChatOptions = {
+      pricing: { prompt: 0.001, completion: 0.001 }, // Minimal test pricing
+    };
+    await providerInstance.chat('Hello', undefined, testOptions);
     return true;
   } catch (error: any) {
     // Check for authentication errors
@@ -165,6 +169,10 @@ export async function validateKey(provider: ProviderId): Promise<boolean> {
       error.message?.includes('unauthorized')
     ) {
       return false;
+    }
+    // For pricing-related errors during validation, consider the key valid
+    if (error.message?.includes('pricing information')) {
+      return true;
     }
     // Other errors might be network issues, so we consider the key valid
     return true;

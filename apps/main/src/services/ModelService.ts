@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import { ModelDefinition } from '../../../../shared/types';
+import { logger } from '../utils/logger';
 
 export class ModelService {
   private models: ModelDefinition[] = [];
@@ -12,12 +13,32 @@ export class ModelService {
 
   private loadModels(): void {
     try {
-      const modelsPath = path.join(app.getAppPath(), 'data/models.json');
+      let modelsPath: string;
+
+      if (app.isPackaged) {
+        // In packaged app, models.json should be at the app root
+        modelsPath = path.join(app.getAppPath(), 'data/models.json');
+      } else {
+        // In development, we need to go from apps/main/src/services to root
+        // When compiled, this will be in apps/main/dist/apps/main/src/services
+        // So we need to check if we're running from dist or src
+        const currentDir = __dirname;
+
+        if (currentDir.includes('/dist/')) {
+          // Running from compiled code: apps/main/dist/apps/main/src/services -> root (7 levels up)
+          modelsPath = path.join(__dirname, '../../../../../../../data/models.json');
+        } else {
+          // Running from source: apps/main/src/services -> root
+          modelsPath = path.join(__dirname, '../../../../data/models.json');
+        }
+      }
+
+      logger.debug(`[ModelService] Loading models from: ${modelsPath}`);
       const data = fs.readFileSync(modelsPath, 'utf-8');
       this.models = JSON.parse(data);
-      console.debug(`[ModelService] Loaded ${this.models.length} models from data/models.json`);
+      logger.debug(`[ModelService] Loaded ${this.models.length} models from data/models.json`);
     } catch (error) {
-      console.error('[ModelService] Failed to load models:', error);
+      logger.error('[ModelService] Failed to load models:', error);
       this.models = [];
     }
   }

@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import Store from 'electron-store';
 import { chatWithOpenAI } from './providers/openai';
 import { allProviders, ProviderId } from './providers';
+import { ChatOptions } from './providers/base';
 import {
   getAllKeys,
   setKey,
@@ -30,27 +31,18 @@ import {
   setReasoningEffort,
 } from './settings';
 import { get_encoding } from '@dqbd/tiktoken';
-import { checkLicence } from './licensing/checkLicence';
+// import { checkLicence } from './licensing/checkLicence';
 import { append as appendHistory } from './history/append';
 import { ModelService } from './services/ModelService';
-import { Database } from './db/database';
+import { Database } from './db/mockDatabase';
 import { AppRequest, AppResponse } from '../../../shared/types';
+// import { logger } from './utils/logger';
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const store = new Store<{
-  openaiKey?: string;
-  anthropicKey?: string;
-  grokKey?: string;
-  geminiKey?: string;
-}>() as unknown as Store<{
-  openaiKey?: string;
-  anthropicKey?: string;
-  grokKey?: string;
-  geminiKey?: string;
-}>;
+const store = new Store() as any;
 
 // Set up global API key getter and max output tokens getter
 (globalThis as Record<string, unknown>).getApiKey = (id: ProviderId) => {
@@ -119,7 +111,9 @@ function createWindow() {
   if (isDev && VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(path.join(__dirname, '../../ui/dist/index.html'));
+    // When running from apps/main/dist/apps/main/src/main.js
+    // We need to go to apps/ui/dist/index.html
+    win.loadFile(path.join(__dirname, '../../../../../ui/dist/index.html'));
   }
 
   if (isDev) {
@@ -133,7 +127,10 @@ function createWindow() {
 // Unified IPC handler - replaces all individual handlers
 ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppResponse> => {
   try {
-    console.log(`IPC Request: ${request.type}`, request.payload);
+    // Only log in development mode to avoid EPIPE errors in packaged app
+    if (isDev) {
+      console.log(`IPC Request: ${request.type}`, request.payload);
+    }
 
     switch (request.type) {
       case 'models:get-all':
@@ -227,10 +224,11 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
           throw new Error(`Missing API key for provider: ${providerName}`);
         }
 
-        // Get pricing information from ModelService
-        const modelDefinition = modelService.getModelById(modelId);
+        // Get pricing information from ModelService using the raw model ID
+        // ModelService stores models with raw IDs like 'gpt-4o', not 'openai/gpt-4o'
+        const modelDefinition = modelService.getModelById(modelName);
         if (!modelDefinition) {
-          throw new Error(`Model not found: ${modelId}`);
+          throw new Error(`Model not found: ${modelName} (full ID: ${modelId})`);
         }
 
         try {
@@ -261,13 +259,15 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
             const messages = [{ role: 'user' as const, content: fullPrompt }];
             result = await (provider as any).chatWithHistory(messages, modelId, chatOptions);
           } else {
-            // Standard chat method with pricing
-            result = await provider.chat(fullPrompt, modelId, chatOptions);
+            // Standard chat method with pricing - pass the raw model name to the provider
+            result = await provider.chat(fullPrompt, modelName, chatOptions);
           }
 
           // Get the specific model details
           const models = provider.listModels();
-          const modelInfo = models.find((m) => modelId.includes(m.id) || m.id.includes(modelName));
+          const modelInfo = models.find(
+            (m) => modelName.includes(m.id) || m.id.includes(modelName)
+          );
           const modelLabel = modelInfo ? modelInfo.name : provider.label;
 
           // Save user message to database
@@ -359,6 +359,11 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
         return { success: true, data: project };
       }
 
+      case 'project:delete': {
+        await database.deleteProject(request.payload?.id);
+        return { success: true, data: null };
+      }
+
       case 'conversation:create': {
         const conversation = await database.createConversation(request.payload || {});
         return { success: true, data: conversation };
@@ -380,7 +385,50 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
       }
 
       case 'batch:submit': {
-        const batchJob = await database.createBatchJob(request.payload || {});
+        const { projectId, rows } = request.payload || {};
+
+        // Validate that we have rows to process
+        if (!rows || rows.length === 0) {
+          throw new Error('No rows provided for batch processing');
+        }
+
+        // Extract unique providers from all rows and validate API keys
+        const providers = new Set<string>();
+        for (const row of rows) {
+          if (row.model && typeof row.model === 'string') {
+            const [provider] = row.model.split('/');
+            if (provider) {
+              providers.add(provider);
+            }
+          }
+        }
+
+        // Check if API keys exist for all required providers
+        const missingKeys: string[] = [];
+        for (const provider of providers) {
+          const apiKey = getKey(provider as ProviderId);
+          if (!apiKey) {
+            missingKeys.push(provider);
+          }
+        }
+
+        // If any API keys are missing, fail immediately with detailed error
+        if (missingKeys.length > 0) {
+          throw new Error(
+            `Missing API keys for providers: ${missingKeys.join(', ')}. ` +
+              `Please configure API keys in Settings before running batch jobs.`
+          );
+        }
+
+        // Create the batch job only after validation passes
+        const batchJob = await database.createBatchJob({
+          projectId,
+          fileName: `batch-${Date.now()}.json`,
+          totalRows: rows.length,
+          status: 'validated', // Mark as validated, ready for processing
+          ...request.payload,
+        });
+
         return { success: true, data: batchJob };
       }
 
@@ -463,7 +511,8 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
       }
 
       case 'activity:get': {
-        const activity = await database.getActivityStats(request.payload?.projectId);
+        const { projectId, type, limit } = request.payload || {};
+        const activity = await database.getActivity(projectId, type, limit || 50);
         return { success: true, data: activity };
       }
 
@@ -472,7 +521,10 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
         return { success: false, error: `Unknown request type: ${request.type}` };
     }
   } catch (error: any) {
-    console.error(`IPC Error [${request.type}]:`, error);
+    // Only log errors in development mode to avoid EPIPE errors
+    if (isDev) {
+      console.error(`IPC Error [${request.type}]:`, error);
+    }
     return {
       success: false,
       error: error.message || 'Unknown error occurred',
@@ -539,35 +591,79 @@ ipcMain.handle('settings:validateKey', (_, id: ProviderId) => {
   return validateKey(id);
 });
 
-// License management handlers
-ipcMain.handle('license:store', (_, licenseKey: string) => {
-  const licenseStore = new Store<{ cacheExpires: number; key: string }>({
-    defaults: { cacheExpires: 0, key: '' },
-  });
-
-  licenseStore.set('key', licenseKey);
-  licenseStore.set('cacheExpires', Date.now() + 72 * 60 * 60 * 1000); // 72 hours cache
-
-  console.info('License key stored successfully');
-  return true;
+// Add missing settings handlers that the frontend expects
+ipcMain.handle('settings:getMaxOutputTokens', () => {
+  return getMaxOutputTokens();
 });
 
-ipcMain.handle('license:get', () => {
-  const licenseStore = new Store<{ cacheExpires: number; key: string }>({
-    defaults: { cacheExpires: 0, key: '' },
-  });
-
-  return licenseStore.get('key');
+ipcMain.handle('settings:setMaxOutputTokens', (_, value: number) => {
+  setMaxOutputTokens(value);
 });
 
-ipcMain.handle('license:clear', () => {
-  const licenseStore = new Store<{ cacheExpires: number; key: string }>({
-    defaults: { cacheExpires: 0, key: '' },
-  });
+ipcMain.handle('settings:getEnableWebSearch', () => {
+  return getEnableWebSearch();
+});
 
-  licenseStore.clear();
-  console.info('License cleared');
-  return true;
+ipcMain.handle('settings:setEnableWebSearch', (_, value: boolean) => {
+  setEnableWebSearch(value);
+});
+
+ipcMain.handle('settings:getMaxWebSearchUses', () => {
+  return getMaxWebSearchUses();
+});
+
+ipcMain.handle('settings:setMaxWebSearchUses', (_, value: number) => {
+  setMaxWebSearchUses(value);
+});
+
+ipcMain.handle('settings:getEnableExtendedThinking', () => {
+  return getEnableExtendedThinking();
+});
+
+ipcMain.handle('settings:setEnableExtendedThinking', (_, value: boolean) => {
+  setEnableExtendedThinking(value);
+});
+
+ipcMain.handle('settings:getEnablePromptCaching', () => {
+  return getEnablePromptCaching();
+});
+
+ipcMain.handle('settings:setEnablePromptCaching', (_, value: boolean) => {
+  setEnablePromptCaching(value);
+});
+
+ipcMain.handle('settings:getPromptCacheTTL', () => {
+  return getPromptCacheTTL();
+});
+
+ipcMain.handle('settings:setPromptCacheTTL', (_, value: '5m' | '1h') => {
+  setPromptCacheTTL(value);
+});
+
+ipcMain.handle('settings:getEnableStreaming', () => {
+  return getEnableStreaming();
+});
+
+ipcMain.handle('settings:setEnableStreaming', (_, value: boolean) => {
+  setEnableStreaming(value);
+});
+
+ipcMain.handle('settings:getJsonMode', () => {
+  return getJsonMode();
+});
+
+ipcMain.handle('settings:setJsonMode', (_, value: boolean) => {
+  setJsonMode(value);
+});
+
+ipcMain.handle('settings:getReasoningEffort', () => {
+  return getReasoningEffort();
+});
+
+ipcMain.handle('settings:setReasoningEffort', (_, value: number) => {
+  const effortLevels: Array<'low' | 'medium' | 'high'> = ['low', 'medium', 'high'];
+  const effort = effortLevels[value] || 'high';
+  setReasoningEffort(effort);
 });
 
 // Legacy single-model chat handler for backward compatibility
@@ -850,7 +946,14 @@ ipcMain.handle(
 // Model-specific chat handler for batch processing
 ipcMain.handle(
   'chat:sendToModel',
-  async (_, modelId: string, prompt: string, systemPrompt?: string, _temperature?: number) => {
+  async (
+    _,
+    modelId: string,
+    prompt: string,
+    systemPrompt?: string,
+    _temperature?: number,
+    jsonOptions?: { jsonMode?: boolean; jsonSchema?: string }
+  ) => {
     // Parse provider from model ID
     const [providerName, ...modelParts] = modelId.split('/');
     const modelName = modelParts.join('/');
@@ -869,14 +972,45 @@ ipcMain.handle(
     }
 
     try {
+      // Get pricing information from ModelService
+      // Try multiple ID formats to handle provider prefix mismatches
+      let modelDefinition = modelService.getModelById(modelName);
+      if (!modelDefinition) {
+        modelDefinition = modelService.getModelById(modelId);
+      }
+      if (!modelDefinition) {
+        // Try without potential models/ prefix for Gemini
+        const cleanModelName = modelName.replace('models/', '');
+        modelDefinition = modelService.getModelById(cleanModelName);
+      }
+
+      if (!modelDefinition) {
+        console.warn(`[Main] No pricing found for model: ${modelId} (${modelName})`);
+        throw new Error(`No pricing information available for model: ${modelId}`);
+      }
+
       // Build full prompt with system message if provided
       let fullPrompt = prompt;
       if (systemPrompt) {
         fullPrompt = `${systemPrompt}\n\n${prompt}`;
       }
 
-      // Pass the model ID to the provider's chat method
-      const result = await provider.chat(fullPrompt, modelId);
+      // Add JSON instruction if JSON mode is enabled
+      if (jsonOptions?.jsonMode && jsonOptions?.jsonSchema) {
+        fullPrompt += `\n\nPlease respond with valid JSON matching this schema:\n${jsonOptions.jsonSchema}`;
+      } else if (jsonOptions?.jsonMode) {
+        fullPrompt += '\n\nPlease respond with valid JSON.';
+      }
+
+      // Create chat options with pricing
+      // Use JSON mode if requested
+      const chatOptions: ChatOptions = {
+        pricing: modelDefinition.pricing,
+        jsonMode: jsonOptions?.jsonMode || false,
+      };
+
+      // Pass the model ID and options to the provider's chat method
+      const result = await provider.chat(fullPrompt, modelId, chatOptions);
 
       // Get the specific model details
       const models = provider.listModels();
@@ -916,7 +1050,14 @@ ipcMain.handle(
 
 ipcMain.handle(
   'chat:sendToModelBatch',
-  async (_, modelId: string, prompt: string, systemPrompt?: string, _temperature?: number) => {
+  async (
+    _,
+    modelId: string,
+    prompt: string,
+    systemPrompt?: string,
+    _temperature?: number,
+    jsonOptions?: { jsonMode?: boolean; jsonSchema?: string }
+  ) => {
     const [providerName, ...modelParts] = modelId.split('/');
     const modelName = modelParts.join('/');
 
@@ -927,10 +1068,41 @@ ipcMain.handle(
     if (!apiKey) throw new Error(`Missing API key for provider: ${providerName}`);
 
     try {
+      // Get pricing information from ModelService
+      // Try multiple ID formats to handle provider prefix mismatches
+      let modelDefinition = modelService.getModelById(modelName);
+      if (!modelDefinition) {
+        modelDefinition = modelService.getModelById(modelId);
+      }
+      if (!modelDefinition) {
+        // Try without potential models/ prefix for Gemini
+        const cleanModelName = modelName.replace('models/', '');
+        modelDefinition = modelService.getModelById(cleanModelName);
+      }
+
+      if (!modelDefinition) {
+        console.warn(`[Main] No pricing found for model: ${modelId} (${modelName})`);
+        throw new Error(`No pricing information available for model: ${modelId}`);
+      }
+
       let fullPrompt = prompt;
       if (systemPrompt) fullPrompt = `${systemPrompt}\n\n${prompt}`;
 
-      const result = await provider.chat(fullPrompt, modelId);
+      // Add JSON instruction if JSON mode is enabled
+      if (jsonOptions?.jsonMode && jsonOptions?.jsonSchema) {
+        fullPrompt += `\n\nPlease respond with valid JSON matching this schema:\n${jsonOptions.jsonSchema}`;
+      } else if (jsonOptions?.jsonMode) {
+        fullPrompt += '\n\nPlease respond with valid JSON.';
+      }
+
+      // Create chat options with pricing
+      // Use JSON mode if requested
+      const chatOptions: ChatOptions = {
+        pricing: modelDefinition.pricing,
+        jsonMode: jsonOptions?.jsonMode || false,
+      };
+
+      const result = await provider.chat(fullPrompt, modelId, chatOptions);
 
       const modelInfo = provider
         .listModels()
@@ -962,307 +1134,8 @@ ipcMain.handle(
   }
 );
 
-app.whenReady().then(async () => {
-  console.info('[Main] App is ready');
-  console.info('[Main] isDev:', isDev);
-  console.info('[Main] app.isPackaged:', app.isPackaged);
-  console.info('[Main] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
-  console.info('[Main] NODE_ENV:', process.env.NODE_ENV);
-
-  // Check license validity (skip in development)
-  if (!isDev) {
-    console.info('[Main] Running license check...');
-
-    try {
-      const licenseEndpoint = process.env.LICENCE_ENDPOINT || 'https://license.spventerprises.com';
-      console.info('[Main] License endpoint:', licenseEndpoint);
-
-      const isValid = await checkLicence();
-      console.info('[Main] License check result:', isValid);
-
-      if (!isValid) {
-        console.info('[Main] No valid license - showing activation page');
-        // Don't quit the app - instead, load the UI and navigate to activation
-        const win = createWindow();
-
-        // More robust navigation to activation page
-        let navigationAttempts = 0;
-        const maxAttempts = 5;
-
-        const navigateToActivation = () => {
-          navigationAttempts++;
-          console.info(
-            `[Main] Attempting to navigate to activation page (attempt ${navigationAttempts}/${maxAttempts})`
-          );
-
-          win.webContents
-            .executeJavaScript(
-              `
-            console.info('[Renderer] Current hash:', window.location.hash);
-            console.info('[Renderer] Navigating to activation page...');
-            window.location.hash = '#/activate';
-            console.info('[Renderer] New hash:', window.location.hash);
-            
-            // Force a re-render if using React Router
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new HashChangeEvent('hashchange'));
-            }
-          `
-            )
-            .then(() => {
-              console.info('[Main] Navigation script executed');
-
-              // Check if we need to retry
-              if (navigationAttempts < maxAttempts) {
-                setTimeout(() => {
-                  win.webContents.executeJavaScript(`window.location.hash`).then((hash) => {
-                    console.info(`[Main] Current hash after navigation: ${hash}`);
-                    if (hash !== '#/activate') {
-                      navigateToActivation();
-                    }
-                  });
-                }, 500);
-              }
-            })
-            .catch((err) => {
-              console.error('[Main] Navigation error:', err);
-            });
-        };
-
-        // Wait for the app to fully load before navigating
-        win.webContents.once('did-finish-load', () => {
-          console.info('[Main] Window finished loading');
-          // Give React time to initialize
-          setTimeout(navigateToActivation, 1000);
-        });
-
-        // Also try navigating when DOM is ready
-        win.webContents.once('dom-ready', () => {
-          console.info('[Main] DOM ready');
-        });
-
-        // Set up the menu
-        const isMac = process.platform === 'darwin';
-        const template: Electron.MenuItemConstructorOptions[] = [
-          // macOS app menu
-          ...(isMac
-            ? [
-                {
-                  label: app.getName(),
-                  submenu: [
-                    { role: 'about' as const },
-                    { type: 'separator' as const },
-                    { role: 'services' as const },
-                    { type: 'separator' as const },
-                    { role: 'hide' as const },
-                    { role: 'hideOthers' as const },
-                    { role: 'unhide' as const },
-                    { type: 'separator' as const },
-                    { role: 'quit' as const },
-                  ],
-                },
-              ]
-            : []),
-          // File menu
-          {
-            label: 'File',
-            submenu: [
-              {
-                label: 'Settings',
-                accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
-                click: () => {
-                  win.webContents.send('menu:openSettings');
-                },
-              },
-              { type: 'separator' },
-              ...(isMac ? [] : [{ role: 'quit' as const }]),
-            ],
-          },
-          // Edit menu
-          {
-            label: 'Edit',
-            submenu: [
-              { role: 'undo' as const },
-              { role: 'redo' as const },
-              { type: 'separator' as const },
-              { role: 'cut' as const },
-              { role: 'copy' as const },
-              { role: 'paste' as const },
-              { role: 'pasteAndMatchStyle' as const },
-              { role: 'delete' as const },
-              { role: 'selectAll' as const },
-              ...(isMac
-                ? [
-                    { type: 'separator' as const },
-                    {
-                      label: 'Speech',
-                      submenu: [
-                        { role: 'startSpeaking' as const },
-                        { role: 'stopSpeaking' as const },
-                      ],
-                    },
-                  ]
-                : []),
-            ],
-          },
-          // View menu
-          {
-            label: 'View',
-            submenu: [
-              { role: 'reload' as const },
-              { role: 'forceReload' as const },
-              { role: 'toggleDevTools' as const },
-              { type: 'separator' as const },
-              { role: 'resetZoom' as const },
-              { role: 'zoomIn' as const },
-              { role: 'zoomOut' as const },
-              { type: 'separator' as const },
-              { role: 'togglefullscreen' as const },
-            ],
-          },
-          // Window menu
-          {
-            label: 'Window',
-            submenu: [
-              { role: 'minimize' as const },
-              { role: 'close' as const },
-              ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : []),
-            ],
-          },
-        ];
-
-        const menu = Menu.buildFromTemplate(template);
-        Menu.setApplicationMenu(menu);
-
-        return; // Exit early, don't create another window
-      }
-    } catch (error) {
-      console.error('License check failed:', error);
-      // Only show error dialog if we have a cached license but can't validate it
-      // This indicates a real network/server issue, not just missing license
-      const { default: Store } = await import('electron-store');
-      const store = new Store({ defaults: { cacheExpires: 0, key: '' } });
-      const { key } = store.store;
-
-      if (key) {
-        // User has a license but can't validate it - show error
-        dialog.showErrorBox(
-          'Licence Error',
-          'Unable to validate licence. Please check your internet connection.'
-        );
-        app.quit();
-        return;
-      } else {
-        // No license found and server unreachable - show activation page
-        const win = createWindow();
-
-        win.webContents.once('did-finish-load', () => {
-          win.webContents.executeJavaScript(`
-            if (window.location.hash !== '#/activate') {
-              window.location.hash = '#/activate';
-            }
-          `);
-        });
-
-        // Set up the menu
-        const isMac = process.platform === 'darwin';
-        const template: Electron.MenuItemConstructorOptions[] = [
-          // macOS app menu
-          ...(isMac
-            ? [
-                {
-                  label: app.getName(),
-                  submenu: [
-                    { role: 'about' as const },
-                    { type: 'separator' as const },
-                    { role: 'services' as const },
-                    { type: 'separator' as const },
-                    { role: 'hide' as const },
-                    { role: 'hideOthers' as const },
-                    { role: 'unhide' as const },
-                    { type: 'separator' as const },
-                    { role: 'quit' as const },
-                  ],
-                },
-              ]
-            : []),
-          // File menu
-          {
-            label: 'File',
-            submenu: [
-              {
-                label: 'Settings',
-                accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
-                click: () => {
-                  win.webContents.send('menu:openSettings');
-                },
-              },
-              { type: 'separator' },
-              ...(isMac ? [] : [{ role: 'quit' as const }]),
-            ],
-          },
-          // Edit menu
-          {
-            label: 'Edit',
-            submenu: [
-              { role: 'undo' as const },
-              { role: 'redo' as const },
-              { type: 'separator' as const },
-              { role: 'cut' as const },
-              { role: 'copy' as const },
-              { role: 'paste' as const },
-              { role: 'pasteAndMatchStyle' as const },
-              { role: 'delete' as const },
-              { role: 'selectAll' as const },
-              ...(isMac
-                ? [
-                    { type: 'separator' as const },
-                    {
-                      label: 'Speech',
-                      submenu: [
-                        { role: 'startSpeaking' as const },
-                        { role: 'stopSpeaking' as const },
-                      ],
-                    },
-                  ]
-                : []),
-            ],
-          },
-          // View menu
-          {
-            label: 'View',
-            submenu: [
-              { role: 'reload' as const },
-              { role: 'forceReload' as const },
-              { role: 'toggleDevTools' as const },
-              { type: 'separator' as const },
-              { role: 'resetZoom' as const },
-              { role: 'zoomIn' as const },
-              { role: 'zoomOut' as const },
-              { type: 'separator' as const },
-              { role: 'togglefullscreen' as const },
-            ],
-          },
-          // Window menu
-          {
-            label: 'Window',
-            submenu: [
-              { role: 'minimize' as const },
-              { role: 'close' as const },
-              ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : []),
-            ],
-          },
-        ];
-
-        const menu = Menu.buildFromTemplate(template);
-        Menu.setApplicationMenu(menu);
-
-        return; // Exit early, don't create another window
-      }
-    }
-  }
-
-  const win = createWindow();
+app.whenReady().then(() => {
+  createWindow();
 
   const isMac = process.platform === 'darwin';
 
@@ -1271,7 +1144,7 @@ app.whenReady().then(async () => {
     ...(isMac
       ? [
           {
-            label: app.getName(),
+            label: app.name,
             submenu: [
               { role: 'about' as const },
               { type: 'separator' as const },
@@ -1289,17 +1162,7 @@ app.whenReady().then(async () => {
     // File menu
     {
       label: 'File',
-      submenu: [
-        {
-          label: 'Settings',
-          accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
-          click: () => {
-            win.webContents.send('menu:openSettings');
-          },
-        },
-        { type: 'separator' },
-        ...(isMac ? [] : [{ role: 'quit' as const }]),
-      ],
+      submenu: [isMac ? { role: 'close' as const } : { role: 'quit' as const }],
     },
     // Edit menu
     {
@@ -1311,18 +1174,22 @@ app.whenReady().then(async () => {
         { role: 'cut' as const },
         { role: 'copy' as const },
         { role: 'paste' as const },
-        { role: 'pasteAndMatchStyle' as const },
-        { role: 'delete' as const },
-        { role: 'selectAll' as const },
         ...(isMac
           ? [
+              { role: 'pasteAndMatchStyle' as const },
+              { role: 'delete' as const },
+              { role: 'selectAll' as const },
               { type: 'separator' as const },
               {
                 label: 'Speech',
                 submenu: [{ role: 'startSpeaking' as const }, { role: 'stopSpeaking' as const }],
               },
             ]
-          : []),
+          : [
+              { role: 'delete' as const },
+              { type: 'separator' as const },
+              { role: 'selectAll' as const },
+            ]),
       ],
     },
     // View menu
@@ -1345,8 +1212,26 @@ app.whenReady().then(async () => {
       label: 'Window',
       submenu: [
         { role: 'minimize' as const },
-        { role: 'close' as const },
-        ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : []),
+        { role: 'zoom' as const },
+        ...(isMac
+          ? [
+              { type: 'separator' as const },
+              { role: 'front' as const },
+              { type: 'separator' as const },
+              { role: 'window' as const },
+            ]
+          : [{ role: 'close' as const }]),
+      ],
+    },
+    {
+      role: 'help' as const,
+      submenu: [
+        {
+          label: 'Learn More',
+          click: async () => {
+            await shell.openExternal('https://electronjs.org');
+          },
+        },
       ],
     },
   ];

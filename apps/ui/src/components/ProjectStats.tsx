@@ -16,15 +16,11 @@ export function ProjectStats({ projectId }: ProjectStatsProps) {
 
   useEffect(() => {
     // Calculate stats from store data
-    const projectConversations = Array.from(conversations.values()).filter(
-      (conv) => conv.projectId === projectId
-    );
+    const projectConversations = conversations.filter((conv) => conv.projectId === projectId);
 
-    const projectBatchJobs = Array.from(batchJobs.values()).filter(
-      (job) => job.projectId === projectId
-    );
+    const projectBatchJobs = batchJobs.filter((job) => job.projectId === projectId);
 
-    const projectMessages = Array.from(messages.values()).reduce(
+    const projectMessages = Object.values(messages).reduce(
       (total, messageList) => total + messageList.length,
       0
     );

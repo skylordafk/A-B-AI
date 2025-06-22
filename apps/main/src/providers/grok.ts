@@ -86,15 +86,9 @@ export class GrokProvider implements BaseProvider {
 
       const model = xai(modelName);
 
-      // Convert our messages to the format expected by the AI SDK
-      // For prompt-based models, we'll combine the conversation into a single prompt
-      const conversationPrompt = messages
-        .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-        .join('\n\n');
-
+      // Use messages format instead of prompt to avoid conflicts
       const { text, usage } = await generateText({
         model,
-        prompt: conversationPrompt,
         system: messages.find((m) => m.role === 'system')?.content,
         messages: messages
           .filter((m) => m.role === 'user' || m.role === 'assistant')

@@ -15,6 +15,15 @@ function ProjectRoutes() {
   const hasProjects = projects.length > 0;
   const currentProject = projects.find((p) => p.id === currentProjectId);
 
+  // Debug logging to help troubleshoot navigation issues
+  console.debug('[Router] State:', {
+    hasProjects,
+    currentProjectId,
+    currentProject: !!currentProject,
+    isLoading,
+    projectCount: projects.length,
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
@@ -30,7 +39,7 @@ function ProjectRoutes() {
       <Route path="/projects" element={<ProjectDashboard />} />
 
       {/* Protected routes - require a project */}
-      {hasProjects && currentProject && (
+      {hasProjects && currentProject ? (
         <>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/chat" element={<ChatPage />} />
@@ -38,20 +47,25 @@ function ProjectRoutes() {
           <Route path="/settings" element={<ProjectSettings />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </>
-      )}
-
-      {/* Fallback routes (must be last) */}
-      {hasProjects && !currentProject && (
+      ) : hasProjects && !currentProject ? (
+        /* Has projects but no current project selected */
         <Route path="*" element={<Navigate to="/projects" replace />} />
+      ) : (
+        /* No projects exist */
+        <Route path="*" element={<Navigate to="/onboarding" replace />} />
       )}
-      {!hasProjects && <Route path="*" element={<Navigate to="/onboarding" replace />} />}
     </Routes>
   );
 }
 
 function AppRouter() {
   return (
-    <HashRouter>
+    <HashRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <ThemeProvider>
         <ProjectRoutes />
       </ThemeProvider>

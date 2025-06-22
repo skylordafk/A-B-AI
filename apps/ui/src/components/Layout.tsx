@@ -45,7 +45,7 @@ export default function Layout({ children, leftSidebar, rightSidebar }: LayoutPr
             {leftSidebar && (
               <button
                 onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-                className="p-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
+                className="p-2 rounded-md bg-[var(--tab-bg)] hover:bg-[var(--tab-hover)] text-[var(--tab-text)] transition-colors"
                 title="Toggle left sidebar"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,9 +66,7 @@ export default function Layout({ children, leftSidebar, rightSidebar }: LayoutPr
                   key={item.path}
                   onClick={() => navigate(item.path)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    location.pathname === item.path
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:text-[var(--text-primary)]'
+                    location.pathname === item.path ? 'tab-button active' : 'tab-button'
                   }`}
                 >
                   <span className="mr-2">{item.icon}</span>
@@ -92,7 +90,7 @@ export default function Layout({ children, leftSidebar, rightSidebar }: LayoutPr
             {rightSidebar && (
               <button
                 onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
-                className="p-2 rounded-md bg-slate-600 hover:bg-slate-700 text-white transition-colors"
+                className="p-2 rounded-md bg-[var(--tab-bg)] hover:bg-[var(--tab-hover)] text-[var(--tab-text)] transition-colors"
                 title="Toggle right sidebar"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

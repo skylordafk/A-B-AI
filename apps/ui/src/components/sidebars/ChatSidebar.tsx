@@ -4,16 +4,17 @@ export default function ChatSidebar() {
   const {
     projects,
     currentProjectId,
-    conversations,
     currentConversationId,
     createConversation,
     switchConversation,
     deleteConversation,
     messages,
+    getConversationsArray,
   } = useProjectStore();
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
-  const projectConversations = conversations.filter((c) => c.projectId === currentProjectId);
+  const allConversations = getConversationsArray();
+  const projectConversations = allConversations.filter((c) => c.projectId === currentProjectId);
 
   const formatTime = (date: Date | string) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -31,7 +32,7 @@ export default function ChatSidebar() {
   };
 
   const getLastMessage = (conversationId: string) => {
-    const conversationMessages = messages.get(conversationId) || [];
+    const conversationMessages = messages[conversationId] || [];
     const lastUserMessage = conversationMessages.filter((m) => m.role === 'user').pop();
     if (!lastUserMessage) return 'No messages yet';
     return (
@@ -88,9 +89,9 @@ export default function ChatSidebar() {
         ) : (
           <div className="space-y-1">
             {projectConversations
-              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+              .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0))
               .map((conversation) => {
-                const conversationMessages = messages.get(conversation.id) || [];
+                const conversationMessages = messages[conversation.id] || [];
                 return (
                   <div
                     key={conversation.id}
@@ -113,7 +114,7 @@ export default function ChatSidebar() {
                           {getLastMessage(conversation.id)}
                         </p>
                         <p className="text-xs text-[var(--text-secondary)] mt-2">
-                          {formatTime(conversation.updatedAt)}
+                          {formatTime(new Date(conversation.lastUsed || conversation.createdAt))}
                         </p>
                       </div>
 

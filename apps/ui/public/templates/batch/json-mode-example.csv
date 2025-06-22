@@ -1,0 +1,5 @@
+prompt,model,temperature,json_mode,json_schema,description
+"Generate a user profile for a software developer",openai/gpt-4o,0.7,true,"{""type"":""object"",""properties"":{""name"":{""type"":""string""},""role"":{""type"":""string""},""skills"":{""type"":""array"",""items"":{""type"":""string""}},""experience"":{""type"":""number""}},""required"":[""name"",""role"",""skills""]}","User profile with JSON schema"
+"List the top 5 programming languages in 2024",anthropic/claude-3-5-sonnet-20241022,0.5,true,,"Simple JSON array output"
+"Describe the weather today",gemini/gemini-1.5-pro-002,0.3,false,,"Regular text response"
+"Create a recipe data structure for chocolate cake",openai/gpt-4o-mini,0.6,true,"{""type"":""object"",""properties"":{""name"":{""type"":""string""},""ingredients"":{""type"":""array"",""items"":{""type"":""object"",""properties"":{""item"":{""type"":""string""},""amount"":{""type"":""string""}}}},""steps"":{""type"":""array"",""items"":{""type"":""string""}}}}","Recipe with structured data" 

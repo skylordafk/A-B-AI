@@ -28,14 +28,21 @@ contextBridge.exposeInMainWorld('api', {
   sendPrompts: (prompt, ids, conversationHistory) =>
     ipcRenderer.invoke('chat:multiSend', prompt, ids, conversationHistory),
   // Model-specific prompt for batch processing
-  sendToModel: (modelId, prompt, systemPrompt, temperature) =>
-    ipcRenderer.invoke('chat:sendToModel', modelId, prompt, systemPrompt, temperature),
+  sendToModel: (modelId, prompt, systemPrompt, temperature, jsonOptions) =>
+    ipcRenderer.invoke('chat:sendToModel', modelId, prompt, systemPrompt, temperature, jsonOptions),
   // Enhanced model prompt with advanced features
   sendToModelWithFeatures: (modelId, prompt, options) =>
     ipcRenderer.invoke('chat:sendToModelWithFeatures', modelId, prompt, options),
   // Model-specific prompt for batch processing
-  sendToModelBatch: (modelId, prompt, systemPrompt, temperature) =>
-    ipcRenderer.invoke('chat:sendToModelBatch', modelId, prompt, systemPrompt, temperature),
+  sendToModelBatch: (modelId, prompt, systemPrompt, temperature, jsonOptions) =>
+    ipcRenderer.invoke(
+      'chat:sendToModelBatch',
+      modelId,
+      prompt,
+      systemPrompt,
+      temperature,
+      jsonOptions
+    ),
   // Get available models
   getAvailableModels: () => ipcRenderer.invoke('models:getAvailable'),
   // Count tokens for a text
@@ -78,10 +85,6 @@ contextBridge.exposeInMainWorld('api', {
   openHistoryFolder: (project) => ipcRenderer.invoke('history:openFolder', project),
   // Read history file
   readHistory: (project) => ipcRenderer.invoke('history:read', project),
-  // License management
-  storeLicense: (licenseKey) => ipcRenderer.invoke('license:store', licenseKey),
-  getLicense: () => ipcRenderer.invoke('license:get'),
-  clearLicense: () => ipcRenderer.invoke('license:clear'),
 });
 
 contextBridge.exposeInMainWorld('ipc', {

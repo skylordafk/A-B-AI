@@ -67,9 +67,22 @@ function processPricingData(rawData: Record<string, unknown>): PricingData {
     }
   }
 
-  // Map Gemini models correctly
+  // Map Gemini models correctly - Fixed to match actual model IDs
   if (pricingData.google) {
     pricingData.gemini = {
+      'models/gemini-1.5-pro': pricingData.google['gemini-1.5-pro'] || {
+        prompt: 0.00125,
+        completion: 0.005,
+      },
+      'models/gemini-1.5-flash': pricingData.google['gemini-1.5-flash'] || {
+        prompt: 0.000075,
+        completion: 0.0003,
+      },
+      'models/gemini-2.0-flash-exp': pricingData.google['gemini-2.0-flash-exp'] || {
+        prompt: 0.0,
+        completion: 0.0,
+      },
+      // Legacy support for old model IDs during transition
       'models/gemini-2.5-flash-preview': pricingData.google['gemini-2.5-flash-preview'] || {
         prompt: 0.00035,
         completion: 0.00175,
@@ -135,6 +148,9 @@ export async function loadPricingData(): Promise<PricingData> {
         'grok-3-mini': { prompt: 0.0003, completion: 0.0005 },
       },
       gemini: {
+        'models/gemini-1.5-pro': { prompt: 0.00125, completion: 0.005 },
+        'models/gemini-1.5-flash': { prompt: 0.000075, completion: 0.0003 },
+        'models/gemini-2.0-flash-exp': { prompt: 0.0, completion: 0.0 },
         'models/gemini-2.5-flash-preview': { prompt: 0.00035, completion: 0.00175 },
         'models/gemini-2.5-pro-thinking': { prompt: 0.00125, completion: 0.01 },
       },

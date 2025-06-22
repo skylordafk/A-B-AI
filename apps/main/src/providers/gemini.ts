@@ -4,7 +4,7 @@ import { ModelMeta } from '../types/model';
 /** Adapter for Google AI Gemini API */
 export class GeminiProvider implements BaseProvider {
   id = 'gemini';
-  label = 'Gemini 2.5 Pro';
+  label = 'Gemini 1.5 Pro';
 
   getCapabilities() {
     return {
@@ -19,20 +19,28 @@ export class GeminiProvider implements BaseProvider {
 
   private readonly MODELS: ModelMeta[] = [
     {
-      id: 'models/gemini-2.5-pro-thinking',
-      name: 'Gemini 2.5 Pro-Thinking',
-      description: 'Top-tier reasoning model.',
+      id: 'models/gemini-1.5-pro',
+      name: 'Gemini 1.5 Pro',
+      description: "Google's most advanced reasoning model with 1M context.",
       contextSize: 1_000_000,
       pricePrompt: 0.00125,
-      priceCompletion: 0.01,
+      priceCompletion: 0.005,
     },
     {
-      id: 'models/gemini-2.5-flash-preview',
-      name: 'Gemini 2.5 Flash-Preview',
-      description: 'Fast and efficient Gemini model.',
+      id: 'models/gemini-1.5-flash',
+      name: 'Gemini 1.5 Flash',
+      description: 'Fast and efficient model for everyday tasks.',
       contextSize: 1_000_000,
-      pricePrompt: 0.00035,
-      priceCompletion: 0.00175,
+      pricePrompt: 0.000075,
+      priceCompletion: 0.0003,
+    },
+    {
+      id: 'models/gemini-2.0-flash-exp',
+      name: 'Gemini 2.0 Flash Experimental',
+      description: 'Experimental next-generation model (free during preview).',
+      contextSize: 1_000_000,
+      pricePrompt: 0.0,
+      priceCompletion: 0.0,
     },
   ];
 
@@ -69,23 +77,20 @@ export class GeminiProvider implements BaseProvider {
         throw new Error(`No pricing information provided for model: ${modelId}`);
       }
 
-      // Determine which model to use
+      // Determine which model to use - Fixed mapping to match actual models
       let modelName = 'gemini-1.5-flash'; // Default to flash
 
       if (modelId) {
         // Extract just the model name if it includes provider prefix
-        const requestedModel = modelId.includes('/') ? modelId.split('/')[1] : modelId;
+        const requestedModel = modelId.includes('/') ? modelId.split('/').pop() : modelId;
 
         // Map our model IDs to actual Gemini API model names
-        if (requestedModel.includes('pro-thinking') || requestedModel.includes('2.5-pro')) {
-          modelName = 'gemini-1.5-pro'; // Use pro model for thinking requests
-        } else if (
-          requestedModel.includes('flash-preview') ||
-          requestedModel.includes('2.5-flash')
-        ) {
-          modelName = 'gemini-1.5-flash'; // Use flash for preview requests
-        } else if (requestedModel.includes('flash') || requestedModel.includes('1.5-flash')) {
+        if (requestedModel?.includes('1.5-pro') || requestedModel?.includes('pro')) {
+          modelName = 'gemini-1.5-pro';
+        } else if (requestedModel?.includes('1.5-flash') || requestedModel?.includes('flash')) {
           modelName = 'gemini-1.5-flash';
+        } else if (requestedModel?.includes('2.0-flash-exp') || requestedModel?.includes('2.0')) {
+          modelName = 'gemini-2.0-flash-exp';
         }
       }
 

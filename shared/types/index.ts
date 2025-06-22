@@ -14,7 +14,7 @@ export interface ModelDefinition {
   features: ('web_search' | 'extended_thinking' | 'prompt_caching' | 'json_mode')[];
 }
 
-export type RequestType = 
+export type RequestType =
   | 'models:get-all'
   | 'chat:send'
   | 'chat:send-structured'
@@ -24,6 +24,7 @@ export type RequestType =
   | 'project:list'
   | 'project:get'
   | 'project:switch'
+  | 'project:delete'
   | 'conversation:create'
   | 'conversation:list'
   | 'messages:add'
@@ -31,6 +32,8 @@ export type RequestType =
   | 'batch:submit'
   | 'batch:submit-native'
   | 'batch:update-status'
+  | 'batch:get-status'
+  | 'batch:get-results'
   | 'activity:get';
 
 export interface AppRequest {

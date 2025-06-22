@@ -52,18 +52,20 @@ export async function runRow(
       };
     }
 
-    // Check if API key exists for the provider
+    // Check if API key exists for the provider - Fixed validation logic
     const apiKeys = await (window as any).api.getAllKeys();
     const provider = model.split('/')[0] || 'openai';
 
-    if (!apiKeys[provider as keyof typeof apiKeys]) {
+    // Fixed: Check the configured property properly
+    const providerKeys = apiKeys[provider as keyof typeof apiKeys];
+    if (!providerKeys || !providerKeys.configured) {
       return {
         id: row.id,
         prompt: row.prompt,
         model,
         status: 'error-missing-key',
         error: `Missing API key for provider: ${provider}`,
-        errorMessage: `Missing API key for provider: ${provider}`,
+        errorMessage: `Missing API key for provider: ${provider}. Please configure API keys in Settings.`,
         latency_ms: Date.now() - startTime,
         data: row.data,
       };
@@ -100,7 +102,11 @@ export async function runRow(
         model,
         processedPrompt,
         row.developer ?? row.system,
-        row.temperature
+        row.temperature,
+        {
+          jsonMode: row.data?.jsonMode,
+          jsonSchema: row.data?.jsonSchema,
+        }
       );
     }
 

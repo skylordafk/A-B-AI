@@ -46,10 +46,10 @@ interface ProjectStore {
   // State
   projects: Project[];
   currentProjectId: string | null;
-  conversations: Map<string, Conversation>;
+  conversations: Conversation[];
   currentConversationId: string | null;
-  messages: Map<string, Message[]>;
-  batchJobs: Map<string, BatchJob>;
+  messages: Record<string, Message[]>;
+  batchJobs: BatchJob[];
   models: ModelDefinition[];
   isLoading: boolean;
   error: string | null;
@@ -58,15 +58,28 @@ interface ProjectStore {
   initialize: () => Promise<void>;
 
   // Project actions
-  createProject: (name: string) => Promise<void>;
+  createProject: (name: string, description?: string) => Promise<void>;
   loadProjects: () => Promise<void>;
   switchProject: (projectId: string) => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
+
+  // Computed properties
+  currentProject: Project | null;
 
   // Chat actions
-  sendMessage: (content: string, jsonMode?: boolean, jsonSchema?: object) => Promise<void>;
+  sendMessage: (
+    content: string,
+    selectedModels: string[],
+    jsonMode?: boolean,
+    jsonSchema?: object
+  ) => Promise<void>;
   createConversation: (name: string) => Promise<void>;
   loadConversations: () => Promise<void>;
   switchConversation: (conversationId: string) => void;
+  deleteConversation: (conversationId: string) => Promise<void>;
+
+  // Computed properties for UI
+  getConversationsArray: () => Conversation[];
 
   // Batch actions
   createBatchJob: (fileName: string, rows: any[], useNativeAPI?: boolean) => Promise<string>;
@@ -82,13 +95,19 @@ export const useProjectStore = create<ProjectStore>()(
     // Initial state
     projects: [],
     currentProjectId: null,
-    conversations: new Map(),
+    conversations: [],
     currentConversationId: null,
-    messages: new Map(),
-    batchJobs: new Map(),
+    messages: {},
+    batchJobs: [],
     models: [],
     isLoading: false,
     error: null,
+
+    // Computed properties
+    get currentProject() {
+      const state = get();
+      return state.projects.find((p) => p.id === state.currentProjectId) || null;
+    },
 
     // Initialize store
     initialize: async () => {
@@ -122,12 +141,25 @@ export const useProjectStore = create<ProjectStore>()(
     },
 
     // Project actions
-    createProject: async (name: string) => {
-      const project = await apiClient.createProject(name);
-      set((state) => {
-        state.projects.push(project);
-        state.currentProjectId = project.id;
-      });
+    createProject: async (name: string, description?: string) => {
+      try {
+        const project = await apiClient.createProject(name, description);
+        set((state) => {
+          state.projects.push(project);
+          state.currentProjectId = project.id;
+          state.error = null; // Clear any previous errors
+        });
+        console.debug('[ProjectStore] Created project:', project.id);
+
+        // Load conversations for the new project
+        await get().loadConversations();
+      } catch (error: any) {
+        console.error('[ProjectStore] Failed to create project:', error);
+        set((state) => {
+          state.error = error.message;
+        });
+        throw error; // Re-throw so UI can handle it
+      }
     },
 
     loadProjects: async () => {
@@ -147,11 +179,22 @@ export const useProjectStore = create<ProjectStore>()(
       await get().loadConversations();
     },
 
+    deleteProject: async (projectId: string) => {
+      await apiClient.deleteProject(projectId);
+      set((state) => {
+        state.projects = state.projects.filter((p) => p.id !== projectId);
+        // If we deleted the current project, switch to another one or set to null
+        if (state.currentProjectId === projectId) {
+          state.currentProjectId = state.projects.length > 0 ? state.projects[0].id : null;
+        }
+      });
+    },
+
     // Chat actions
     loadConversations: async () => {
       // Placeholder - will be implemented when backend provides this endpoint
       set((state) => {
-        state.conversations = new Map();
+        state.conversations = [];
         state.currentConversationId = null;
       });
     },
@@ -166,7 +209,7 @@ export const useProjectStore = create<ProjectStore>()(
         lastUsed: Date.now(),
       };
       set((state) => {
-        state.conversations.set(newConversation.id, newConversation);
+        state.conversations.push(newConversation);
         state.currentConversationId = newConversation.id;
       });
     },
@@ -177,33 +220,78 @@ export const useProjectStore = create<ProjectStore>()(
       });
     },
 
-    sendMessage: async (content: string, jsonMode: boolean = false, jsonSchema?: object) => {
+    deleteConversation: async (conversationId: string) => {
+      // TODO: Add backend API call when available
+      // await apiClient.deleteConversation(conversationId);
+
+      set((state) => {
+        state.conversations = state.conversations.filter((c) => c.id !== conversationId);
+        delete state.messages[conversationId];
+
+        // If we deleted the current conversation, switch to another one or set to null
+        if (state.currentConversationId === conversationId) {
+          const projectConversations = state.conversations.filter(
+            (c) => c.projectId === state.currentProjectId
+          );
+          state.currentConversationId =
+            projectConversations.length > 0 ? projectConversations[0].id : null;
+        }
+      });
+    },
+
+    getConversationsArray: () => {
+      const state = get();
+      return state.conversations;
+    },
+
+    sendMessage: async (
+      content: string,
+      selectedModels: string[],
+      jsonMode: boolean = false,
+      jsonSchema?: object
+    ) => {
       const { currentConversationId } = get();
       if (!currentConversationId) throw new Error('No conversation selected');
 
-      const response = jsonMode
+      if (selectedModels.length === 0) throw new Error('No models selected');
+
+      const responses = jsonMode
         ? await apiClient.sendStructuredMessage(
             currentConversationId,
             content,
-            'gpt-4o',
+            selectedModels,
             jsonSchema
           )
-        : await apiClient.sendMessage(currentConversationId, content, 'gpt-4o');
+        : await apiClient.sendMessage(currentConversationId, content, selectedModels);
 
       // Update messages in store
       set((state) => {
-        const messages = state.messages.get(currentConversationId) || [];
-        messages.push(
-          {
-            id: Date.now().toString(),
-            conversationId: currentConversationId,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-          response
-        );
-        state.messages.set(currentConversationId, messages);
+        const messages = state.messages[currentConversationId] || [];
+
+        // Add user message
+        const userMessage = {
+          id: `user-${Date.now()}`,
+          conversationId: currentConversationId,
+          role: 'user' as const,
+          content,
+          timestamp: Date.now(),
+        };
+
+        // Handle responses (single or multiple)
+        const responseArray = Array.isArray(responses) ? responses : [responses];
+        const assistantMessages = responseArray.map((response, index) => ({
+          id: `assistant-${Date.now()}-${index}`,
+          conversationId: currentConversationId,
+          role: 'assistant' as const,
+          content: response.content || response.answer || 'No response',
+          provider: response.provider,
+          model: response.model,
+          cost: response.cost || response.costUSD,
+          timestamp: Date.now() + index, // Ensure unique timestamps
+        }));
+
+        const newMessages = [...messages, userMessage, ...assistantMessages];
+        state.messages[currentConversationId] = newMessages;
       });
     },
 
@@ -214,15 +302,15 @@ export const useProjectStore = create<ProjectStore>()(
 
       const job = await apiClient.submitBatch(currentProjectId, rows, useNativeAPI);
       set((state) => {
-        state.batchJobs.set(job.id, job);
+        state.batchJobs.push(job);
       });
       return job.id;
     },
 
     updateBatchResult: (jobId: string, rowId: string, result: any) => {
       set((state) => {
-        const job = state.batchJobs.get(jobId);
-        if (job) {
+        const job = state.batchJobs.find((j) => j.id === jobId);
+        if (job && job.results) {
           job.results.set(rowId, result);
         }
       });

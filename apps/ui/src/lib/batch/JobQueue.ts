@@ -60,24 +60,50 @@ export class JobQueue extends EventEmitter {
     // Save initial state
     await this.saveState();
 
-    // Start processing
-    await this.processNext();
+    try {
+      // Start processing
+      await this.processNext();
 
-    // Wait for all in-flight jobs to complete
-    while (this.inFlight > 0 && !this.isStopping) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for all in-flight jobs to complete
+      while (this.inFlight > 0 && !this.isStopping) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      this.isRunning = false;
+
+      if (!this.isStopping) {
+        // Check if batch should be considered failed due to critical errors
+        const criticalErrors = this.results.filter(
+          (r) =>
+            r.status === 'error-missing-key' ||
+            (r.status === 'error' && r.errorMessage?.includes('Missing API key'))
+        );
+
+        if (criticalErrors.length > 0) {
+          this.emitBatchSummary('failed');
+          this.emit('failed', {
+            reason: 'Critical errors detected',
+            criticalErrors: criticalErrors.length,
+            totalRows: this.totalRows,
+          });
+        } else {
+          this.emitBatchSummary('completed');
+          this.emit('complete');
+        }
+
+        await this.clearState(); // Clean up state file on completion
+      }
+
+      return this.results;
+    } catch (error) {
+      this.isRunning = false;
+      this.emitBatchSummary('failed');
+      this.emit('failed', {
+        reason: error instanceof Error ? error.message : 'Unknown error',
+        error,
+      });
+      throw error;
     }
-
-    this.isRunning = false;
-
-    if (!this.isStopping) {
-      // Only emit completion if we weren't stopped
-      this.emitBatchSummary();
-      this.emit('complete');
-      await this.clearState(); // Clean up state file on completion
-    }
-
-    return this.results;
   }
 
   // Graceful shutdown - stops accepting new work but completes in-flight jobs
@@ -201,6 +227,11 @@ export class JobQueue extends EventEmitter {
       });
       this.results.push(result);
       this.emit('row-done', result);
+
+      // Check for critical errors that should fail the entire batch
+      if (result.status === 'error-missing-key') {
+        throw new Error(`Critical error: ${result.errorMessage}`);
+      }
     } catch (error) {
       const errorResult: BatchResult = {
         id: row.id,
@@ -234,7 +265,7 @@ export class JobQueue extends EventEmitter {
     this.emit('progress', progress);
   }
 
-  private emitBatchSummary(): void {
+  private emitBatchSummary(status: 'failed' | 'completed'): void {
     const endTime = Date.now();
     const duration = this.startTime ? endTime - this.startTime : 0;
 
@@ -262,7 +293,7 @@ export class JobQueue extends EventEmitter {
       timestamp: new Date().toISOString(),
     };
 
-    this.emit('batch-summary', summary);
+    this.emit('batch-summary', { ...summary, status });
   }
 
   private async saveState(): Promise<void> {

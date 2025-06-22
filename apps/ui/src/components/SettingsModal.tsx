@@ -101,7 +101,10 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
       }));
     };
 
-    window.ipc.onInvalidKey(handleInvalidKey);
+    const cleanup = window.ipc.onInvalidKey(handleInvalidKey);
+
+    // Cleanup listener when component unmounts or modal closes
+    return cleanup;
   }, []);
 
   const validateKey = async (provider: ProviderId) => {

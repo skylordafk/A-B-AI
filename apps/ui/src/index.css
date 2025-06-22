@@ -73,20 +73,64 @@
   /* Design-token neutrals (light) */
   --bg-primary: #f5f5f4; /* stone-100 */
   --bg-secondary: #fafaf9; /* stone-50 */
+  --bg-tertiary: #e7e5e4;
+  --bg-hover: #d6d3d1;
   --border: #d6d3d1; /* stone-300 */
   --text-primary: #1c1917; /* stone-900 */
   --text-secondary: #3f3f3f; /* stone-700 */
   --text-muted: #57534e; /* stone-600 */
+  
+  /* Accent colors */
+  --accent-primary: #3b82f6;
+  --accent-primary-hover: #2563eb;
+  --accent-primary-foreground: #ffffff;
+  
+  --accent-success: #10b981;
+  --accent-success-hover: #059669;
+  --accent-success-foreground: #ffffff;
+  
+  --accent-danger: #ef4444;
+  --accent-danger-hover: #dc2626;
+  --accent-danger-foreground: #ffffff;
+  
+  /* Tab bar colors */
+  --tab-bg: #e7e5e4;
+  --tab-hover: #d6d3d1;
+  --tab-active: #3b82f6;
+  --tab-text: #1c1917;
+  --tab-text-active: #ffffff;
 }
 
 .dark {
   /* Design-token neutrals (dark) */
   --bg-primary: #292524; /* stone-800 */
   --bg-secondary: #1c1917; /* stone-900 */
+  --bg-tertiary: #44403c;
+  --bg-hover: #57534e;
   --border: #44403c; /* stone-700 */
   --text-primary: #fafaf9; /* stone-50 */
   --text-secondary: #d6d3d1; /* stone-300 */
   --text-muted: #d6d3d1; /* stone-300 */
+  
+  /* Accent colors for dark mode */
+  --accent-primary: #2563eb;
+  --accent-primary-hover: #3b82f6;
+  --accent-primary-foreground: #ffffff;
+  
+  --accent-success: #059669;
+  --accent-success-hover: #10b981;
+  --accent-success-foreground: #ffffff;
+  
+  --accent-danger: #dc2626;
+  --accent-danger-hover: #ef4444;
+  --accent-danger-foreground: #ffffff;
+  
+  /* Tab bar colors */
+  --tab-bg: #44403c;
+  --tab-hover: #57534e;
+  --tab-active: #3b82f6;
+  --tab-text: #fafaf9;
+  --tab-text-active: #ffffff;
 }
 
 /* Remove default background & text colours – Tailwind classes/variables will take over */
@@ -145,4 +189,20 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Tab bar button styles */
+.tab-button {
+  background-color: var(--tab-bg);
+  color: var(--tab-text);
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  background-color: var(--tab-hover);
+}
+
+.tab-button.active {
+  background-color: var(--tab-active);
+  color: var(--tab-text-active);
 }

@@ -9,51 +9,10 @@ directories:
 files:
   - apps/main/dist/**/*
   - apps/ui/dist/**/*
-  - apps/main/package.json
   - node_modules/**/*
   - package.json
-  - "!apps/*/node_modules/**/*"
-  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
-  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
-  - "!**/node_modules/*.d.ts"
-  - "!**/node_modules/.bin"
-  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
-  - "!.editorconfig"
-  - "!**/._*"
-  - "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}"
-  - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
-  - "!**/{appveyor.yml,.travis.yml,circle.yml}"
-  - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
-  - "!**/node_modules/electron/**/*"
-  - "!**/node_modules/electron-builder/**/*"
-  - "!**/node_modules/@typescript-eslint/**/*"
-  - "!**/node_modules/eslint*/**/*"
-  - "!**/node_modules/prettier/**/*"
-  - "!**/node_modules/husky/**/*"
-  - "!**/node_modules/lint-staged/**/*"
-  - "!**/node_modules/vitest/**/*"
-  - "!**/node_modules/@vitest/**/*"
-  - "!**/node_modules/concurrently/**/*"
-  - "!**/node_modules/cross-env/**/*"
-  - "!**/node_modules/**/*.map"
-  - "!**/node_modules/**/*.ts"
-  - "!**/node_modules/**/*.tsx"
-  - "!**/node_modules/**/*.md"
-  - "!**/node_modules/**/LICENSE*"
-  - "!**/node_modules/**/license*"
-  - "!**/node_modules/**/.github"
-  - "!**/node_modules/**/docs/**/*"
-  - "!**/node_modules/**/test/**/*"
-  - "!**/node_modules/**/tests/**/*"
-  - "!**/node_modules/**/__tests__/**/*"
-  - "!**/node_modules/**/coverage/**/*"
-  - "!**/node_modules/**/.eslintrc*"
-  - "!**/node_modules/**/.prettier*"
-  - "!**/node_modules/**/tsconfig.json"
-  - "!**/node_modules/**/webpack.config.*"
-  - "!**/node_modules/**/rollup.config.*"
+  - data/**/*
 
-# Include sub node_modules for monorepo
 includeSubNodeModules: true
 
 npmRebuild: false
@@ -61,25 +20,21 @@ nodeGypRebuild: false
 asar: true
 compression: normal
 
-# Unpack ESM-only deps to avoid Node ERR_UNSUPPORTED_ESM_URL_SCHEME bug (electron-store triggers this)
+# Enable asar to fix packaging issues
 asarUnpack:
-  - "node_modules/electron-store/**/*"
-  - "node_modules/@dqbd/tiktoken/**/*"
-  - "**/*.node"
-
-# Skip code signing for now
-forceCodeSigning: false
+  - "**/node_modules/better-sqlite3/**"
+  - "**/node_modules/electron-store/**"
 
 mac:
   category: public.app-category.productivity
   target:
     - target: dmg
       arch: [x64, arm64]
-    - target: zip
-      arch: [x64, arm64]
   artifactName: ${productName}-${version}-${arch}.${ext}
+  # Fix for macOS symlink issues
+  extendInfo:
+    NSHighResolutionCapable: true
   # icon: build/icon.icns  # TODO: Add icon file
-  # icon: build/icon.icns
 
 win:
   target:

@@ -1,11 +1,16 @@
-prompt,model,system,temperature,variable1,variable2
-"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4o,"You are a helpful travel assistant who provides detailed and practical recommendations.",0.0,activities,Japan
-"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4.1-mini,"You are a knowledgeable local guide who knows the best hidden gems and popular spots.",0.1,restaurants,Paris
-"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4.1,"You are a sophisticated travel expert with deep cultural knowledge.",0.2,art galleries,Florence
-"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-3-5-sonnet-20241022,"You are a cultural expert who provides insightful information about history and significance.",0.3,museums,London
-"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-3-5-haiku,"You are an outdoor enthusiast who loves nature and recreational activities.",0.4,parks,New York
-"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-sonnet-4,"You are a balanced travel advisor who considers all perspectives.",0.5,neighborhoods,Barcelona
-"What are the best {{variable1}} to do in {{variable2}}?",gemini/models/gemini-2.5-pro-thinking,"You are a coastal lifestyle expert who knows the best beach activities and seaside attractions.",0.6,beaches,Sydney
-"What are the best {{variable1}} to do in {{variable2}}?",gemini/models/gemini-2.5-flash-preview,"You are a shopping enthusiast who knows the best stores, markets, and shopping districts.",0.7,shops,Tokyo
-"What are the best {{variable1}} to do in {{variable2}}?",grok/grok-3,"You are a coffee connoisseur and café culture expert who knows the best spots for coffee and atmosphere.",0.8,cafes,Berlin
-"What are the best {{variable1}} to do in {{variable2}}?",grok/grok-3-mini,"You are an outdoor adventure guide who knows the best hiking trails and scenic routes.",0.9,trails,Vancouver 
+prompt,model,system,temperature,category,topic
+"Explain {{topic}} in the context of {{category}} with practical examples",openai/gpt-4o,"You are an expert educator who excels at explaining complex topics in simple, engaging ways.",0.3,quantum physics,superposition
+"Write a creative story about {{topic}} that teaches {{category}}",openai/gpt-4o-mini,"You are a creative writer who specializes in educational storytelling.",0.7,environmental science,climate change
+"Analyze the philosophical implications of {{topic}} in {{category}}",openai/gpt-4.1,"You are a philosopher with deep expertise in ethics and modern technology.",0.5,artificial intelligence,consciousness
+"Create a detailed technical tutorial on {{topic}} for {{category}}",openai/o3-mini,"You are a technical writer who creates clear, step-by-step guides.",0.2,web development,React hooks
+"Compare and contrast {{topic}} across different {{category}}",anthropic/claude-3-5-sonnet-20241022,"You are a comparative analyst with expertise in cross-cultural studies.",0.4,mythology,creation stories
+"Generate innovative solutions for {{topic}} in {{category}}",anthropic/claude-3-5-haiku-20241022,"You are an innovation consultant who thinks outside the box.",0.8,urban planning,sustainable cities
+"Explain the historical evolution of {{topic}} in {{category}}",anthropic/claude-4-sonnet,"You are a historian who specializes in technological and social change.",0.5,communication,internet
+"Create a comprehensive guide to {{topic}} for {{category}} beginners",anthropic/claude-4-opus,"You are a patient teacher who excels at breaking down complex topics.",0.3,machine learning,neural networks
+"Design a creative project involving {{topic}} for {{category}}",gemini/models/gemini-2.5-pro-thinking,"You are a creative director who designs engaging educational experiences.",0.6,art,generative algorithms
+"Analyze data patterns in {{topic}} related to {{category}}",gemini/models/gemini-2.5-flash-preview,"You are a data scientist who finds insights in complex datasets.",0.1,economics,market trends
+"Write poetry about {{topic}} inspired by {{category}}",gemini/gemini-1.5-pro-002,"You are a poet who finds beauty in scientific and technical concepts.",0.9,mathematics,fractals
+"Create a business plan for {{topic}} in the {{category}} industry",gemini/gemini-1.5-flash-002,"You are a business strategist with expertise in emerging technologies.",0.4,blockchain,finance
+"Develop a game concept based on {{topic}} teaching {{category}}",gemini/gemini-2.0-flash-exp,"You are a game designer who creates educational entertainment.",0.7,biology,evolution
+"Explain {{topic}} using metaphors from {{category}}",grok/grok-3,"You are a creative educator who uses analogies to explain complex ideas.",0.6,quantum computing,cooking
+"Generate a research proposal for {{topic}} in {{category}}",grok/grok-3-mini,"You are a research scientist preparing grant proposals.",0.2,renewable energy,solar technology 

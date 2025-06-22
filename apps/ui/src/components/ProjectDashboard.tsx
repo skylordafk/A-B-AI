@@ -33,8 +33,10 @@ export default function ProjectDashboard() {
     navigate('/chat');
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const formatDate = (dateString?: string | number) => {
+    if (!dateString) return '—';
+    const date = typeof dateString === 'number' ? new Date(dateString) : new Date(dateString);
+    return isNaN(date.valueOf()) ? '—' : date.toLocaleDateString();
   };
 
   return (
@@ -142,11 +144,11 @@ export default function ProjectDashboard() {
               <div className="space-y-2 text-sm text-[var(--text-secondary)]">
                 <div className="flex justify-between">
                   <span>API Keys:</span>
-                  <span>{Object.keys(project.apiKeys).length} configured</span>
+                  <span>{Object.keys((project as any).apiKeys ?? {}).length} configured</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Metrics:</span>
-                  <span>{project.enabledMetrics.length} enabled</span>
+                  <span>{(project as any).enabledMetrics?.length ?? 0} enabled</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Created:</span>

@@ -24,9 +24,33 @@
     "features": ["json_mode"]
   },
   {
+    "id": "gpt-4.1",
+    "name": "GPT-4.1",
+    "provider": "openai",
+    "description": "OpenAI's improved GPT-4 model",
+    "contextSize": 200000,
+    "pricing": {
+      "prompt": 5.0,
+      "completion": 15.0
+    },
+    "features": ["json_mode", "reasoning"]
+  },
+  {
+    "id": "o3-mini",
+    "name": "o3 Mini",
+    "provider": "openai",
+    "description": "OpenAI's reasoning model",
+    "contextSize": 128000,
+    "pricing": {
+      "prompt": 3.0,
+      "completion": 12.0
+    },
+    "features": ["reasoning"]
+  },
+  {
     "id": "gpt-4-turbo",
     "name": "GPT-4 Turbo",
-    "provider": "openai", 
+    "provider": "openai",
     "description": "Previous generation OpenAI model",
     "contextSize": 128000,
     "pricing": {
@@ -39,7 +63,7 @@
     "id": "gpt-3.5-turbo",
     "name": "GPT-3.5 Turbo",
     "provider": "openai",
-    "description": "Fast and economical OpenAI model", 
+    "description": "Fast and economical OpenAI model",
     "contextSize": 16385,
     "pricing": {
       "prompt": 0.5,
@@ -61,6 +85,51 @@
       "cacheRead": 0.3
     },
     "features": ["prompt_caching"]
+  },
+  {
+    "id": "claude-3-7-sonnet",
+    "name": "Claude 3.7 Sonnet",
+    "provider": "anthropic",
+    "description": "Anthropic's advanced reasoning model",
+    "contextSize": 200000,
+    "pricing": {
+      "prompt": 4.0,
+      "completion": 20.0,
+      "cacheWrite5m": 5.0,
+      "cacheWrite1h": 5.0,
+      "cacheRead": 0.4
+    },
+    "features": ["prompt_caching", "reasoning"]
+  },
+  {
+    "id": "claude-4-sonnet",
+    "name": "Claude 4 Sonnet",
+    "provider": "anthropic",
+    "description": "Anthropic's next-generation model",
+    "contextSize": 500000,
+    "pricing": {
+      "prompt": 6.0,
+      "completion": 30.0,
+      "cacheWrite5m": 7.5,
+      "cacheWrite1h": 7.5,
+      "cacheRead": 0.6
+    },
+    "features": ["prompt_caching", "reasoning"]
+  },
+  {
+    "id": "claude-4-opus",
+    "name": "Claude 4 Opus",
+    "provider": "anthropic",
+    "description": "Anthropic's most powerful model",
+    "contextSize": 500000,
+    "pricing": {
+      "prompt": 20.0,
+      "completion": 100.0,
+      "cacheWrite5m": 25.0,
+      "cacheWrite1h": 25.0,
+      "cacheRead": 2.0
+    },
+    "features": ["prompt_caching", "reasoning"]
   },
   {
     "id": "claude-3-5-haiku-20241022",
@@ -93,6 +162,30 @@
     "features": ["prompt_caching"]
   },
   {
+    "id": "grok-3",
+    "name": "Grok 3",
+    "provider": "grok",
+    "description": "xAI's most advanced language model",
+    "contextSize": 131072,
+    "pricing": {
+      "prompt": 2.0,
+      "completion": 10.0
+    },
+    "features": ["reasoning"]
+  },
+  {
+    "id": "grok-3-mini",
+    "name": "Grok 3 Mini",
+    "provider": "grok",
+    "description": "xAI's efficient reasoning model",
+    "contextSize": 131072,
+    "pricing": {
+      "prompt": 1.0,
+      "completion": 5.0
+    },
+    "features": ["reasoning"]
+  },
+  {
     "id": "grok-2-1212",
     "name": "Grok 2",
     "provider": "grok",
@@ -117,10 +210,34 @@
     "features": []
   },
   {
+    "id": "models/gemini-2.5-pro-thinking",
+    "name": "Gemini 2.5 Pro Thinking",
+    "provider": "gemini",
+    "description": "Google's advanced reasoning model with deep thinking",
+    "contextSize": 2097152,
+    "pricing": {
+      "prompt": 1.25,
+      "completion": 5.0
+    },
+    "features": ["json_mode", "reasoning", "thinking"]
+  },
+  {
+    "id": "models/gemini-2.5-flash-preview",
+    "name": "Gemini 2.5 Flash Preview",
+    "provider": "gemini",
+    "description": "Google's fast and efficient preview model",
+    "contextSize": 1048576,
+    "pricing": {
+      "prompt": 0.075,
+      "completion": 0.3
+    },
+    "features": ["json_mode", "reasoning"]
+  },
+  {
     "id": "gemini-1.5-pro-002",
     "name": "Gemini 1.5 Pro",
     "provider": "gemini",
-    "description": "Google's advanced language model",
+    "description": "Google's advanced reasoning model with 1M context",
     "contextSize": 2097152,
     "pricing": {
       "prompt": 1.25,

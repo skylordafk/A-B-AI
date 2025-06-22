@@ -28,7 +28,8 @@ import {
   getMaxOutputTokens,
   validateKey,
 } from '../apps/main/src/settings';
-import { store, allProviders } from '../apps/main/src/settings';
+import { store } from '../apps/main/src/settings';
+import { allProviders } from '../apps/main/src/providers';
 
 describe('Settings (Simple)', () => {
   const mockStore = store as any;
@@ -99,11 +100,10 @@ describe('Settings (Simple)', () => {
 
     it('should return true if key is valid', async () => {
       mockStore.get.mockReturnValue('test-key');
-      // Ensure the mock provider is found
       vi.spyOn(allProviders, 'find').mockReturnValue({
         id: 'test-provider',
         chat: vi.fn().mockResolvedValue({ answer: 'valid' }),
-      } as any);
+      });
       const result = await validateKey('test-provider' as any);
       expect(result).toBe(true);
     });

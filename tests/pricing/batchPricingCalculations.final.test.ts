@@ -71,10 +71,12 @@ const mockApi = {
   countTokens: vi.fn(),
 };
 
-Object.defineProperty(window, 'api', {
-  value: mockApi,
-  writable: true,
-});
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'api', {
+    value: mockApi,
+    writable: true,
+  });
+}
 
 describe('Batch Pricing Calculations (Final)', () => {
   beforeEach(() => {

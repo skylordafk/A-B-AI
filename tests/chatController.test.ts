@@ -154,7 +154,10 @@ describe('ChatController', () => {
 
   it('should register IPC handler for chat abort', () => {
     startChat('Hello', ['test-provider'], 'session-1');
-    expect(ipcMain.handle).toHaveBeenCalledWith('chat:abort', expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith(
+      'chat:abort',
+      expect.any(Function)
+    );
   });
 
   it('should clean up active controllers on completion', async () => {

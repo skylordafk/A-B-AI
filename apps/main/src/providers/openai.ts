@@ -198,12 +198,20 @@ export const openaiProvider: BaseProvider = {
     ];
   },
 
-  async chat(userPrompt: string, modelId?: string): Promise<ChatResult> {
+  async chat(
+    userPrompt: string,
+    modelId?: string,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<ChatResult> {
     // Convert single prompt to messages format and use the new method
-    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId);
+    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId, options);
   },
 
-  async chatWithHistory(messages: ChatMessage[], modelId?: string): Promise<ChatResult> {
+  async chatWithHistory(
+    messages: ChatMessage[],
+    modelId?: string,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('openai');
     if (!apiKey) throw new Error('OpenAI API key missing');
 
@@ -319,7 +327,9 @@ export const openaiProvider: BaseProvider = {
 
     // Cast to any to satisfy the SDK typings which may lag behind new params
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (openai.chat.completions as any).create(requestConfig);
+    const res = await (openai.chat.completions as any).create(requestConfig, {
+      signal: options?.abortSignal,
+    });
 
     const answer = res.choices?.[0]?.message?.content || '';
     const answerTokens = enc.encode(answer).length;

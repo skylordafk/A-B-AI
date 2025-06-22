@@ -1,7 +1,7 @@
 import Store from 'electron-store';
 import { ProviderId, allProviders } from './providers';
 
-interface StoreSchema {
+export interface StoreSchema {
   openaiKey?: string;
   anthropicKey?: string;
   grokKey?: string;

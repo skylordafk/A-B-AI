@@ -31,12 +31,20 @@ export class GrokProvider implements BaseProvider {
     return this.MODELS;
   }
 
-  async chat(userPrompt: string, modelId?: string): Promise<ChatResult> {
+  async chat(
+    userPrompt: string,
+    modelId?: string,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<ChatResult> {
     // Convert single prompt to messages format and use the new method
-    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId);
+    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId, options);
   }
 
-  async chatWithHistory(messages: ChatMessage[], modelId?: string): Promise<ChatResult> {
+  async chatWithHistory(
+    messages: ChatMessage[],
+    modelId?: string,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('grok');
     if (!apiKey) throw new Error('Grok API key missing');
 
@@ -74,7 +82,15 @@ export class GrokProvider implements BaseProvider {
       const { text, usage } = await generateText({
         model,
         prompt: conversationPrompt,
-      });
+        system: messages.find((m) => m.role === 'system')?.content,
+        messages: messages
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          })),
+        signal: options?.abortSignal,
+      } as any);
 
       // Grok uses flat pricing, so we'll estimate based on message count
       // Actual pricing would need to be obtained from xAI

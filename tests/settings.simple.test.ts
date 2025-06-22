@@ -12,7 +12,7 @@ vi.mock('electron-store', () => ({
 vi.mock('../apps/main/src/providers', () => ({
   allProviders: [
     {
-      id: 'test-provider',
+      id: 'openai',
       label: 'Test Provider',
       chat: vi.fn().mockResolvedValue({ answer: 'Hello' }),
     },
@@ -100,11 +100,7 @@ describe('Settings (Simple)', () => {
 
     it('should return true if key is valid', async () => {
       mockStore.get.mockReturnValue('test-key');
-      vi.spyOn(allProviders, 'find').mockReturnValue({
-        id: 'test-provider',
-        chat: vi.fn().mockResolvedValue({ answer: 'valid' }),
-      });
-      const result = await validateKey('test-provider' as any);
+      const result = await validateKey('openai');
       expect(result).toBe(true);
     });
   });

@@ -129,8 +129,8 @@ declare global {
       }>;
     };
     ipc: {
-      onOpenSettings: (callback: () => void) => void;
-      onInvalidKey: (callback: (providerId: string) => void) => void;
+      onOpenSettings: (callback: () => void) => () => void;
+      onInvalidKey: (callback: (providerId: string) => void) => () => void;
     };
   }
 }

@@ -61,8 +61,7 @@ graph TD
     B --> C[Code Quality]
     C --> D[Security Scanning]
     D --> E[Build & Test]
-    E --> F[License & Security Tests]
-    F --> G[E2E Tests]
+    E --> G[E2E Tests]
     G --> H[Package Validation]
     H --> I[Status Check]
     I -->|All Pass| J[✅ Success]
@@ -115,7 +114,6 @@ pnpm tsc --noEmit
 pnpm test:all
 
 # Security tests only
-pnpm test:license
 pnpm test:webhooks
 pnpm test:production
 ```
@@ -134,11 +132,10 @@ git commit --no-verify -m "Emergency fix"
   "test": "vitest", // Unit tests
   "test:ui": "vitest --ui", // UI test runner
   "test:e2e": "playwright test", // E2E browser tests
-  "test:license": "node tests/license-e2e.test.js",
   "test:webhooks": "node test-stripe-webhooks.js",
   "test:production": "node test-production-integration.js",
   "test:packaged": "node test-packaged-app.js",
-  "test:all": "npm run test && npm run test:license && npm run test:webhooks && npm run test:production"
+  "test:all": "npm run test && npm run test:webhooks && npm run test:production"
 }
 ```
 
@@ -172,7 +169,6 @@ pnpm format
 
 ```bash
 # Run security tests locally
-ALLOW_DEV_ACTIVATION=true pnpm run license-server &
 node tests/test-security-comprehensive.js
 ```
 
@@ -228,7 +224,6 @@ From the previous setup:
 ## 🔗 Related Documents
 
 - [Security Testing Checklist](../tests/STRIPE_TESTING_CHECKLIST.md)
-- [License Setup Guide](../docs/license-setup-guide.md)
 - [Security Framework](../security/SECURITY_FRAMEWORK.md)
 
 ---

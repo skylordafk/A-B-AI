@@ -8,16 +8,20 @@ import ReactDiffViewer from 'react-diff-viewer-continued';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mergeAdjacentCodeFences from './lib/markdown';
-import LoadingOverlay from './components/LoadingOverlay';
+// import LoadingOverlay from './components/LoadingOverlay';
 import ChatSidebar from './components/ChatSidebar';
 import { useChat } from './contexts/ChatContext';
 import { useProject } from './contexts/ProjectContext';
 import TerminalBlock from './components/TerminalBlock';
 import ThemeToggle from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
-import type { Message } from './contexts/ChatContext';
+import type { Message as ChatMessageFromContext } from './contexts/ChatContext';
+
+// Re-defining Message type locally for clarity, as ChatPage now manages its own state.
+type Message = ChatMessageFromContext;
 
 // Debounce hook
+/*
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -33,6 +37,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
   return debouncedValue;
 }
+*/
 
 // Feature status indicator component
 function FeatureStatusIndicator() {
@@ -252,12 +257,12 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: Message
           {showDiff ? 'Hide diff' : 'Show diff'}
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto">{showDiff ? renderDiff() : renderAnswers()}</div>
+
+      <div className="overflow-y-auto flex-grow">{showDiff ? renderDiff() : renderAnswers()}</div>
     </div>
   );
 };
 
-// Collapsible conversation round component
 const ConversationRound = ({
   userMessage,
   assistantMessages,
@@ -267,344 +272,202 @@ const ConversationRound = ({
   assistantMessages: Message[];
   roundIndex: number;
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-
   return (
-    <div className="border border-stone-200 rounded mb-2 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-2 text-left flex items-center justify-between bg-stone-50 dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-600 transition-colors text-stone-900 dark:text-stone-50"
-      >
-        <div className="flex-1">
-          <div className="font-medium text-stone-900 dark:text-stone-50 text-sm">
-            Round {roundIndex + 1}: {userMessage.content.substring(0, 60)}
-            {userMessage.content.length > 60 ? '...' : ''}
-          </div>
-          <div className="text-xs text-stone-700 dark:text-stone-400 mt-1">
-            {assistantMessages.length} response{assistantMessages.length !== 1 ? 's' : ''}
+    <div key={`round-${roundIndex}`}>
+      {/* User Message */}
+      <div className="mb-2">
+        <div className="flex justify-end">
+          <div className="max-w-3xl w-full">
+            <p className="text-xs text-stone-500 dark:text-stone-300 text-right mb-1">You</p>
+            <TerminalBlock>
+              <div className="prose prose-sm max-w-none prose-stone">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{userMessage.content}</ReactMarkdown>
+              </div>
+            </TerminalBlock>
           </div>
         </div>
-        <svg
-          className={`w-4 h-4 transition-transform text-stone-900 dark:text-stone-50 ${isExpanded ? 'rotate-90' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+      </div>
 
-      {isExpanded && (
-        <div className="border-t border-stone-200 dark:border-stone-600 max-h-[70vh] overflow-y-auto">
-          <div className="p-3 space-y-3">
-            {/* User message */}
-            <div className="text-right">
-              <div className="inline-block max-w-3xl p-2 bg-slate-600 text-white rounded">
-                <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
-                  {userMessage.content}
-                </ReactMarkdown>
+      {/* Assistant Messages */}
+      {assistantMessages.length > 1 ? (
+        <AssistantComparison assistantMessages={assistantMessages} />
+      ) : (
+        assistantMessages.map((msg, msgIdx) => (
+          <div key={msgIdx} className="mb-4">
+            <div className="flex justify-start">
+              <div className="max-w-3xl w-full">
+                <div className="flex items-center gap-2 mb-1">
+                  {msg.provider && (
+                    <p className="text-xs text-stone-500 dark:text-stone-300">{msg.provider}</p>
+                  )}
+                  <CopyButton text={msg.content} />
+                </div>
+                <TerminalBlock>
+                  <div className="prose prose-sm max-w-none prose-stone">
+                    <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                </TerminalBlock>
+                {msg.cost !== undefined && (
+                  <p className="text-xs text-stone-400 dark:text-stone-300 mt-1">
+                    Cost: ${msg.cost.toFixed(4)}
+                  </p>
+                )}
               </div>
             </div>
-
-            {/* Assistant responses */}
-            {assistantMessages.length === 2 ? (
-              <AssistantComparison assistantMessages={assistantMessages} />
-            ) : (
-              <div className="space-y-3">
-                {assistantMessages.map((msg, idx) => (
-                  <div key={idx} className="max-w-4xl">
-                    <div className="flex items-center gap-2 mb-1">
-                      {msg.provider && (
-                        <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">
-                          {msg.provider}
-                        </p>
-                      )}
-                      <CopyButton text={msg.content} />
-                    </div>
-                    <div
-                      className="inline-block p-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded relative text-stone-900 dark:text-stone-50 max-h-96 overflow-y-auto"
-                      style={{ userSelect: 'text' }}
-                    >
-                      <div className="prose prose-sm max-w-none prose-stone">
-                        <ReactMarkdown remarkPlugins={[remarkGfm, mergeAdjacentCodeFences]}>
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-                    {msg.cost !== undefined && (
-                      <p className="text-xs text-stone-400 dark:text-stone-500 mt-1 ml-1">
-                        Cost: ${msg.cost.toFixed(8)}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
+        ))
       )}
     </div>
   );
 };
 
 export default function ChatPage() {
+  const { currentChat, pushMessage, createNewChat } = useChat();
+
+  const { currentProject } = useProject();
   const navigate = useNavigate();
-  const { currentChat, pushMessage, pushMessages, createNewChat } = useChat();
-  const { currentProject: _currentProject } = useProject();
-  const [prompt, setPrompt] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [invalidKeyError, setInvalidKeyError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Local messages state that immediately reflects updates
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  // Local state management for the Chat UI
+  const [input, setInput] = useState('');
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [multiModel, setMultiModel] = useState(false);
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
 
-  // Ref for auto-scrolling chat area
-  const chatAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Sync local messages with currentChat, but preserve local updates
   useEffect(() => {
-    if (currentChat?.messages) {
-      // Convert ChatMessages to Messages
-      const convertedMessages = currentChat.messages.map(
-        (msg): Message => ({
-          role: msg.role,
-          content: msg.content,
-          cost: msg.cost,
-          provider: msg.provider,
-          id: msg.id,
-          timestamp: msg.timestamp,
-        })
-      );
-      setLocalMessages(convertedMessages);
+    if (!currentProject) {
+      navigate('/');
     }
-  }, [currentChat?.id, currentChat?.messages?.length]);
-
-  // Debounced prompt for performance
-  const debouncedPrompt = useDebounce(prompt, 150);
+  }, [currentProject, navigate]);
 
   useEffect(() => {
-    // Listen for menu settings event
-    const handleMenuSettings = () => setSettingsOpen(true);
-    window.ipc.onOpenSettings(handleMenuSettings);
-
-    // Listen for invalid key events
-    window.ipc.onInvalidKey((providerId) => {
-      setInvalidKeyError(`Invalid API key for ${providerId}`);
-      setTimeout(() => setInvalidKeyError(null), 5000);
+    const cleanup = window.ipc?.onOpenSettings(() => {
+      setSettingsOpen(true);
     });
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
-  // Initialize with a new chat if none exists
+  // Auto-scroll to bottom of messages
   useEffect(() => {
-    if (!currentChat) {
-      createNewChat();
-    }
-  }, [currentChat]); // Removed createNewChat from dependencies to prevent infinite loop
-
-  // Auto-scroll to bottom when new messages are added
-  useEffect(() => {
-    if (chatAreaRef.current && localMessages.length > 0) {
-      const scrollToBottom = () => {
-        chatAreaRef.current?.scrollTo({
-          top: chatAreaRef.current.scrollHeight,
-          behavior: 'smooth',
-        });
-      };
-
-      // Small delay to ensure DOM is updated
-      const timeoutId = setTimeout(scrollToBottom, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [localMessages.length]);
-
-  const send = async () => {
-    if (!debouncedPrompt.trim() || selected.length === 0 || isLoading) {
-      return;
-    }
-
-    // Create user message
-    const userMessage = {
-      role: 'user' as const,
-      content: debouncedPrompt,
-      id: `msg-${Date.now()}-user`,
-      timestamp: Date.now(),
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
+    // HACK: A small delay to allow the DOM to update after a message is added
+    // This is especially important for long messages with code blocks
+    const timeoutId = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeoutId);
+  }, [currentChat?.messages, isThinking]);
 
-    // Immediately update local state for instant feedback
-    setLocalMessages((prev) => [...prev, userMessage]);
+  const send = async (prompt?: string) => {
+    const text = prompt || input;
+    if (input.trim() === '' || isThinking) return;
 
-    // Also update through context (for persistence)
+    let currentChatId = currentChat?.id;
+    if (!currentChatId) {
+      currentChatId = createNewChat();
+    }
+
+    const userMessage: Message = { role: 'user', content: text, id: `user-${Date.now()}` };
     pushMessage(userMessage);
-    setIsLoading(true);
-
-    // Map model IDs to provider IDs
-    const providerMap: Record<string, string> = {
-      // OpenAI models
-      'gpt-4.1': 'openai',
-      'gpt-4.1-mini': 'openai',
-      'gpt-4.1-nano': 'openai',
-      'gpt-4o': 'openai',
-      'gpt-4o-mini': 'openai',
-      'gpt-3.5-turbo': 'openai',
-      'o3-2025-04-16': 'openai', // Legacy
-      // Anthropic models
-      'claude-opus-4-20250514': 'anthropic',
-      'claude-sonnet-4': 'anthropic',
-      'claude-3-5-sonnet-20241022': 'anthropic',
-      'claude-3-5-haiku': 'anthropic',
-      'claude-3-7-sonnet': 'anthropic',
-      'claude-3-haiku-20240307': 'anthropic',
-      'claude-3-opus-20240229': 'anthropic',
-      'claude-3-sonnet-20240229': 'anthropic',
-      'claude-3-haiku': 'anthropic', // Backwards compatibility
-      // Grok models
-      'grok-3': 'grok',
-      'grok-3-mini': 'grok',
-      // Gemini models
-      'models/gemini-2.5-pro-thinking': 'gemini',
-      'models/gemini-2.5-flash-preview': 'gemini',
-    };
-
-    const selectedProviders = [
-      ...new Set(selected.map((modelId) => providerMap[modelId]).filter(Boolean)),
-    ];
+    setInput('');
+    setIsThinking(true);
 
     try {
-      if (!window.api?.sendPrompts) {
-        throw new Error('window.api.sendPrompts is not available');
+      const history = (currentChat?.messages ?? []).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      if (selectedProviders.length > 0 && window.api?.sendPrompts) {
+        const results = await window.api.sendPrompts(text, selectedProviders as any, history);
+        results.forEach((r: any) => {
+          const assistantMsg: Message = {
+            role: 'assistant',
+            content: r.answer,
+            provider: r.provider,
+            cost: r.costUSD,
+            id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          };
+          pushMessage(assistantMsg);
+        });
       }
-
-      // Convert current conversation to the format expected by the API (excluding the just-added user message)
-      const conversationHistory = localMessages
-        .slice(0, -1) // Exclude the user message we just added
-        .map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-
-      const results = await window.api.sendPrompts(
-        debouncedPrompt,
-        selectedProviders as ('openai' | 'anthropic' | 'grok' | 'gemini')[],
-        conversationHistory
-      );
-
-      // Create assistant messages with proper content
-      const assistantMessages = results.map((r, idx) => {
-        let content = r.answer || '[No response]';
-
-        // Add caching information if available
-        const result = r as any; // Extended result may include cache fields
-        if (result.cacheCreationTokens || result.cacheReadTokens) {
-          const cacheInfo = [];
-          if (result.cacheCreationTokens > 0) {
-            cacheInfo.push(`Created ${result.cacheCreationTokens} cache tokens`);
-          }
-          if (result.cacheReadTokens > 0) {
-            const savings = Math.round((1 - 0.1) * 100); // 90% savings
-            cacheInfo.push(`Read ${result.cacheReadTokens} cache tokens (${savings}% savings)`);
-          }
-          content += `\n\n*💾 Cache: ${cacheInfo.join(', ')}*`;
-        }
-
-        return {
-          role: 'assistant' as const,
-          content,
-          cost: r.costUSD,
-          provider: r.provider,
-          costUSD: r.costUSD,
-          tokens: {
-            input: r.promptTokens || 0,
-            output: r.answerTokens || 0,
-          },
-          id: `msg-${Date.now()}-assistant-${idx}`,
-          timestamp: Date.now() + idx,
-        };
-      });
-
-      // Immediately update local state
-      setLocalMessages((prev) => [...prev, ...assistantMessages]);
-
-      // Also update through context
-      pushMessages(assistantMessages);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      const errorMessage = {
-        role: 'assistant' as const,
-        content: `Error: ${errorMsg}`,
-        cost: 0,
-        provider: 'System',
-        costUSD: 0,
-        tokens: { input: 0, output: 0 },
-        id: `msg-${Date.now()}-error`,
-        timestamp: Date.now(),
-      };
-
-      // Update local state with error
-      setLocalMessages((prev) => [...prev, errorMessage]);
-
-      if (errorMsg.includes('API key')) setSettingsOpen(true);
-      pushMessages([errorMessage]);
+    } catch (err: any) {
+      pushMessage({ role: 'assistant', content: `Error: ${err.message}`, provider: 'Error' });
     } finally {
-      setIsLoading(false);
+      setIsThinking(false);
     }
-
-    setPrompt('');
   };
 
-  // Get messages from current chat and organize into conversation rounds
-  const messages = localMessages; // Use local messages for immediate updates
+  const stop = () => {
+    // For now, this just updates the UI state.
+    // In the future, it could call an IPC handler to abort backend requests.
+    setIsThinking(false);
+  };
 
-  const conversationRounds = useMemo(() => {
-    const rounds: Array<{ userMessage: Message; assistantMessages: Message[] }> = [];
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      send();
+    }
+  };
+
+  // Derive messages from the context
+  const messages = useMemo(() => currentChat?.messages || [], [currentChat]);
+
+  const groupedMessages = useMemo(() => {
+    const groups: { user: Message; assistants: Message[] }[] = [];
     let currentUserMessage: Message | null = null;
-    let currentAssistantMessages: Message[] = [];
 
-    for (const message of messages) {
-      if (message.role === 'user') {
-        // Save previous round if it exists
-        if (currentUserMessage && currentAssistantMessages.length > 0) {
-          rounds.push({
-            userMessage: currentUserMessage,
-            assistantMessages: currentAssistantMessages,
-          });
+    messages.forEach((msg) => {
+      if (msg.role === 'user') {
+        if (currentUserMessage) {
+          groups.push({ user: currentUserMessage, assistants: [] });
         }
-        // Start new round
-        currentUserMessage = message;
-        currentAssistantMessages = [];
-      } else if (message.role === 'assistant' && currentUserMessage) {
-        currentAssistantMessages.push(message);
+        currentUserMessage = msg;
+      } else if (msg.role === 'assistant' && currentUserMessage) {
+        const lastGroup = groups.find((g) => g.user === currentUserMessage);
+        if (lastGroup) {
+          lastGroup.assistants.push(msg);
+        } else {
+          groups.push({ user: currentUserMessage, assistants: [msg] });
+        }
+      }
+    });
+
+    if (currentUserMessage) {
+      // Find the corresponding group for the last user message to avoid duplication
+      if (!groups.some((g) => g.user === currentUserMessage)) {
+        groups.push({
+          user: currentUserMessage,
+          assistants: messages.filter(
+            (m) => m.role === 'assistant' && !groups.flatMap((g) => g.assistants).includes(m)
+          ),
+        });
       }
     }
 
-    // Add the last round even if there are no assistant messages yet (user just sent a message)
-    if (currentUserMessage) {
-      rounds.push({ userMessage: currentUserMessage, assistantMessages: currentAssistantMessages });
-    }
-
-    return rounds;
+    return groups;
   }, [messages]);
 
-  // Show ModelSelect only for new chats (no messages)
-  const showModelSelect = messages.length === 0;
-
   return (
-    <div className="flex h-screen bg-[var(--bg-secondary)] text-[var(--text-primary)]">
-      <div className="flex flex-1 overflow-hidden flex-col">
-        <LoadingOverlay show={isLoading} message="Generating responses..." />
-
-        {/* Sidebar - removed mobile functionality */}
-        <ChatSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex h-screen bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-50">
+      <ChatSidebar isOpen={isSidebarOpen} onToggle={() => setSidebarOpen(!isSidebarOpen)} />
+      <div
+        className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? '' : ''}`}
+      >
+        <div className="flex-1 flex flex-col relative">
           {/* Header */}
-          <div className="flex items-center justify-between p-2 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+          <header className="flex items-center justify-between p-2 border-b border-stone-200 dark:border-stone-700">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
+                onClick={() => setSidebarOpen(!isSidebarOpen)}
                 className="p-1 rounded bg-slate-600 hover:bg-slate-700 text-white transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -619,169 +482,119 @@ export default function ChatPage() {
 
               <div>
                 <h1 className="text-base font-semibold text-stone-900 dark:text-stone-50">
-                  {currentChat?.name || 'New Chat'}
+                  {currentProject?.name || 'New Chat'}
                 </h1>
                 {messages.length > 0 && (
                   <p className="text-xs text-stone-600 dark:text-stone-300">
-                    {conversationRounds.length} round{conversationRounds.length !== 1 ? 's' : ''}
+                    {groupedMessages.length} round{groupedMessages.length !== 1 ? 's' : ''}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Theme toggle */}
-            <ThemeToggle />
-          </div>
-
-          {/* Invalid key toast */}
-          {invalidKeyError && (
-            <div className="mx-2 mt-2">
-              <div className="bg-red-500 text-white px-3 py-1.5 rounded shadow-lg flex items-center gap-2 text-sm">
-                <span>{invalidKeyError}</span>
-                <button
-                  onClick={() => {
-                    setInvalidKeyError(null);
-                    setSettingsOpen(true);
-                  }}
-                  className="underline hover:no-underline"
-                >
-                  Fix keys
-                </button>
-              </div>
+            <div className="flex items-center gap-2">
+              {/* Theme toggle */}
+              <ThemeToggle />
             </div>
-          )}
-
-          {/* Model Selection for New Chats */}
-          {showModelSelect && (
-            <div className="p-2 border-b border-stone-200 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
-              <h3 className="text-sm font-medium text-stone-800 dark:text-stone-50 mb-2">
-                Select AI Models:
-              </h3>
-              <ModelSelect selectedModels={selected} onSelectionChange={setSelected} />
-            </div>
-          )}
+          </header>
 
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-3" ref={chatAreaRef}>
-            {conversationRounds.length === 0 ? (
+          <div className="flex-1 overflow-y-auto p-3" ref={messagesEndRef}>
+            {groupedMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="max-w-md">
-                  <svg
-                    className="w-16 h-16 mx-auto text-stone-400 mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                  <h3 className="text-lg font-medium text-stone-800 dark:text-stone-50 mb-2">
-                    Start a conversation
-                  </h3>
-                  <p className="text-stone-600 dark:text-stone-300">
-                    Select one or more AI models and send a message to get started.
+                  <h2 className="text-lg font-medium text-stone-800 dark:text-stone-100">
+                    A-B-AI Chat
+                  </h2>
+                  <p className="text-stone-600 dark:text-stone-400 mt-1">
+                    Select your models and start a new conversation.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-2 pb-4">
-                {conversationRounds.map((round, index) => (
+                {groupedMessages.map((round, index) => (
                   <ConversationRound
-                    key={round.userMessage.id || `round-${index}`}
-                    userMessage={round.userMessage}
-                    assistantMessages={round.assistantMessages}
+                    key={round.user.id || `round-${index}`}
+                    userMessage={round.user}
+                    assistantMessages={round.assistants}
                     roundIndex={index}
                   />
                 ))}
               </div>
             )}
+            {isThinking && groupedMessages.length > 0 && (
+              <div className="mt-4 text-center text-stone-500 dark:text-stone-400">
+                AI is thinking...
+              </div>
+            )}
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-stone-200 p-2 bg-stone-100 dark:bg-stone-800 dark:border-stone-700">
+          <div className="border-t border-stone-200 dark:border-stone-700 p-2">
             <div className="max-w-4xl mx-auto">
-              <FeatureStatusIndicator />
-              <Textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) =>
-                  e.key === 'Enter' && !e.shiftKey && !isLoading && (e.preventDefault(), send())
-                }
-                placeholder="Ask something…"
-                className="resize-none mb-1.5 border-[var(--border)] focus:border-[var(--border)] focus:ring-slate-500 bg-[var(--bg-secondary)] text-[var(--text-primary)]"
-                disabled={isLoading}
-                rows={2}
-              />
-              <div className="flex justify-between items-center">
-                <p className="text-[10px] text-stone-600">
-                  Press Enter to send, Shift+Enter for new line
-                </p>
-                <SplitButton
-                  primaryAction={{
-                    label:
-                      selected.length > 1 ? `Send to ${selected.length} models` : 'Send Prompt',
-                    onClick: send,
-                    disabled: selected.length === 0 || isLoading,
-                  }}
-                  dropdownActions={[
-                    {
-                      label: 'Open Batch Prompting...',
-                      onClick: () => navigate('/batch'),
-                      icon: (
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                          />
-                        </svg>
-                      ),
-                    },
-                    {
-                      label: 'Project Settings...',
-                      onClick: () => navigate('/settings'),
-                      icon: (
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                      ),
-                    },
-                  ]}
-                  loading={isLoading}
+              <div className="p-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg">
+                <div className="mb-2">
+                  <ModelSelect
+                    selectedModels={selectedProviders}
+                    onSelectionChange={setSelectedProviders}
+                  />
+                </div>
+                <FeatureStatusIndicator />
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask something…"
+                  className="resize-none mb-1.5 border-0 focus:ring-0 bg-transparent text-stone-900 dark:text-stone-50"
+                  disabled={isThinking}
+                  rows={2}
                 />
+                <div className="flex justify-between items-center">
+                  <div className="text-xs text-stone-500 dark:text-stone-400">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={multiModel}
+                        onChange={(e) => setMultiModel(e.target.checked)}
+                      />
+                      Compare models
+                    </label>
+                  </div>
+                  <SplitButton
+                    primaryAction={{
+                      label:
+                        selectedProviders.length > 1
+                          ? `Send to ${selectedProviders.length} models`
+                          : 'Send Prompt',
+                      onClick: () => send(),
+                      disabled: selectedProviders.length === 0 || isThinking,
+                    }}
+                    dropdownActions={[
+                      {
+                        label: 'Batch Prompting',
+                        onClick: () => navigate('/batch'),
+                      },
+                      {
+                        label: 'Settings',
+                        onClick: () => setSettingsOpen(true),
+                      },
+                      {
+                        label: 'Stop',
+                        onClick: stop,
+                        disabled: !isThinking,
+                      },
+                    ]}
+                    loading={isThinking}
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsModal open={isSettingsOpen} onClose={() => setSettingsOpen(false)} />
+      </div>
     </div>
   );
 }

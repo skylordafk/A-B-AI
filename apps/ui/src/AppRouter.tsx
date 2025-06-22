@@ -4,8 +4,6 @@ import Batch from './routes/Batch';
 import ProjectSettings from './features/settings/ProjectSettings';
 import ProjectOnboarding from './components/ProjectOnboarding';
 import ProjectDashboard from './components/ProjectDashboard';
-import Activate from './features/licensing/Activate';
-import ActivateSuccess from './features/licensing/ActivateSuccess';
 import { ChatProvider } from './contexts/ChatContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProjectProvider, useProject } from './contexts/ProjectContext';
@@ -24,10 +22,6 @@ function ProjectRoutes() {
 
   return (
     <Routes>
-      {/* Licensing routes - always accessible (must be first) */}
-      <Route path="/activate" element={<Activate />} />
-      <Route path="/activate-success" element={<ActivateSuccess />} />
-
       {/* Project management routes - always accessible */}
       <Route path="/onboarding" element={<ProjectOnboarding />} />
       <Route path="/projects" element={<ProjectDashboard />} />

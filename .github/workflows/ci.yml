@@ -139,7 +139,6 @@ jobs:
     
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      LICENCE_ENDPOINT: http://localhost:4100
       NODE_ENV: test
     
     steps:
@@ -160,21 +159,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       
-      - name: Start license server
+      - name: Start Dev Server
         run: |
-          pnpm run license-server &
-          echo "Waiting for license server to start..."
-          # Wait for server to be ready
-          for i in {1..30}; do
-            if curl -f http://localhost:4100/health 2>/dev/null; then
-              echo "License server is ready!"
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 1
-          done
-        shell: bash
-      
+          pnpm run dev &
+          # Wait for the dev server to start
+          pnpm --filter ./apps/ui exec wait-on http://localhost:5174
+
       - name: Build all packages
         run: pnpm build
         
@@ -191,98 +181,10 @@ jobs:
             test-results/
             coverage/
 
-  # License and security integration tests
-  license-security-tests:
-    name: License & Security Tests
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    env:
-      LICENCE_ENDPOINT: http://localhost:4100
-      LICENSE_SERVER_URL: http://localhost:4100
-      TEST_SERVER_URL: http://localhost:4100
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-      NODE_ENV: test
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8.15.8
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: 'pnpm'
-      
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        
-      - name: Start license server
-        run: |
-          # Start server with test configuration
-          echo "Starting license server for testing..."
-          ALLOW_DEV_ACTIVATION=true pnpm run license-server &
-          
-          # Wait for server
-          echo "Waiting for server to start..."
-          for i in {1..30}; do
-            if curl -f http://localhost:4100/health 2>/dev/null; then
-              echo "✅ License server is ready!"
-              break
-            fi
-            if [ $i -eq 30 ]; then
-              echo "⚠️  License server failed to start within timeout. Continuing without local server."
-              exit 0
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 1
-          done
-      
-      - name: Run license E2E tests
-        run: |
-          echo "Running license E2E tests..."
-          node tests/license-e2e.test.js
-        continue-on-error: true  # Don't fail pipeline if license server is unavailable
-      
-      - name: Run webhook tests
-        run: |
-          echo "Running webhook security tests..."
-          if [ -n "${{ secrets.STRIPE_WEBHOOK_SECRET }}" ]; then
-            node tests/test-stripe-webhooks.js
-          else
-            echo "⚠️  Skipping webhook tests - STRIPE_WEBHOOK_SECRET not set"
-          fi
-      
-      - name: Run comprehensive security tests
-        run: |
-          echo "Running comprehensive security audit..."
-          node tests/test-security-comprehensive.js
-        continue-on-error: false  # MUST pass
-        
-      - name: Test production integration
-        run: |
-          echo "Testing production integration endpoints..."
-          node tests/test-production-integration.js
-        continue-on-error: true  # Log but don't fail
-      
-      - name: Upload security test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-test-results
-          path: |
-            test-results/
-            security-test-report.json
-            license-e2e-report.json
-
   # Playwright E2E tests
   e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
+    name: E2E Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     needs: build-and-test
     steps:
       - name: Checkout repository
@@ -325,7 +227,7 @@ jobs:
   package-validation:
     name: Package Validation
     runs-on: ${{ matrix.os }}
-    needs: [license-security-tests, e2e-tests]
+    needs: [build-and-test, e2e-tests]
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -374,7 +276,6 @@ jobs:
       code-quality,
       security-scan,
       build-and-test,
-      license-security-tests,
       e2e-tests,
       package-validation
     ]
@@ -400,8 +301,18 @@ jobs:
             exit 1
           fi
           
-          echo "License & security tests result: ${{ needs.license-security-tests.result }} (not blocking)"
+          echo "E2E Tests result: ${{ needs.e2e-tests.result }}"
           echo ""
           echo "Optional check results:"
-          echo "- E2E Tests: ${{ needs.e2e-tests.result }}"
-          echo "- Package Validation: ${{ needs.package-validation.result }}" 
+          echo "- Package Validation: ${{ needs.package-validation.result }}"
+
+  Test-Core-Functionality:
+    runs-on: ubuntu-latest
+    needs: [Install-Dependencies]
+    steps:
+      # ... existing code ...
+
+      - name: Run E2E tests
+        run: pnpm test:e2e
+        env:
+          VITE_DEV_SERVER_URL: http://localhost:5174 

@@ -1,71 +1,87 @@
-import axios from 'axios';
-import Store from 'electron-store';
+import path from 'path';
+import fs from 'fs/promises';
+// import axios from 'axios';
+import { app } from 'electron';
+// import Store from 'electron-store';
 
-const store = new Store<{ cacheExpires: number; key: string }>({
-  defaults: { cacheExpires: 0, key: '' },
-});
+// const store = new Store();
 
-export async function checkLicence(serverURL: string): Promise<boolean> {
-  console.info('[License] Checking license with server:', serverURL);
-  console.info('[License] NODE_ENV:', process.env.NODE_ENV);
+const _GUMROAD_PRODUCT_ID = 'YOUR_GUMROAD_PRODUCT_ID';
 
-  // Skip license check in development/test environments
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !serverURL) {
-    console.info('[License] Skipping license check (dev/test mode or no server URL)');
-    return true;
-  }
+export async function checkLicence(): Promise<boolean> {
+  // License check is now bypassed
+  return true;
+}
 
-  const now = Date.now();
-  const { cacheExpires, key } = store.store;
-
-  console.info('[License] Current license key:', key ? key.substring(0, 8) + '...' : 'none');
-  console.info('[License] Cache expires:', new Date(cacheExpires).toISOString());
-
-  // If no license key exists, return false immediately (should show activation page)
-  if (!key) {
-    console.info('[License] No license key found - should show activation');
-    return false;
-  }
-
-  // Offline grace period - if we have a cached license and it's still valid
-  if (key && cacheExpires > now) {
-    console.info(
-      '[License] Using cached license (valid until',
-      new Date(cacheExpires).toISOString(),
-      ')'
-    );
-    return true;
-  }
+export async function validateLicense(_key: string): Promise<{
+  valid: boolean;
+  plan?: string;
+  expires?: string;
+}> {
+  const _LICENSE_SERVER_URL = 'https://api.lemonsqueezy.com/v1/licenses/validate';
+  // const GUMROAD_API_URL = `https://api.gumroad.com/v2/licenses/verify`;
 
   try {
-    console.info('[License] Validating license with server...');
-    const response = await axios.post(`${serverURL}/validate`, { key });
-    if (response.data.valid) {
-      // Cache for 72 hours
-      store.set('cacheExpires', now + 72 * 60 * 60 * 1000);
-      console.info('[License] License validated successfully');
-      return true;
-    }
-    console.info('[License] License validation failed - invalid license');
-  } catch (error) {
-    console.info(
-      '[License] Error validating license:',
-      error instanceof Error ? error.message : String(error)
-    );
-    // If server is unreachable and we have a cached key, allow offline usage
-    if (key && cacheExpires > 0) {
-      console.warn('License server unreachable, using cached license');
-      return true;
-    }
-    // In CI, allow the check to pass if server is unreachable
-    if (process.env.CI) {
-      console.warn('CI environment detected, bypassing license check');
-      return true;
-    }
-    // If we have a license key but can't validate it, throw error (network issue)
-    throw error;
-  }
+    // const response = await axios.post(_LICENSE_SERVER_URL, {
+    //   license_key: _key.trim(),
+    // });
 
-  // License key exists but is invalid
-  return false;
+    // Gumroad (example)
+    // const gumroadResponse = await axios.post(GUMROAD_API_URL, {
+    //   product_permalink: _GUMROAD_PRODUCT_ID,
+    //   license_key: _key.trim(),
+    // });
+
+    // if (gumroadResponse.data.success) {
+    //   const { uses, purchase } = gumroadResponse.data;
+    //   const isSubscription = purchase.is_subscription;
+    //   const isActive = !purchase.chargebacked && !purchase.refunded;
+    //   if (isActive) {
+    //     return {
+    //       valid: true,
+    //       plan: isSubscription ? 'Subscription' : 'Lifetime',
+    //       expires: purchase.subscription_ends_at,
+    //     };
+    //   }
+    // }
+
+    // if (response.data.valid) {
+    //   return {
+    //     valid: true,
+    //     plan: response.data.plan,
+    //     expires: response.data.expires,
+    //   };
+    // }
+
+    return {
+      valid: false,
+    };
+  } catch (error) {
+    return {
+      valid: false,
+    };
+  }
+}
+
+export async function storeLicenseKey(key: string) {
+  const licenseDir = path.join(app.getPath('userData'), 'licenses');
+  await fs.mkdir(licenseDir, { recursive: true });
+  const licenseFile = path.join(licenseDir, 'license.key');
+  await fs.writeFile(licenseFile, key, 'utf-8');
+  // store.set('licenseKey', key);
+}
+
+export async function getStoredLicenseKey(): Promise<string | null> {
+  const licenseDir = path.join(app.getPath('userData'), 'licenses');
+  const licenseFile = path.join(licenseDir, 'license.key');
+
+  try {
+    if (await fs.stat(licenseFile).catch(() => null)) {
+      return fs.readFile(licenseFile, 'utf-8');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+  // return store.get('licenseKey', null);
 }

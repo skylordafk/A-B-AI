@@ -45,6 +45,15 @@
       "downloadUrl": "https://raw.githubusercontent.com/skylordafk/A-B-AI/master/templates/batch/research-prompts.csv",
       "rowCount": 18,
       "lastUpdated": "2025-01-12T00:00:00Z"
+    },
+    {
+      "id": "basic-template-o",
+      "name": "Basic Template (o-series)",
+      "description": "One-developer-prompt template tuned for OpenAI o-series reasoning models.",
+      "category": "general",
+      "downloadUrl": "https://raw.githubusercontent.com/skylordafk/A-B-AI/master/templates/batch/basic-template-o.csv",
+      "rowCount": 3,
+      "lastUpdated": "2025-04-30T00:00:00Z"
     }
   ]
 }

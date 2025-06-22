@@ -89,6 +89,11 @@ declare global {
       // Streaming settings
       setEnableStreaming: (value: boolean) => Promise<void>;
       getEnableStreaming: () => Promise<boolean>;
+      // JSON mode & reasoning effort
+      setJsonMode?: (value: boolean) => Promise<void>;
+      getJsonMode?: () => Promise<boolean>;
+      setReasoningEffort?: (value: 'low' | 'medium' | 'high') => Promise<void>;
+      getReasoningEffort?: () => Promise<'low' | 'medium' | 'high'>;
       // Job queue state management
       saveJobQueueState: (batchId: string, state: JobQueueState) => Promise<void>;
       loadJobQueueState: (batchId: string) => Promise<JobQueueState | null>;
@@ -104,6 +109,24 @@ declare global {
       // License management
       storeLicense?: (licenseKey: string) => Promise<boolean>;
       validateLicense?: () => Promise<{ valid: boolean; plan?: string; expires?: string }>;
+      sendToModelBatch?: (
+        modelId: string,
+        prompt: string,
+        systemPrompt?: string,
+        temperature?: number
+      ) => Promise<{
+        answer: string;
+        promptTokens: number;
+        answerTokens: number;
+        costUSD: number;
+        usage: {
+          prompt_tokens: number;
+          completion_tokens: number;
+        };
+        cost: number;
+        provider: string;
+        model: string;
+      }>;
     };
     ipc: {
       onOpenSettings: (callback: () => void) => () => void;

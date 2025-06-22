@@ -1,7 +1,7 @@
 import Store from 'electron-store';
 import { ProviderId, allProviders } from './providers';
 
-interface StoreSchema {
+export interface StoreSchema {
   openaiKey?: string;
   anthropicKey?: string;
   grokKey?: string;
@@ -13,6 +13,8 @@ interface StoreSchema {
   enablePromptCaching?: boolean; // Enable prompt caching for Claude
   promptCacheTTL?: '5m' | '1h'; // Cache time-to-live
   enableStreaming?: boolean; // Enable streaming responses for real-time display
+  jsonMode?: boolean;
+  reasoningEffort?: 'low' | 'medium' | 'high';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,6 +122,25 @@ export function getEnableStreaming(): boolean {
   return store.get('enableStreaming') ?? false;
 }
 
+// JSON Mode Settings
+export function setJsonMode(value: boolean): void {
+  store.set('jsonMode', value);
+}
+
+export function getJsonMode(): boolean {
+  // Default true for o-series strict JSON support
+  return store.get('jsonMode') ?? true;
+}
+
+// Reasoning Effort Settings
+export function setReasoningEffort(value: 'low' | 'medium' | 'high'): void {
+  store.set('reasoningEffort', value);
+}
+
+export function getReasoningEffort(): 'low' | 'medium' | 'high' {
+  return (store.get('reasoningEffort') as 'low' | 'medium' | 'high') ?? 'high';
+}
+
 export async function validateKey(provider: ProviderId): Promise<boolean> {
   const key = getKey(provider);
   if (!key) return false;
@@ -149,5 +170,11 @@ export async function validateKey(provider: ProviderId): Promise<boolean> {
     return true;
   }
 }
+
+// Export default settings (used in UI forms)
+export const defaultSettings = {
+  jsonMode: true,
+  reasoningEffort: 'high',
+};
 
 export { store };

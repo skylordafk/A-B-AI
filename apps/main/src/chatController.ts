@@ -28,9 +28,10 @@ export function startChat(
         }
 
         try {
-          // For now, we'll use the existing chat method
-          // In a future iteration, we could add streaming support to providers
-          const result = await provider.chat(prompt);
+          // Pass the abort signal to the provider's chat method
+          const result = await provider.chat(prompt, undefined, {
+            abortSignal: controller.signal,
+          });
 
           yield JSON.stringify({
             provider: provider.label,

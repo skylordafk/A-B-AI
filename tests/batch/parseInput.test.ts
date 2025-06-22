@@ -62,7 +62,7 @@ openai/gpt-4.1-mini,"You are helpful",0.7`;
 
     expect(result.rows).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].message).toContain('must have a "prompt" column');
+    expect(result.errors[0].message).toContain('must have either a "prompt" or "developer" column');
   });
 
   it('should parse valid JSON array', async () => {

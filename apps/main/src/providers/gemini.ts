@@ -36,12 +36,20 @@ export class GeminiProvider implements BaseProvider {
     return this.MODELS;
   }
 
-  async chat(userPrompt: string, modelId?: string): Promise<ChatResult> {
+  async chat(
+    userPrompt: string,
+    modelId?: string,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<ChatResult> {
     // Convert single prompt to messages format and use the new method
-    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId);
+    return this.chatWithHistory([{ role: 'user', content: userPrompt }], modelId, options);
   }
 
-  async chatWithHistory(messages: ChatMessage[], modelId?: string): Promise<ChatResult> {
+  async chatWithHistory(
+    messages: ChatMessage[],
+    modelId?: string,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<ChatResult> {
     const apiKey = (globalThis as any).getApiKey?.('gemini');
     if (!apiKey) throw new Error('Gemini API key missing');
 
@@ -86,7 +94,8 @@ export class GeminiProvider implements BaseProvider {
       const response = await genAI.models.generateContent({
         model: modelName,
         contents: conversationPrompt,
-      });
+        signal: options?.abortSignal,
+      } as any);
 
       const answer = response.text || '';
 

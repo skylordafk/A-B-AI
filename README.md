@@ -100,3 +100,17 @@ Got an idea or found a bug? Open an [issue](https://github.com/skylordafk/A-B-AI
 ## 📝 License
 
 This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
+
+## 🧠 OpenAI o-series Reasoning Models
+
+A-B/AI now fully supports OpenAI's new _o-series_ (o3, o4-mini …) with automatic routing:
+
+| Feature                 | Behaviour                                                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Single developer prompt | CSV template `basic-template-o.csv` ships with a single **developer** column as required by o-series.                        |
+| Parameter mapping       | `max_completion_tokens` + `reasoning_effort` are injected automatically; legacy models keep `max_tokens`.                    |
+| Strict JSON             | Enable **Settings → Strict JSON** to add `response_format:{type:"json_object"}` plus `"strict":true` on any function schema. |
+| Web search              | When enabled, o-series calls go through the **Responses API** with the `web_search_preview` tool.                            |
+| Batch API               | Large CSV runs are queued through `openai.batches.create`, giving ~50 % cost savings.                                        |
+
+Grab the specialised template from **Batch → Browse Templates → "Basic Template (o-series)"**.

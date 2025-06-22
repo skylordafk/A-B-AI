@@ -24,6 +24,10 @@ import {
   getPromptCacheTTL,
   setEnableStreaming,
   getEnableStreaming,
+  getJsonMode,
+  getReasoningEffort,
+  setJsonMode,
+  setReasoningEffort,
 } from './settings';
 import { get_encoding } from '@dqbd/tiktoken';
 import { checkLicence } from './licensing/checkLicence';
@@ -69,6 +73,12 @@ const store = new Store<{
 };
 (globalThis as Record<string, unknown>).getEnableStreaming = () => {
   return getEnableStreaming();
+};
+(globalThis as Record<string, unknown>).getJsonMode = () => {
+  return getJsonMode();
+};
+(globalThis as Record<string, unknown>).getReasoningEffort = () => {
+  return getReasoningEffort();
 };
 
 // Initialize tiktoken encoder
@@ -186,6 +196,24 @@ ipcMain.handle('settings:setEnableStreaming', (_, value: boolean) => {
 
 ipcMain.handle('settings:getEnableStreaming', () => {
   return getEnableStreaming();
+});
+
+// JSON Mode Settings
+ipcMain.handle('settings:setJsonMode', (_, value: boolean) => {
+  setJsonMode(value);
+});
+
+ipcMain.handle('settings:getJsonMode', () => {
+  return getJsonMode();
+});
+
+// Reasoning Effort Settings
+ipcMain.handle('settings:setReasoningEffort', (_, value: 'low' | 'medium' | 'high') => {
+  setReasoningEffort(value);
+});
+
+ipcMain.handle('settings:getReasoningEffort', () => {
+  return getReasoningEffort();
 });
 
 // Job Queue State Management
@@ -593,6 +621,54 @@ ipcMain.handle(
         error.message?.includes('API key') ||
         error.message?.includes('authentication')
       ) {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win) {
+          win.webContents.send('settings:invalidKey', provider.id);
+        }
+      }
+      throw error;
+    }
+  }
+);
+
+ipcMain.handle(
+  'chat:sendToModelBatch',
+  async (_, modelId: string, prompt: string, systemPrompt?: string, _temperature?: number) => {
+    const [providerName, ...modelParts] = modelId.split('/');
+    const modelName = modelParts.join('/');
+
+    const provider = allProviders.find((p) => p && p.id === providerName);
+    if (!provider) throw new Error(`Unknown provider: ${providerName}`);
+
+    const apiKey = getKey(provider.id as ProviderId);
+    if (!apiKey) throw new Error(`Missing API key for provider: ${providerName}`);
+
+    try {
+      let fullPrompt = prompt;
+      if (systemPrompt) fullPrompt = `${systemPrompt}\n\n${prompt}`;
+
+      const result = await provider.chat(fullPrompt, modelId);
+
+      const modelInfo = provider
+        .listModels()
+        .find((m) => modelId.includes(m.id) || m.id.includes(modelName));
+      const modelLabel = modelInfo ? modelInfo.name : provider.label;
+
+      return {
+        answer: result.answer,
+        promptTokens: result.promptTokens,
+        answerTokens: result.answerTokens,
+        costUSD: result.costUSD,
+        usage: {
+          prompt_tokens: result.promptTokens,
+          completion_tokens: result.answerTokens,
+        },
+        cost: result.costUSD,
+        provider: modelLabel,
+        model: modelId,
+      };
+    } catch (error: any) {
+      if (error.status === 401 || error.status === 403) {
         const win = BrowserWindow.getAllWindows()[0];
         if (win) {
           win.webContents.send('settings:invalidKey', provider.id);

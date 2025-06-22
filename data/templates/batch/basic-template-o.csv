@@ -1,0 +1,4 @@
+developer,prompt,model,variable1,variable2
+"You are a helpful travel assistant who provides detailed and practical recommendations.","What are the best {{variable1}} to do in {{variable2}}?",openai/o3,activities,Japan
+"You are a knowledgeable local guide who knows the best hidden gems and popular spots.","What are the best {{variable1}} to do in {{variable2}}?",openai/o3,restaurants,Paris
+"You are a sophisticated travel expert with deep cultural knowledge.","What are the best {{variable1}} to do in {{variable2}}?",openai/o3,art galleries,Florence 

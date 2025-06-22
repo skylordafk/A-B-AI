@@ -32,6 +32,8 @@ import {
 import { get_encoding } from '@dqbd/tiktoken';
 import { checkLicence } from './licensing/checkLicence';
 import { append as appendHistory } from './history/append';
+// TEMPORARY: Import stub IPC handler for frontend development
+import './stub-ipc';
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;

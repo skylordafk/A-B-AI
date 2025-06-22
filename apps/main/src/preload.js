@@ -12,6 +12,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process
 // to use the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('api', {
+  // New unified API endpoint for all requests
+  request: (request) => ipcRenderer.invoke('app:request', request),
   // Legacy single key save (for backward compatibility)
   saveApiKey: (key) => ipcRenderer.invoke('settings:saveApiKey', 'openai', key),
   // New multi-provider key save

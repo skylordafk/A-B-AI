@@ -165,6 +165,17 @@ export const anthropicProvider: BaseProvider = {
   id: 'anthropic',
   label: 'Anthropic',
 
+  getCapabilities() {
+    return {
+      supportsJsonMode: false,
+      supportsBatchAPI: true,
+      supportsStreaming: true,
+      supportsPromptCaching: true,
+      supportsExtendedThinking: true,
+      supportsWebSearch: true,
+    };
+  },
+
   listModels(): ModelMeta[] {
     return [
       {

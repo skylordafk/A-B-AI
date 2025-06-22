@@ -1,16 +1,19 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ChatPage from './ChatPage';
 import Batch from './routes/Batch';
+import Dashboard from './routes/Dashboard';
 import ProjectSettings from './features/settings/ProjectSettings';
 import ProjectOnboarding from './components/ProjectOnboarding';
 import ProjectDashboard from './components/ProjectDashboard';
-import { ChatProvider } from './contexts/ChatContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { ProjectProvider, useProject } from './contexts/ProjectContext';
+import { useProjectStore } from './store/projectStore';
 
 // Route guard component to handle project flow
 function ProjectRoutes() {
-  const { hasProjects, currentProject, isLoading } = useProject();
+  const { projects, currentProjectId, isLoading } = useProjectStore();
+
+  const hasProjects = projects.length > 0;
+  const currentProject = projects.find((p) => p.id === currentProjectId);
 
   if (isLoading) {
     return (
@@ -29,24 +32,11 @@ function ProjectRoutes() {
       {/* Protected routes - require a project */}
       {hasProjects && currentProject && (
         <>
-          <Route
-            path="/chat"
-            element={
-              <ChatProvider>
-                <ChatPage />
-              </ChatProvider>
-            }
-          />
-          <Route
-            path="/batch"
-            element={
-              <ChatProvider>
-                <Batch />
-              </ChatProvider>
-            }
-          />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/batch" element={<Batch />} />
           <Route path="/settings" element={<ProjectSettings />} />
-          <Route path="/" element={<Navigate to="/chat" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </>
       )}
 
@@ -63,9 +53,7 @@ function AppRouter() {
   return (
     <HashRouter>
       <ThemeProvider>
-        <ProjectProvider>
-          <ProjectRoutes />
-        </ProjectProvider>
+        <ProjectRoutes />
       </ThemeProvider>
     </HashRouter>
   );

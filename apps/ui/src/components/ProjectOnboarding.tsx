@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useProject } from '../contexts/ProjectContext';
+import { useProjectStore } from '../store/projectStore';
 import { useNavigate } from 'react-router-dom';
 
 export default function ProjectOnboarding() {
-  const { createProject } = useProject();
+  const { createProject } = useProjectStore();
   const navigate = useNavigate();
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');

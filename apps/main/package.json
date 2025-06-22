@@ -13,10 +13,14 @@
     "@anthropic-ai/sdk": "^0.53.0",
     "@dqbd/tiktoken": "^1.0.21",
     "@google/genai": "^1.4.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/uuid": "^10.0.0",
     "ai": "^4.3.16",
+    "better-sqlite3": "^12.0.0",
     "electron": "^34.0.0",
     "electron-store": "8.1.0",
-    "openai": "^5.1.1"
+    "openai": "^5.1.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",

@@ -32,8 +32,9 @@ import {
 import { get_encoding } from '@dqbd/tiktoken';
 import { checkLicence } from './licensing/checkLicence';
 import { append as appendHistory } from './history/append';
-// TEMPORARY: Import stub IPC handler for frontend development
-import './stub-ipc';
+import { ModelService } from './services/ModelService';
+import { Database } from './db/database';
+import { AppRequest, AppResponse } from '../../../shared/types';
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -83,7 +84,9 @@ const store = new Store<{
   return getReasoningEffort();
 };
 
-// Initialize tiktoken encoder
+// Initialize services
+const modelService = new ModelService();
+const database = new Database();
 const tokenEncoder = get_encoding('cl100k_base');
 
 function createWindow() {
@@ -127,96 +130,275 @@ function createWindow() {
   return win;
 }
 
-// IPC handlers
-ipcMain.handle('settings:saveApiKey', (_, id: ProviderId, key: string) => {
-  setKey(id, key);
+// Unified IPC handler - replaces all individual handlers
+ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppResponse> => {
+  try {
+    console.log(`IPC Request: ${request.type}`, request.payload);
+
+    switch (request.type) {
+      case 'models:get-all':
+        return { success: true, data: modelService.getAllModels() };
+
+      case 'settings:save': {
+        const { key, value, provider } = request.payload || {};
+        if (provider && key === 'apiKey') {
+          setKey(provider as ProviderId, value);
+        } else if (key === 'maxOutputTokens') {
+          setMaxOutputTokens(value);
+        } else if (key === 'enableWebSearch') {
+          setEnableWebSearch(value);
+        } else if (key === 'maxWebSearchUses') {
+          setMaxWebSearchUses(value);
+        } else if (key === 'enableExtendedThinking') {
+          setEnableExtendedThinking(value);
+        } else if (key === 'enablePromptCaching') {
+          setEnablePromptCaching(value);
+        } else if (key === 'promptCacheTTL') {
+          setPromptCacheTTL(value);
+        } else if (key === 'enableStreaming') {
+          setEnableStreaming(value);
+        } else if (key === 'jsonMode') {
+          setJsonMode(value);
+        } else if (key === 'reasoningEffort') {
+          setReasoningEffort(value);
+        }
+        return { success: true, data: null };
+      }
+
+      case 'settings:load': {
+        const { key, provider } = request.payload || {};
+        let data;
+        if (provider && key === 'apiKey') {
+          data = getKey(provider as ProviderId);
+        } else if (key === 'allKeys') {
+          data = getAllKeys();
+        } else if (key === 'maxOutputTokens') {
+          data = getMaxOutputTokens();
+        } else if (key === 'enableWebSearch') {
+          data = getEnableWebSearch();
+        } else if (key === 'maxWebSearchUses') {
+          data = getMaxWebSearchUses();
+        } else if (key === 'enableExtendedThinking') {
+          data = getEnableExtendedThinking();
+        } else if (key === 'enablePromptCaching') {
+          data = getEnablePromptCaching();
+        } else if (key === 'promptCacheTTL') {
+          data = getPromptCacheTTL();
+        } else if (key === 'enableStreaming') {
+          data = getEnableStreaming();
+        } else if (key === 'jsonMode') {
+          data = getJsonMode();
+        } else if (key === 'reasoningEffort') {
+          data = getReasoningEffort();
+        } else {
+          // Return all settings as fallback
+          data = {
+            allKeys: getAllKeys(),
+            maxOutputTokens: getMaxOutputTokens(),
+            enableWebSearch: getEnableWebSearch(),
+            maxWebSearchUses: getMaxWebSearchUses(),
+            enableExtendedThinking: getEnableExtendedThinking(),
+            enablePromptCaching: getEnablePromptCaching(),
+            promptCacheTTL: getPromptCacheTTL(),
+            enableStreaming: getEnableStreaming(),
+            jsonMode: getJsonMode(),
+            reasoningEffort: getReasoningEffort(),
+          };
+        }
+        return { success: true, data };
+      }
+
+      case 'chat:send': {
+        const { conversationId, content, modelId, systemPrompt, options } = request.payload || {};
+
+        // Parse provider from model ID
+        const [providerName, ...modelParts] = modelId.split('/');
+        const modelName = modelParts.join('/');
+
+        // Find the provider
+        const provider = allProviders.find((p) => p && p.id === providerName);
+        if (!provider) {
+          throw new Error(`Unknown provider: ${providerName}`);
+        }
+
+        // Check if API key exists
+        const apiKey = getKey(provider.id as ProviderId);
+        if (!apiKey) {
+          throw new Error(`Missing API key for provider: ${providerName}`);
+        }
+
+        // Model pricing is now handled dynamically by the provider
+
+        try {
+          let result;
+
+          // Build full prompt with system message if provided
+          let fullPrompt = content;
+          if (systemPrompt) {
+            fullPrompt = `${systemPrompt}\n\n${content}`;
+          }
+
+          // Use enhanced features if available
+          if (providerName === 'anthropic' && options?.enablePromptCaching) {
+            const messages = [{ role: 'user' as const, content: fullPrompt }];
+            result = await (provider as any).chatWithHistory(messages, modelId, {
+              enablePromptCaching: options.enablePromptCaching,
+              cacheTTL: options.cacheTTL,
+              systemPrompt: systemPrompt,
+              cacheSystemPrompt: options.cacheSystemPrompt,
+              enableStreaming: options.enableStreaming,
+              onStreamChunk: options.onStreamChunk,
+            });
+          } else {
+            // Standard chat method
+            result = await provider.chat(fullPrompt, modelId);
+          }
+
+          // Get the specific model details
+          const models = provider.listModels();
+          const modelInfo = models.find((m) => modelId.includes(m.id) || m.id.includes(modelName));
+          const modelLabel = modelInfo ? modelInfo.name : provider.label;
+
+          // Save user message to database
+          if (conversationId) {
+            await database.addMessage({
+              conversationId,
+              role: 'user',
+              content: content,
+              provider: providerName,
+              model: modelId,
+              cost: 0,
+              tokensIn: result.promptTokens || 0,
+              tokensOut: 0,
+            });
+          }
+
+          // Save assistant response to database
+          let savedMessage;
+          if (conversationId) {
+            savedMessage = await database.addMessage({
+              conversationId,
+              role: 'assistant',
+              content: result.answer,
+              provider: providerName,
+              model: modelId,
+              cost: result.costUSD,
+              tokensIn: 0,
+              tokensOut: result.answerTokens || 0,
+            });
+          }
+
+          return {
+            success: true,
+            data: {
+              id: savedMessage?.id || `msg-${Date.now()}`,
+              answer: result.answer,
+              content: result.answer,
+              role: 'assistant',
+              promptTokens: result.promptTokens,
+              answerTokens: result.answerTokens,
+              costUSD: result.costUSD,
+              usage: {
+                prompt_tokens: result.promptTokens,
+                completion_tokens: result.answerTokens,
+                cache_creation_input_tokens: (result as any).cacheCreationTokens,
+                cache_read_input_tokens: (result as any).cacheReadTokens,
+              },
+              cost: result.costUSD,
+              provider: modelLabel,
+              model: modelId,
+              timestamp: savedMessage?.timestamp || Date.now(),
+            },
+          };
+        } catch (error: any) {
+          // Check for auth errors
+          if (
+            error.status === 401 ||
+            error.status === 403 ||
+            error.message?.includes('API key') ||
+            error.message?.includes('authentication')
+          ) {
+            const win = BrowserWindow.getAllWindows()[0];
+            if (win) {
+              win.webContents.send('settings:invalidKey', provider.id);
+            }
+          }
+          throw error;
+        }
+      }
+
+      case 'project:create': {
+        const project = await database.createProject(request.payload || {});
+        return { success: true, data: project };
+      }
+
+      case 'project:list': {
+        const projects = await database.listProjects();
+        return { success: true, data: projects };
+      }
+
+      case 'project:get': {
+        const project = await database.getProject(request.payload?.id);
+        return { success: true, data: project };
+      }
+
+      case 'project:switch': {
+        // Update project last_used timestamp
+        const project = await database.updateProject(request.payload?.id, {});
+        return { success: true, data: project };
+      }
+
+      case 'conversation:create': {
+        const conversation = await database.createConversation(request.payload || {});
+        return { success: true, data: conversation };
+      }
+
+      case 'conversation:list': {
+        const conversations = await database.listConversations(request.payload?.projectId);
+        return { success: true, data: conversations };
+      }
+
+      case 'messages:add': {
+        const message = await database.addMessage(request.payload || {});
+        return { success: true, data: message };
+      }
+
+      case 'messages:list': {
+        const messages = await database.listMessages(request.payload?.conversationId);
+        return { success: true, data: messages };
+      }
+
+      case 'batch:submit': {
+        const batchJob = await database.createBatchJob(request.payload || {});
+        return { success: true, data: batchJob };
+      }
+
+      case 'batch:update-status': {
+        const { jobId, ...updates } = request.payload || {};
+        const updatedJob = await database.updateBatchJobStatus(jobId, updates);
+        return { success: true, data: updatedJob };
+      }
+
+      case 'activity:get': {
+        const activity = await database.getActivityStats(request.payload?.projectId);
+        return { success: true, data: activity };
+      }
+
+      // Legacy handlers still work for backward compatibility
+      default:
+        return { success: false, error: `Unknown request type: ${request.type}` };
+    }
+  } catch (error: any) {
+    console.error(`IPC Error [${request.type}]:`, error);
+    return {
+      success: false,
+      error: error.message || 'Unknown error occurred',
+    };
+  }
 });
 
-ipcMain.handle('settings:getAllKeys', () => {
-  return getAllKeys();
-});
-
-ipcMain.handle('settings:validateKey', (_, id: ProviderId) => {
-  return validateKey(id);
-});
-
-ipcMain.handle('settings:setMaxOutputTokens', (_, value: number) => {
-  setMaxOutputTokens(value);
-});
-
-ipcMain.handle('settings:getMaxOutputTokens', () => {
-  return getMaxOutputTokens();
-});
-
-// Web Search Settings
-ipcMain.handle('settings:setEnableWebSearch', (_, value: boolean) => {
-  setEnableWebSearch(value);
-});
-
-ipcMain.handle('settings:getEnableWebSearch', () => {
-  return getEnableWebSearch();
-});
-
-ipcMain.handle('settings:setMaxWebSearchUses', (_, value: number) => {
-  setMaxWebSearchUses(value);
-});
-
-ipcMain.handle('settings:getMaxWebSearchUses', () => {
-  return getMaxWebSearchUses();
-});
-
-// Extended Thinking Settings
-ipcMain.handle('settings:setEnableExtendedThinking', (_, value: boolean) => {
-  setEnableExtendedThinking(value);
-});
-
-ipcMain.handle('settings:getEnableExtendedThinking', () => {
-  return getEnableExtendedThinking();
-});
-
-// Prompt Caching Settings
-ipcMain.handle('settings:setEnablePromptCaching', (_, value: boolean) => {
-  setEnablePromptCaching(value);
-});
-
-ipcMain.handle('settings:getEnablePromptCaching', () => {
-  return getEnablePromptCaching();
-});
-
-ipcMain.handle('settings:setPromptCacheTTL', (_, value: '5m' | '1h') => {
-  setPromptCacheTTL(value);
-});
-
-ipcMain.handle('settings:getPromptCacheTTL', () => {
-  return getPromptCacheTTL();
-});
-
-// Streaming Settings
-ipcMain.handle('settings:setEnableStreaming', (_, value: boolean) => {
-  setEnableStreaming(value);
-});
-
-ipcMain.handle('settings:getEnableStreaming', () => {
-  return getEnableStreaming();
-});
-
-// JSON Mode Settings
-ipcMain.handle('settings:setJsonMode', (_, value: boolean) => {
-  setJsonMode(value);
-});
-
-ipcMain.handle('settings:getJsonMode', () => {
-  return getJsonMode();
-});
-
-// Reasoning Effort Settings
-ipcMain.handle('settings:setReasoningEffort', (_, value: 'low' | 'medium' | 'high') => {
-  setReasoningEffort(value);
-});
-
-ipcMain.handle('settings:getReasoningEffort', () => {
-  return getReasoningEffort();
-});
+// Legacy IPC handlers for backward compatibility with existing functionality
+// These will be migrated to unified handler as needed
 
 // Job Queue State Management
 ipcMain.handle('jobqueue:saveState', (_, batchId: string, state: any) => {
@@ -261,6 +443,19 @@ ipcMain.handle('jobqueue:listFiles', (_, directory: string) => {
   return fs.readdirSync(directory);
 });
 
+// Legacy settings handlers for backward compatibility
+ipcMain.handle('settings:saveApiKey', (_, id: ProviderId, key: string) => {
+  setKey(id, key);
+});
+
+ipcMain.handle('settings:getAllKeys', () => {
+  return getAllKeys();
+});
+
+ipcMain.handle('settings:validateKey', (_, id: ProviderId) => {
+  return validateKey(id);
+});
+
 // License management handlers
 ipcMain.handle('license:store', (_, licenseKey: string) => {
   const licenseStore = new Store<{ cacheExpires: number; key: string }>({
@@ -298,6 +493,9 @@ ipcMain.handle('chat:send', async (_, prompt: string) => {
   if (!apiKey) throw new Error('API key not set');
   return chatWithOpenAI(apiKey, prompt);
 });
+
+// Add chat handler to unified IPC - this extends the switch statement
+// We'll add this to the unified handler above
 
 // Multi-model chat handler with conversation history support and advanced features
 ipcMain.handle(
@@ -377,7 +575,7 @@ ipcMain.handle(
   }
 );
 
-// Get available models handler
+// Get available models handler - now using ModelService
 ipcMain.handle('models:getAvailable', async () => {
   return allProviders.map((provider) => ({
     provider: provider.label,

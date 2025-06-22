@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useProject, type ChatConversation } from '../contexts/ProjectContext';
+import { useProjectStore } from '../store/projectStore';
 import { useNavigate } from 'react-router-dom';
 
 export default function ChatHistory() {
@@ -9,7 +9,7 @@ export default function ChatHistory() {
     deleteConversation,
     updateConversation,
     createConversation,
-  } = useProject();
+  } = useProjectStore();
   const navigate = useNavigate();
   const [expandedConversation, setExpandedConversation] = useState<string | null>(null);
 

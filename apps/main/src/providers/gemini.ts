@@ -6,6 +6,17 @@ export class GeminiProvider implements BaseProvider {
   id = 'gemini';
   label = 'Gemini 2.5 Pro';
 
+  getCapabilities() {
+    return {
+      supportsJsonMode: true,
+      supportsBatchAPI: false,
+      supportsStreaming: false,
+      supportsPromptCaching: false,
+      supportsExtendedThinking: true,
+      supportsWebSearch: false,
+    };
+  }
+
   private readonly MODELS: ModelMeta[] = [
     {
       id: 'models/gemini-2.5-pro-thinking',

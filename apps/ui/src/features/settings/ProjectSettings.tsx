@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { registry } from '../metrics/registry';
-import { useProject } from '../../contexts/ProjectContext';
+import { useProjectStore } from '../../store/projectStore';
 import ChatHistory from '../../components/ChatHistory';
 import BatchHistory from '../../components/BatchHistory';
 
 export default function ProjectSettings() {
-  const { currentProject, updateProject } = useProject();
+  const { currentProject, updateProject } = useProjectStore();
   const navigate = useNavigate();
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [enabledMetrics, setEnabledMetrics] = useState<string[]>(registry.map((m) => m.id));

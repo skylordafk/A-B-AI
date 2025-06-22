@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { BatchRow } from '../../types/batch';
+// import { useProjectStore } from '../../store/projectStore';
 import Papa from 'papaparse';
 import '../../styles/spreadsheet.css';
 
@@ -8,6 +9,8 @@ interface SpreadsheetEditorProps {
   onSave: (rows: BatchRow[]) => void;
   onCancel: () => void;
   fileName?: string;
+  jobResults?: Map<string, any>;
+  currentJobId?: string;
 }
 
 interface CellSelection {
@@ -17,12 +20,22 @@ interface CellSelection {
   endCol: number;
 }
 
-const COLUMNS = [
-  { key: 'prompt', label: 'Prompt', width: '40%' },
-  { key: 'system', label: 'System Message', width: '25%' },
-  { key: 'model', label: 'Model', width: '20%' },
-  { key: 'temperature', label: 'Temperature', width: '15%' },
+const INPUT_COLUMNS = [
+  { key: 'prompt', label: 'Prompt', width: '30%', editable: true },
+  { key: 'system', label: 'System Message', width: '20%', editable: true },
+  { key: 'model', label: 'Model', width: '15%', editable: true },
+  { key: 'temperature', label: 'Temperature', width: '10%', editable: true },
 ] as const;
+
+const OUTPUT_COLUMNS = [
+  { key: 'status', label: 'Status', width: '8%', editable: false },
+  { key: 'response', label: 'Response', width: '25%', editable: false },
+  { key: 'cost_usd', label: 'Cost ($)', width: '6%', editable: false },
+  { key: 'latency_ms', label: 'Latency (ms)', width: '8%', editable: false },
+  { key: 'error', label: 'Error', width: '15%', editable: false },
+];
+
+const ALL_COLUMNS = [...INPUT_COLUMNS, ...OUTPUT_COLUMNS];
 
 const MODELS = [
   // OpenAI models
@@ -53,11 +66,47 @@ const MODELS = [
   { value: 'o1-mini', label: 'o1-mini' },
 ];
 
+// Status indicator component
+const StatusCell = ({ status }: { status?: string }) => {
+  switch (status) {
+    case 'processing':
+      return (
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs text-blue-600">Processing</span>
+        </div>
+      );
+    case 'completed':
+      return (
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <span className="text-xs text-green-600">Done</span>
+        </div>
+      );
+    case 'failed':
+      return (
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+          <span className="text-xs text-red-600">Failed</span>
+        </div>
+      );
+    default:
+      return (
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+          <span className="text-xs text-gray-500">Pending</span>
+        </div>
+      );
+  }
+};
+
 export default function SpreadsheetEditor({
   rows: initialRows,
   onSave,
   onCancel,
   fileName,
+  jobResults,
+  currentJobId,
 }: SpreadsheetEditorProps) {
   const [rows, setRows] = useState<BatchRow[]>(initialRows);
   const [selection, setSelection] = useState<CellSelection | null>(null);
@@ -74,6 +123,29 @@ export default function SpreadsheetEditor({
   useEffect(() => {
     setRows(initialRows);
   }, [initialRows]);
+
+  // Real-time update handling for batch results
+  useEffect(() => {
+    if (!currentJobId || !jobResults) return;
+
+    // Update rows with results when batch results change
+    setRows((prevRows) =>
+      prevRows.map((row) => {
+        const result = jobResults.get(row.id);
+        if (result) {
+          return {
+            ...row,
+            status: result.status || 'pending',
+            response: result.response || '',
+            cost_usd: result.cost_usd || 0,
+            latency_ms: result.latency_ms || 0,
+            error: result.error || '',
+          };
+        }
+        return row;
+      })
+    );
+  }, [currentJobId, jobResults]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -139,8 +211,11 @@ export default function SpreadsheetEditor({
   };
 
   const startEditing = (row: number, col: number) => {
+    // Only allow editing of input columns
+    if (!ALL_COLUMNS[col]?.editable) return;
+
     setEditingCell({ row, col });
-    const colKey = COLUMNS[col].key;
+    const colKey = ALL_COLUMNS[col].key;
     setEditValue(getCellValue(rows[row], colKey));
 
     // Focus input after state update
@@ -160,7 +235,7 @@ export default function SpreadsheetEditor({
   const finishEditing = () => {
     if (editingCell) {
       const { row, col } = editingCell;
-      setCellValue(row, COLUMNS[col].key, editValue);
+      setCellValue(row, ALL_COLUMNS[col].key, editValue);
       setEditingCell(null);
       setEditValue('');
     }
@@ -223,7 +298,7 @@ export default function SpreadsheetEditor({
     for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
       const rowData: string[] = [];
       for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-        rowData.push(getCellValue(rows[r], COLUMNS[c].key));
+        rowData.push(getCellValue(rows[r], ALL_COLUMNS[c].key));
       }
       selectedData.push(rowData);
     }
@@ -244,7 +319,7 @@ export default function SpreadsheetEditor({
         for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
           const colIndex = c - Math.min(startCol, endCol);
           const value = selectedData[patternIndex][colIndex];
-          setCellValue(r, COLUMNS[c].key, value);
+          setCellValue(r, ALL_COLUMNS[c].key, value);
         }
 
         patternIndex = (patternIndex + 1) % selectedData.length;
@@ -263,7 +338,7 @@ export default function SpreadsheetEditor({
     for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
       const rowData: string[] = [];
       for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-        rowData.push(getCellValue(rows[r], COLUMNS[c].key));
+        rowData.push(getCellValue(rows[r], ALL_COLUMNS[c].key));
       }
       data.push(rowData);
     }
@@ -303,8 +378,8 @@ export default function SpreadsheetEditor({
 
         rowData.forEach((cellValue, j) => {
           const targetCol = startCol + j;
-          if (targetCol < COLUMNS.length) {
-            const colKey = COLUMNS[targetCol].key;
+          if (targetCol < ALL_COLUMNS.length && ALL_COLUMNS[targetCol].editable) {
+            const colKey = ALL_COLUMNS[targetCol].key;
             const row = newRows[targetRow];
 
             switch (colKey) {
@@ -340,7 +415,9 @@ export default function SpreadsheetEditor({
 
     for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
       for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-        setCellValue(r, COLUMNS[c].key, '');
+        if (ALL_COLUMNS[c].editable) {
+          setCellValue(r, ALL_COLUMNS[c].key, '');
+        }
       }
     }
   };
@@ -363,7 +440,7 @@ export default function SpreadsheetEditor({
         newCol = Math.max(0, startCol - 1);
         break;
       case 'ArrowRight':
-        newCol = Math.min(COLUMNS.length - 1, startCol + 1);
+        newCol = Math.min(ALL_COLUMNS.length - 1, startCol + 1);
         break;
     }
 
@@ -442,196 +519,213 @@ export default function SpreadsheetEditor({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg w-full max-w-7xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-          <div>
-            <h2 className="text-xl font-semibold text-[var(--text-primary)]">Edit Template</h2>
-            <p className="text-[var(--text-secondary)] text-sm mt-1">
-              {fileName ? `Editing: ${fileName}` : 'Edit your batch processing template'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleAddRow}
-              className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
-            >
-              Add Row
-            </button>
-            <button
-              onClick={handleDeleteRows}
-              disabled={!selection}
-              className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
-            >
-              Delete Rows
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors text-sm"
-            >
-              Export CSV
-            </button>
-            <button
-              onClick={() => onSave(rows)}
-              className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-            >
-              Apply Changes
-            </button>
-            <button
-              onClick={onCancel}
-              className="px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+    <div className="flex flex-col h-full bg-[var(--bg-primary)]">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+        <div>
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Batch Spreadsheet</h2>
+          <p className="text-[var(--text-secondary)] text-sm mt-1">
+            {fileName ? `File: ${fileName}` : 'Create and manage your batch processing data'}
+          </p>
         </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleAddRow}
+            className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+          >
+            Add Row
+          </button>
+          <button
+            onClick={handleDeleteRows}
+            disabled={!selection}
+            className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+          >
+            Delete Rows
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors text-sm"
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={() => onSave(rows)}
+            className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+          >
+            Apply Changes
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
 
-        {/* Spreadsheet */}
-        <div
-          ref={tableRef}
-          className="flex-1 overflow-auto p-4"
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
-          <div className="inline-block min-w-full">
-            <table className="border-collapse">
-              <thead>
-                <tr>
-                  <th className="border border-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 w-12">
-                    #
+      {/* Spreadsheet */}
+      <div
+        ref={tableRef}
+        className="flex-1 overflow-auto p-4"
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        <div className="inline-block min-w-full">
+          <table className="border-collapse">
+            <thead>
+              <tr>
+                <th className="border border-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 w-12">
+                  #
+                </th>
+                {ALL_COLUMNS.map((col) => (
+                  <th
+                    key={col.key}
+                    className={`border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 ${
+                      col.editable
+                        ? 'bg-blue-50 dark:bg-blue-900/20'
+                        : 'bg-gray-100 dark:bg-gray-800'
+                    }`}
+                    style={{ width: col.width }}
+                  >
+                    {col.label}
                   </th>
-                  {COLUMNS.map((col) => (
-                    <th
-                      key={col.key}
-                      className="border border-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 text-sm font-medium text-gray-700 dark:text-gray-300"
-                      style={{ width: col.width }}
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, rowIndex) => (
-                  <tr key={row.id}>
-                    <td className="border border-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 text-sm text-center text-gray-600 dark:text-gray-400">
-                      {rowIndex + 1}
-                    </td>
-                    {COLUMNS.map((col, colIndex) => {
-                      const isSelected = isCellSelected(rowIndex, colIndex);
-                      const isEditing =
-                        editingCell?.row === rowIndex && editingCell?.col === colIndex;
-                      const isInDragPreview = isCellInDragPreview(rowIndex, colIndex);
-                      const showFillHandle =
-                        selection &&
-                        rowIndex === Math.max(selection.startRow, selection.endRow) &&
-                        colIndex === Math.max(selection.startCol, selection.endCol);
-
-                      return (
-                        <td
-                          key={col.key}
-                          className={`
-                            border border-gray-300 px-1 py-0.5 text-sm relative
-                            ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-white dark:bg-gray-900'}
-                            ${isInDragPreview ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
-                            ${isEditing ? 'p-0' : 'cursor-cell'}
-                          `}
-                          onMouseDown={(e) =>
-                            !isEditing && handleCellMouseDown(rowIndex, colIndex, e)
-                          }
-                          onMouseEnter={() => handleCellMouseEnter(rowIndex, colIndex)}
-                          onDoubleClick={() => !isEditing && startEditing(rowIndex, colIndex)}
-                        >
-                          {isEditing ? (
-                            col.key === 'model' ? (
-                              <select
-                                ref={selectRef}
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={finishEditing}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') finishEditing();
-                                  if (e.key === 'Escape') setEditingCell(null);
-                                }}
-                                className="w-full h-full px-1 py-0.5 border-0 outline-none bg-white dark:bg-gray-900"
-                              >
-                                <option value="">Default</option>
-                                {MODELS.map((model) => (
-                                  <option key={model.value} value={model.value}>
-                                    {model.label}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : col.key === 'prompt' || col.key === 'system' ? (
-                              <textarea
-                                ref={textareaRef}
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={finishEditing}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    finishEditing();
-                                  }
-                                  if (e.key === 'Escape') setEditingCell(null);
-                                }}
-                                className="w-full min-h-[24px] px-1 py-0.5 border-0 outline-none resize-none bg-white dark:bg-gray-900"
-                                style={{ height: 'auto' }}
-                              />
-                            ) : (
-                              <input
-                                ref={inputRef}
-                                type={col.key === 'temperature' ? 'number' : 'text'}
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={finishEditing}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') finishEditing();
-                                  if (e.key === 'Escape') setEditingCell(null);
-                                }}
-                                step={col.key === 'temperature' ? '0.1' : undefined}
-                                min={col.key === 'temperature' ? '0' : undefined}
-                                max={col.key === 'temperature' ? '2' : undefined}
-                                className="w-full h-full px-1 py-0.5 border-0 outline-none bg-white dark:bg-gray-900"
-                              />
-                            )
-                          ) : (
-                            <div className="truncate">
-                              {col.key === 'model'
-                                ? MODELS.find((m) => m.value === getCellValue(row, col.key))
-                                    ?.label ||
-                                  getCellValue(row, col.key) ||
-                                  'Default'
-                                : getCellValue(row, col.key)}
-                            </div>
-                          )}
-                          {showFillHandle && (
-                            <div
-                              className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair"
-                              onMouseDown={handleFillHandleMouseDown}
-                            />
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={row.id}>
+                  <td className="border border-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 text-sm text-center text-gray-600 dark:text-gray-400">
+                    {rowIndex + 1}
+                  </td>
+                  {ALL_COLUMNS.map((col, colIndex) => {
+                    const isSelected = isCellSelected(rowIndex, colIndex);
+                    const isEditing =
+                      editingCell?.row === rowIndex && editingCell?.col === colIndex;
+                    const isInDragPreview = isCellInDragPreview(rowIndex, colIndex);
+                    const showFillHandle =
+                      selection &&
+                      rowIndex === Math.max(selection.startRow, selection.endRow) &&
+                      colIndex === Math.max(selection.startCol, selection.endCol);
 
-        {/* Footer */}
-        <div className="px-4 py-2 border-t border-[var(--border)] bg-[var(--bg-secondary)]">
-          <div className="flex items-center justify-between text-sm text-[var(--text-muted)]">
-            <div>
-              {rows.length} row{rows.length !== 1 ? 's' : ''}
-            </div>
-            <div>
-              Tips: Double-click to edit • Ctrl+C/V to copy/paste • Drag corner handle to fill down
-              • Shift+click to select range
-            </div>
+                    return (
+                      <td
+                        key={col.key}
+                        className={`
+                            border border-gray-300 px-1 py-0.5 text-sm relative
+                            ${
+                              isSelected
+                                ? 'bg-blue-100 dark:bg-blue-900/30'
+                                : col.editable
+                                  ? 'bg-white dark:bg-gray-900'
+                                  : 'bg-gray-50 dark:bg-gray-800'
+                            }
+                            ${isInDragPreview ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+                            ${isEditing ? 'p-0' : col.editable ? 'cursor-cell' : 'cursor-default'}
+                          `}
+                        onMouseDown={(e) =>
+                          !isEditing && handleCellMouseDown(rowIndex, colIndex, e)
+                        }
+                        onMouseEnter={() => handleCellMouseEnter(rowIndex, colIndex)}
+                        onDoubleClick={() => !isEditing && startEditing(rowIndex, colIndex)}
+                      >
+                        {isEditing ? (
+                          col.key === 'model' ? (
+                            <select
+                              ref={selectRef}
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={finishEditing}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') finishEditing();
+                                if (e.key === 'Escape') setEditingCell(null);
+                              }}
+                              className="w-full h-full px-1 py-0.5 border-0 outline-none bg-white dark:bg-gray-900"
+                            >
+                              <option value="">Default</option>
+                              {MODELS.map((model) => (
+                                <option key={model.value} value={model.value}>
+                                  {model.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : col.key === 'prompt' || col.key === 'system' ? (
+                            <textarea
+                              ref={textareaRef}
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={finishEditing}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  finishEditing();
+                                }
+                                if (e.key === 'Escape') setEditingCell(null);
+                              }}
+                              className="w-full min-h-[24px] px-1 py-0.5 border-0 outline-none resize-none bg-white dark:bg-gray-900"
+                              style={{ height: 'auto' }}
+                            />
+                          ) : (
+                            <input
+                              ref={inputRef}
+                              type={col.key === 'temperature' ? 'number' : 'text'}
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={finishEditing}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') finishEditing();
+                                if (e.key === 'Escape') setEditingCell(null);
+                              }}
+                              step={col.key === 'temperature' ? '0.1' : undefined}
+                              min={col.key === 'temperature' ? '0' : undefined}
+                              max={col.key === 'temperature' ? '2' : undefined}
+                              className="w-full h-full px-1 py-0.5 border-0 outline-none bg-white dark:bg-gray-900"
+                            />
+                          )
+                        ) : (
+                          <div className="truncate">
+                            {col.key === 'status' ? (
+                              <StatusCell status={getCellValue(row, col.key)} />
+                            ) : col.key === 'model' ? (
+                              MODELS.find((m) => m.value === getCellValue(row, col.key))?.label ||
+                              getCellValue(row, col.key) ||
+                              'Default'
+                            ) : col.key === 'cost_usd' ? (
+                              getCellValue(row, col.key) ? (
+                                `$${parseFloat(getCellValue(row, col.key)).toFixed(6)}`
+                              ) : (
+                                ''
+                              )
+                            ) : (
+                              getCellValue(row, col.key)
+                            )}
+                          </div>
+                        )}
+                        {showFillHandle && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair"
+                            onMouseDown={handleFillHandleMouseDown}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-2 border-t border-[var(--border)] bg-[var(--bg-secondary)]">
+        <div className="flex items-center justify-between text-sm text-[var(--text-muted)]">
+          <div>
+            {rows.length} row{rows.length !== 1 ? 's' : ''}
+          </div>
+          <div>
+            Tips: Double-click to edit input cells • Ctrl+C/V to copy/paste • Drag corner handle to
+            fill down • Shift+click to select range • Blue columns are editable
           </div>
         </div>
       </div>

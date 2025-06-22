@@ -72,9 +72,10 @@
       "input_price": "$1.25 per 1M tokens for <200K tokens, $2.50 per 1M tokens for >200K tokens",
       "output_price": "$10.00 per 1M tokens for <200K tokens, $15.00 per 1M tokens for >200K tokens"
     },
-    "gemini-2.5-flash-preview": {
-      "input_price": "$0.35 per 1M tokens",
-      "output_price": "$1.75 per 1M tokens"
+    "gemini-1.5-flash-fast": {
+      "input_price": "$0.075 per 1M tokens for <=128K tokens, $0.15 per 1M tokens for >128K tokens",
+      "output_price": "$0.3 per 1M tokens for <=128K tokens, $0.6 per 1M tokens for >128K tokens",
+      "note": "No longer available for new projects as of April 29, 2025"
     }
   },
   "Grok": {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useProject } from '../contexts/ProjectContext';
+import { useProjectStore } from '../store/projectStore';
 
 interface BatchHistoryEntry {
   type: string;
@@ -22,7 +22,7 @@ interface BatchHistoryEntry {
 }
 
 export default function BatchHistory() {
-  const { currentProject } = useProject();
+  const { currentProject } = useProjectStore();
   const [historyEntries, setHistoryEntries] = useState<BatchHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'batch' | 'chat'>('all');

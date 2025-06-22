@@ -136,6 +136,17 @@ export const openaiProvider: BaseProvider = {
   id: 'openai',
   label: 'OpenAI',
 
+  getCapabilities() {
+    return {
+      supportsJsonMode: true,
+      supportsBatchAPI: true,
+      supportsStreaming: true,
+      supportsPromptCaching: false,
+      supportsExtendedThinking: false,
+      supportsWebSearch: true,
+    };
+  },
+
   listModels(): ModelMeta[] {
     return [
       {

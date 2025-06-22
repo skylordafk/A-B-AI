@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useProject } from '../contexts/ProjectContext';
+import { useProjectStore } from '../store/projectStore';
 import { useNavigate } from 'react-router-dom';
 
 export default function ProjectDashboard() {
-  const { projects, currentProject, switchProject, createProject, deleteProject } = useProject();
+  const { projects, currentProject, switchProject, createProject, deleteProject } =
+    useProjectStore();
   const navigate = useNavigate();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');

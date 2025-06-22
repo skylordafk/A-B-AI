@@ -1,361 +1,181 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BatchLayout from '../components/batch/BatchLayout';
-import BatchDropZone from '../components/batch/BatchDropZone';
-import BatchProgressToast from '../components/batch/BatchProgressToast';
-import ResultsTable from '../components/batch/ResultsTable';
-import ExportButtons from '../components/batch/ExportButtons';
-import DryRunModal from '../components/batch/DryRunModal';
-import TemplateBrowser from '../components/batch/TemplateBrowser';
+import Layout from '../components/Layout';
+import ActivitySidebar from '../components/sidebars/ActivitySidebar';
+import SpreadsheetEditor from '../components/batch/SpreadsheetEditor';
 import SettingsModal from '../components/SettingsModal';
-import { BatchProvider, useBatch } from '../contexts/BatchContext';
-import { useChat } from '../contexts/ChatContext';
+import { useProjectStore } from '../store/projectStore';
 import { parseInput } from '../lib/batch/parseInput';
-import { estimateCost } from '../lib/batch/estimateCost';
-import { JobQueue } from '../lib/batch/JobQueue';
 import { templateService, type Template } from '../lib/batch/templateService';
-import type { BatchResult } from '../types/batch';
+import type { BatchRow } from '../types/batch';
 
-function BatchContent() {
-  const navigate = useNavigate();
-  const { state, dispatch } = useBatch();
-  const { pushBatchSummary } = useChat();
-  const [concurrency, setConcurrency] = useState(3);
-  const [file, setFile] = useState<File | null>(null);
+export default function Batch() {
+  const _navigate = useNavigate();
+  const { createBatchJob, currentProjectId } = useProjectStore();
+  const [rows, setRows] = useState<BatchRow[]>([]);
+  const [useNativeAPI, setUseNativeAPI] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
-  const [results, setResults] = useState<BatchResult[]>([]);
-  const [showDryRunModal, setShowDryRunModal] = useState(false);
-  const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
 
   // Listen for settings menu events
   useEffect(() => {
     const handleMenuSettings = () => setSettingsOpen(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).ipc.onOpenSettings(handleMenuSettings);
+    (window as any).ipc?.onOpenSettings?.(handleMenuSettings);
   }, []);
 
-  const handleFileSelect = useCallback(
-    async (selectedFile: File) => {
-      setFile(selectedFile);
-      dispatch({ type: 'SET_FILE', payload: selectedFile });
+  // Initialize with empty row if no data
+  useEffect(() => {
+    if (rows.length === 0) {
+      setRows([
+        {
+          id: 'row-1',
+          prompt: '',
+          model: 'gpt-4o',
+          temperature: 0.7,
+        },
+      ]);
+    }
+  }, [rows.length]);
 
-      // Parse and validate the file
-      const { rows, errors } = await parseInput(selectedFile);
-      dispatch({ type: 'SET_ROWS', payload: { rows, errors } });
-
-      if (rows.length > 0) {
-        // Estimate cost
-        const estimation = await estimateCost(rows);
-        setEstimatedCost(estimation.totalUSD);
-        dispatch({ type: 'SET_ESTIMATION', payload: estimation });
-      }
-    },
-    [dispatch]
-  );
+  const handleImport = useCallback(async (file: File) => {
+    try {
+      const { rows: parsedRows } = await parseInput(file);
+      setRows(parsedRows);
+    } catch (error) {
+      console.error('Failed to import file:', error);
+      alert('Failed to import file. Please check the format and try again.');
+    }
+  }, []);
 
   const handleTemplateSelect = useCallback(
     async (template: Template) => {
       try {
-        // Download the template as a file
         const file = await templateService.downloadTemplateAsFile(template);
-        handleFileSelect(file);
-        setShowTemplateBrowser(false);
+        await handleImport(file);
       } catch (error) {
         console.error('Failed to load template:', error);
+        alert('Failed to load template. Please try again.');
       }
     },
-    [handleFileSelect]
+    [handleImport]
   );
-
-  const handleDownloadSample = useCallback(async () => {
-    try {
-      // Get the basic template from the template service
-      const templates = await templateService.getTemplates();
-      const basicTemplate = templates.find((t) => t.id === 'basic-template') || templates[0];
-
-      if (basicTemplate) {
-        // Download the template content
-        const content = await templateService.downloadTemplate(basicTemplate);
-
-        // Create a blob and download link
-        const blob = new Blob([content], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'batch-template.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('Failed to download sample template:', error);
-      alert('Failed to download sample template. Please try again.');
-    }
-  }, []);
-
-  const handleClearFile = useCallback(() => {
-    setFile(null);
-    setEstimatedCost(null);
-    setResults([]);
-    dispatch({ type: 'RESET' });
-  }, [dispatch]);
-
-  const handleDryRun = useCallback(async () => {
-    if (!state.rows || state.rows.length === 0) return;
-
-    const estimation = await estimateCost(state.rows);
-    dispatch({ type: 'SET_ESTIMATION', payload: estimation });
-    setShowDryRunModal(true);
-  }, [state.rows, dispatch]);
-
-  const [currentQueue, setCurrentQueue] = useState<JobQueue | null>(null);
 
   const handleRunBatch = useCallback(async () => {
-    if (!state.rows || state.rows.length === 0 || isRunning) return;
+    if (!currentProjectId || rows.length === 0 || isRunning) return;
 
-    setIsRunning(true);
-    const queue = new JobQueue(concurrency);
-    setCurrentQueue(queue);
-
-    const startTime = Date.now();
-    const results: BatchResult[] = [];
-
-    // Subscribe to queue events
-    queue.on('progress', (progress) => {
-      dispatch({ type: 'UPDATE_PROGRESS', payload: progress });
-    });
-
-    queue.on('row-done', (result) => {
-      results.push(result);
-      setResults((prev) => [...prev, result]);
-      dispatch({ type: 'ADD_RESULT', payload: result });
-    });
-
-    queue.on('row-error', (error) => {
-      dispatch({ type: 'ADD_ERROR', payload: error });
-    });
-
-    queue.on('batch-summary', (summary) => {
-      // Add batch summary to chat history
-      pushBatchSummary(summary);
-    });
-
-    queue.on('stopped', (info) => {
-      console.warn(
-        `Batch ${info.batchId} stopped gracefully: ${info.processedRows}/${info.totalRows} completed`
-      );
-      setIsRunning(false);
-      setCurrentQueue(null);
-    });
-
-    queue.on('complete', () => {
-      const endTime = Date.now();
-      dispatch({
-        type: 'COMPLETE',
-        payload: {
-          totalTime: endTime - startTime,
-          totalCost: results.reduce((sum, r) => sum + (r.cost_usd || 0), 0),
-        },
-      });
-      setIsRunning(false);
-      setCurrentQueue(null);
-    });
-
-    // Enqueue all rows
-    for (const row of state.rows) {
-      queue.enqueue(row);
-    }
-
-    // Start processing
     try {
-      await queue.start();
+      setIsRunning(true);
+      const newJobId = await createBatchJob('batch-job', rows, useNativeAPI);
+      setJobId(newJobId);
     } catch (error) {
-      console.error('Batch processing error:', error);
+      console.error('Failed to run batch:', error);
+      alert('Failed to run batch. Please try again.');
+    } finally {
       setIsRunning(false);
-      setCurrentQueue(null);
     }
-  }, [state.rows, concurrency, isRunning, dispatch, pushBatchSummary]);
-
-  const handleStopBatch = useCallback(async () => {
-    if (currentQueue && isRunning) {
-      console.warn('Initiating graceful shutdown...');
-      await currentQueue.stop(true); // Save state for resume
-    }
-  }, [currentQueue, isRunning]);
-
-  const _handleResumeBatch = useCallback(
-    async (batchId: string) => {
-      if (isRunning) return;
-
-      try {
-        setIsRunning(true);
-        const queue = await JobQueue.resume(batchId, concurrency);
-        setCurrentQueue(queue);
-
-        const _startTime = Date.now();
-        const results: BatchResult[] = [];
-
-        // Subscribe to events (same as handleRunBatch)
-        queue.on('progress', (progress) => {
-          dispatch({ type: 'UPDATE_PROGRESS', payload: progress });
-        });
-
-        queue.on('row-done', (result) => {
-          results.push(result);
-          setResults((prev) => [...prev, result]);
-          dispatch({ type: 'ADD_RESULT', payload: result });
-        });
-
-        queue.on('complete', () => {
-          setIsRunning(false);
-          setCurrentQueue(null);
-        });
-
-        queue.on('stopped', () => {
-          setIsRunning(false);
-          setCurrentQueue(null);
-        });
-
-        await queue.start();
-      } catch (error) {
-        console.error('Failed to resume batch:', error);
-        setIsRunning(false);
-        setCurrentQueue(null);
-      }
-    },
-    [concurrency, isRunning, dispatch]
-  );
+  }, [currentProjectId, rows, useNativeAPI, isRunning, createBatchJob]);
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
-      <BatchLayout
-        concurrency={concurrency}
-        onConcurrencyChange={setConcurrency}
-        onNavigateToChat={() => navigate('/chat')}
-      />
+    <Layout rightSidebar={<ActivitySidebar />}>
+      <div className="flex flex-col h-full">
+        {/* Header Toolbar */}
+        <div className="border-b border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-semibold text-[var(--text-primary)]">Batch Processing</h1>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {!file ? (
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowTemplateBrowser(true)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-                Browse Templates
-              </button>
-            </div>
+              {/* Import Options */}
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  accept=".csv,.json"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport(file);
+                  }}
+                  className="hidden"
+                  id="file-import"
+                />
+                <label
+                  htmlFor="file-import"
+                  className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer text-sm"
+                >
+                  Import CSV/JSON
+                </label>
 
-            <div className="text-center text-[var(--text-secondary)] text-sm">Or</div>
-
-            <BatchDropZone
-              onFileSelect={handleFileSelect}
-              onTemplateBrowse={() => setShowTemplateBrowser(true)}
-              onDownloadSample={handleDownloadSample}
-            />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">{file.name}</h3>
-                  {estimatedCost !== null && (
-                    <p className="text-[var(--text-secondary)] mt-1">
-                      Input token cost: ${estimatedCost.toFixed(8)}
-                    </p>
-                  )}
-                  {state.errors && state.errors.length > 0 && (
-                    <p className="text-amber-500 mt-1">{state.errors.length} rows with errors</p>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleClearFile}
-                    className="px-4 py-2 bg-[var(--bg-primary)] border border-red-300 text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    disabled={isRunning}
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={handleDryRun}
-                    className="px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-md hover:bg-[var(--border)] transition-colors"
-                    disabled={isRunning}
-                  >
-                    Dry-Run Estimate
-                  </button>
-                  {isRunning ? (
-                    <button
-                      onClick={handleStopBatch}
-                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                    >
-                      Stop Batch
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleRunBatch}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                      disabled={!state.rows || state.rows.length === 0}
-                    >
-                      Run Batch
-                    </button>
-                  )}
-                </div>
+                <button
+                  onClick={() => {
+                    // Show template browser (simplified for now)
+                    templateService.getTemplates().then((templates) => {
+                      if (templates.length > 0) {
+                        handleTemplateSelect(templates[0]);
+                      }
+                    });
+                  }}
+                  className="px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
+                >
+                  Load Template
+                </button>
               </div>
             </div>
 
-            {(results.length > 0 || isRunning) && (
-              <>
-                <ResultsTable results={results} />
-                {results.length > 0 && !isRunning && (
-                  <ExportButtons
-                    results={results}
-                    inputFileName={file.name}
-                    estimation={state.estimation}
-                  />
-                )}
-              </>
-            )}
+            <div className="flex items-center gap-4">
+              {/* Native Batch API Toggle */}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useNativeAPI}
+                  onChange={(e) => setUseNativeAPI(e.target.checked)}
+                />
+                <span className="text-[var(--text-primary)]">
+                  Use Provider's Batch API (faster for large batches)
+                </span>
+              </label>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleRunBatch}
+                  disabled={isRunning || rows.length === 0}
+                  className="px-4 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm disabled:opacity-50"
+                >
+                  {isRunning ? 'Processing...' : 'Run Batch'}
+                </button>
+              </div>
+            </div>
           </div>
-        )}
+
+          {jobId && (
+            <div className="mt-2 text-sm text-[var(--text-secondary)]">
+              Job ID: {jobId} | Status: {isRunning ? 'Processing' : 'Completed'}
+            </div>
+          )}
+        </div>
+
+        {/* Main Spreadsheet Area */}
+        <div className="flex-1 overflow-hidden">
+          <SpreadsheetEditor
+            rows={rows}
+            onSave={setRows}
+            onCancel={() => {
+              // Reset to empty state
+              setRows([
+                {
+                  id: 'row-1',
+                  prompt: '',
+                  model: 'gpt-4o',
+                  temperature: 0.7,
+                },
+              ]);
+            }}
+            fileName="batch-template.csv"
+          />
+        </div>
       </div>
 
-      {isRunning && state.progress && <BatchProgressToast progress={state.progress} />}
-
-      <DryRunModal
-        isOpen={showDryRunModal}
-        onClose={() => setShowDryRunModal(false)}
-        estimation={state.estimation}
-        rows={state.rows || []}
-      />
-
-      {showTemplateBrowser && (
-        <TemplateBrowser
-          onTemplateSelect={handleTemplateSelect}
-          onClose={() => setShowTemplateBrowser(false)}
-        />
-      )}
-
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-    </div>
-  );
-}
-
-export default function Batch() {
-  return (
-    <BatchProvider>
-      <BatchContent />
-    </BatchProvider>
+    </Layout>
   );
 }

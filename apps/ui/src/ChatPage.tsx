@@ -8,17 +8,20 @@ import ReactDiffViewer from 'react-diff-viewer-continued';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mergeAdjacentCodeFences from './lib/markdown';
-// import LoadingOverlay from './components/LoadingOverlay';
-import ChatSidebar from './components/ChatSidebar';
-import { useChat } from './contexts/ChatContext';
-import { useProject } from './contexts/ProjectContext';
+import Layout from './components/Layout';
+import ChatSidebar from './components/sidebars/ChatSidebar';
+import ActivitySidebar from './components/sidebars/ActivitySidebar';
+import { useProjectStore } from './store/projectStore';
 import TerminalBlock from './components/TerminalBlock';
-import ThemeToggle from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
-import type { Message as ChatMessageFromContext } from './contexts/ChatContext';
-
-// Re-defining Message type locally for clarity, as ChatPage now manages its own state.
-type Message = ChatMessageFromContext;
+// Message type for chat
+interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  provider?: string;
+  cost?: number;
+}
 
 // Debounce hook
 /*
@@ -324,24 +327,52 @@ const ConversationRound = ({
 };
 
 export default function ChatPage() {
-  const { currentChat, pushMessage, createNewChat } = useChat();
+  const {
+    projects,
+    currentProjectId,
+    currentConversationId,
+    messages,
+    sendMessage,
+    createConversation,
+    switchConversation: _switchConversation,
+  } = useProjectStore();
 
-  const { currentProject } = useProject();
   const navigate = useNavigate();
 
   // Local state management for the Chat UI
   const [input, setInput] = useState('');
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [multiModel, setMultiModel] = useState(false);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
 
+  // JSON mode state
+  const [jsonMode, setJsonMode] = useState(false);
+  const [jsonSchema, setJsonSchema] = useState('');
+  const [schemaError, setSchemaError] = useState('');
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const currentProject = projects.find((p) => p.id === currentProjectId);
+  const currentMessages = currentConversationId ? messages.get(currentConversationId) || [] : [];
+
+  // JSON schema validation
+  const validateSchema = () => {
+    if (!jsonSchema.trim()) {
+      setSchemaError('');
+      return;
+    }
+    try {
+      JSON.parse(jsonSchema);
+      setSchemaError('');
+    } catch (error) {
+      setSchemaError('Invalid JSON schema');
+    }
+  };
 
   useEffect(() => {
     if (!currentProject) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [currentProject, navigate]);
 
@@ -363,43 +394,36 @@ export default function ChatPage() {
     // This is especially important for long messages with code blocks
     const timeoutId = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timeoutId);
-  }, [currentChat?.messages, isThinking]);
+  }, [currentMessages, isThinking]);
 
   const send = async (prompt?: string) => {
     const text = prompt || input;
-    if (input.trim() === '' || isThinking) return;
+    if (text.trim() === '' || isThinking) return;
 
-    let currentChatId = currentChat?.id;
-    if (!currentChatId) {
-      currentChatId = createNewChat();
+    // Create conversation if none exists
+    if (!currentConversationId) {
+      await createConversation('New Chat');
     }
 
-    const userMessage: Message = { role: 'user', content: text, id: `user-${Date.now()}` };
-    pushMessage(userMessage);
     setInput('');
     setIsThinking(true);
 
     try {
-      const history = (currentChat?.messages ?? []).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      if (selectedProviders.length > 0 && window.api?.sendPrompts) {
-        const results = await window.api.sendPrompts(text, selectedProviders as any, history);
-        results.forEach((r: any) => {
-          const assistantMsg: Message = {
-            role: 'assistant',
-            content: r.answer,
-            provider: r.provider,
-            cost: r.costUSD,
-            id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          };
-          pushMessage(assistantMsg);
-        });
+      // Validate JSON schema if in JSON mode
+      if (jsonMode && jsonSchema.trim()) {
+        try {
+          JSON.parse(jsonSchema);
+        } catch (error) {
+          throw new Error('Invalid JSON schema provided');
+        }
       }
+
+      // Use the Zustand store sendMessage function
+      const schema = jsonMode && jsonSchema.trim() ? JSON.parse(jsonSchema) : undefined;
+      await sendMessage(text, jsonMode, schema);
     } catch (err: any) {
-      pushMessage({ role: 'assistant', content: `Error: ${err.message}`, provider: 'Error' });
+      console.error('Failed to send message:', err);
+      // You could add error handling here if needed
     } finally {
       setIsThinking(false);
     }
@@ -418,14 +442,12 @@ export default function ChatPage() {
     }
   };
 
-  // Derive messages from the context
-  const messages = useMemo(() => currentChat?.messages || [], [currentChat]);
-
+  // Derive grouped messages
   const groupedMessages = useMemo(() => {
     const groups: { user: Message; assistants: Message[] }[] = [];
     let currentUserMessage: Message | null = null;
 
-    messages.forEach((msg) => {
+    currentMessages.forEach((msg) => {
       if (msg.role === 'user') {
         if (currentUserMessage) {
           groups.push({ user: currentUserMessage, assistants: [] });
@@ -446,7 +468,7 @@ export default function ChatPage() {
       if (!groups.some((g) => g.user === currentUserMessage)) {
         groups.push({
           user: currentUserMessage,
-          assistants: messages.filter(
+          assistants: currentMessages.filter(
             (m) => m.role === 'assistant' && !groups.flatMap((g) => g.assistants).includes(m)
           ),
         });
@@ -454,147 +476,135 @@ export default function ChatPage() {
     }
 
     return groups;
-  }, [messages]);
+  }, [currentMessages]);
 
   return (
-    <div className="flex h-screen bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-50">
-      <ChatSidebar isOpen={isSidebarOpen} onToggle={() => setSidebarOpen(!isSidebarOpen)} />
-      <div
-        className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? '' : ''}`}
-      >
-        <div className="flex-1 flex flex-col relative">
-          {/* Header */}
-          <header className="flex items-center justify-between p-2 border-b border-stone-200 dark:border-stone-700">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSidebarOpen(!isSidebarOpen)}
-                className="p-1 rounded bg-slate-600 hover:bg-slate-700 text-white transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </button>
-
-              <div>
-                <h1 className="text-base font-semibold text-stone-900 dark:text-stone-50">
-                  {currentProject?.name || 'New Chat'}
-                </h1>
-                {messages.length > 0 && (
-                  <p className="text-xs text-stone-600 dark:text-stone-300">
+    <Layout leftSidebar={<ChatSidebar />} rightSidebar={<ActivitySidebar />}>
+      <div className="flex flex-col h-full">
+        {/* Chat Area */}
+        <div className="flex-1 overflow-y-auto p-4" ref={messagesEndRef}>
+          {groupedMessages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="max-w-md">
+                <h2 className="text-xl font-semibold text-[var(--text-primary)]">A-B-AI Chat</h2>
+                <p className="text-[var(--text-secondary)] mt-2">
+                  Select your models and start a new conversation.
+                </p>
+                {currentMessages.length > 0 && (
+                  <p className="text-sm text-[var(--text-secondary)] mt-2">
                     {groupedMessages.length} round{groupedMessages.length !== 1 ? 's' : ''}
                   </p>
                 )}
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              {/* Theme toggle */}
-              <ThemeToggle />
-            </div>
-          </header>
-
-          {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-3" ref={messagesEndRef}>
-            {groupedMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="max-w-md">
-                  <h2 className="text-lg font-medium text-stone-800 dark:text-stone-100">
-                    A-B-AI Chat
-                  </h2>
-                  <p className="text-stone-600 dark:text-stone-400 mt-1">
-                    Select your models and start a new conversation.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2 pb-4">
-                {groupedMessages.map((round, index) => (
-                  <ConversationRound
-                    key={round.user.id || `round-${index}`}
-                    userMessage={round.user}
-                    assistantMessages={round.assistants}
-                    roundIndex={index}
-                  />
-                ))}
-              </div>
-            )}
-            {isThinking && groupedMessages.length > 0 && (
-              <div className="mt-4 text-center text-stone-500 dark:text-stone-400">
-                AI is thinking...
-              </div>
-            )}
-          </div>
-
-          {/* Input Area */}
-          <div className="border-t border-stone-200 dark:border-stone-700 p-2">
-            <div className="max-w-4xl mx-auto">
-              <div className="p-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg">
-                <div className="mb-2">
-                  <ModelSelect
-                    selectedModels={selectedProviders}
-                    onSelectionChange={setSelectedProviders}
-                  />
-                </div>
-                <FeatureStatusIndicator />
-                <Textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask something…"
-                  className="resize-none mb-1.5 border-0 focus:ring-0 bg-transparent text-stone-900 dark:text-stone-50"
-                  disabled={isThinking}
-                  rows={2}
+          ) : (
+            <div className="space-y-4 pb-4">
+              {groupedMessages.map((round, index) => (
+                <ConversationRound
+                  key={round.user.id || `round-${index}`}
+                  userMessage={round.user}
+                  assistantMessages={round.assistants}
+                  roundIndex={index}
                 />
-                <div className="flex justify-between items-center">
-                  <div className="text-xs text-stone-500 dark:text-stone-400">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={multiModel}
-                        onChange={(e) => setMultiModel(e.target.checked)}
-                      />
-                      Compare models
-                    </label>
-                  </div>
-                  <SplitButton
-                    primaryAction={{
-                      label:
-                        selectedProviders.length > 1
-                          ? `Send to ${selectedProviders.length} models`
-                          : 'Send Prompt',
-                      onClick: () => send(),
-                      disabled: selectedProviders.length === 0 || isThinking,
-                    }}
-                    dropdownActions={[
-                      {
-                        label: 'Batch Prompting',
-                        onClick: () => navigate('/batch'),
-                      },
-                      {
-                        label: 'Settings',
-                        onClick: () => setSettingsOpen(true),
-                      },
-                      {
-                        label: 'Stop',
-                        onClick: stop,
-                        disabled: !isThinking,
-                      },
-                    ]}
-                    loading={isThinking}
+              ))}
+            </div>
+          )}
+          {isThinking && groupedMessages.length > 0 && (
+            <div className="mt-4 text-center text-[var(--text-secondary)]">AI is thinking...</div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div className="border-t border-[var(--border)] p-4 bg-[var(--bg-secondary)]">
+          <div className="max-w-4xl mx-auto">
+            <div className="p-4 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg">
+              <div className="mb-3">
+                <ModelSelect
+                  selectedModels={selectedProviders}
+                  onSelectionChange={setSelectedProviders}
+                />
+              </div>
+              <FeatureStatusIndicator />
+
+              {/* JSON Mode Controls */}
+              <div className="json-mode-controls mb-4">
+                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                  <input
+                    type="checkbox"
+                    checked={jsonMode}
+                    onChange={(e) => setJsonMode(e.target.checked)}
+                    className="rounded border-[var(--border)]"
                   />
+                  <span>JSON Mode</span>
+                </label>
+
+                {jsonMode && (
+                  <div className="mt-2">
+                    <textarea
+                      className="w-full h-32 px-3 py-2 text-sm font-mono border border-[var(--border)] rounded-md bg-[var(--bg-secondary)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Paste JSON Schema here..."
+                      value={jsonSchema}
+                      onChange={(e) => setJsonSchema(e.target.value)}
+                      onBlur={validateSchema}
+                    />
+                    {schemaError && <p className="text-red-500 text-sm mt-1">{schemaError}</p>}
+                  </div>
+                )}
+              </div>
+
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask something…"
+                className="resize-none mb-3 border-0 focus:ring-0 bg-transparent text-[var(--text-primary)]"
+                disabled={isThinking}
+                rows={2}
+              />
+              <div className="flex justify-between items-center">
+                <div className="text-xs text-[var(--text-secondary)]">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={multiModel}
+                      onChange={(e) => setMultiModel(e.target.checked)}
+                    />
+                    Compare models
+                  </label>
                 </div>
+                <SplitButton
+                  primaryAction={{
+                    label:
+                      selectedProviders.length > 1
+                        ? `Send to ${selectedProviders.length} models`
+                        : 'Send Prompt',
+                    onClick: () => send(),
+                    disabled: selectedProviders.length === 0 || isThinking,
+                  }}
+                  dropdownActions={[
+                    {
+                      label: 'Batch Prompting',
+                      onClick: () => navigate('/batch'),
+                    },
+                    {
+                      label: 'Settings',
+                      onClick: () => setSettingsOpen(true),
+                    },
+                    {
+                      label: 'Stop',
+                      onClick: stop,
+                      disabled: !isThinking,
+                    },
+                  ]}
+                  loading={isThinking}
+                />
               </div>
             </div>
           </div>
         </div>
-
-        <SettingsModal open={isSettingsOpen} onClose={() => setSettingsOpen(false)} />
       </div>
-    </div>
+
+      <SettingsModal open={isSettingsOpen} onClose={() => setSettingsOpen(false)} />
+    </Layout>
   );
 }

@@ -8,6 +8,17 @@ export class GrokProvider implements BaseProvider {
   id = 'grok';
   label = 'Grok 3';
 
+  getCapabilities() {
+    return {
+      supportsJsonMode: false,
+      supportsBatchAPI: false,
+      supportsStreaming: false,
+      supportsPromptCaching: false,
+      supportsExtendedThinking: false,
+      supportsWebSearch: false,
+    };
+  }
+
   private readonly MODELS: ModelMeta[] = [
     {
       id: 'grok-3',

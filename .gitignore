@@ -49,6 +49,13 @@ Thumbs.db
 *.blockmap
 *.yml.backup
 
+# Turbo
+.turbo/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+.tsbuildinfo
+
 # Test artifacts
 test-results/
 tests-out/

@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { encoding_for_model } from '@dqbd/tiktoken';
 import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
+import { countTokens, calcCost, withRetries, TokenUsage, PricingInfo } from '../coreLLM';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 
@@ -97,25 +97,35 @@ async function handleStreamingResponse(
       fullContent = response.content[0]?.text || '';
       usage = response.usage || {};
     } catch (error: any) {
-      // If it's a timeout error, retry with streaming
+      // If it's a timeout error, retry with streaming using centralized retry logic
       if (error.message?.includes('Streaming is strongly recommended')) {
         console.warn('[Anthropic] Switching to streaming mode due to timeout warning');
 
-        const stream = await anthropic.messages.create(
-          {
-            ...requestConfig,
-            stream: true,
-          },
-          { signal: abortSignal }
-        );
+        const result = await withRetries(async () => {
+          const stream = await anthropic.messages.create(
+            {
+              ...requestConfig,
+              stream: true,
+            },
+            { signal: abortSignal }
+          );
 
-        for await (const chunk of stream) {
-          if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-            fullContent += chunk.delta.text;
-          } else if (chunk.type === 'message_delta' && chunk.usage) {
-            usage = chunk.usage;
+          let streamContent = '';
+          let streamUsage: any = {};
+
+          for await (const chunk of stream) {
+            if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+              streamContent += chunk.delta.text;
+            } else if (chunk.type === 'message_delta' && chunk.usage) {
+              streamUsage = chunk.usage;
+            }
           }
-        }
+
+          return { content: streamContent, usage: streamUsage };
+        }, { maxAttempts: 2 });
+
+        fullContent = result.content;
+        usage = result.usage;
       } else {
         throw error;
       }
@@ -283,10 +293,12 @@ export const anthropicProvider: BaseProvider = {
 
     const answer = res.content[0]?.text ?? 'No response';
 
-    // Calculate cost using the dynamic pricing from ModelService
-    const costUSD =
-      (res.usage.input_tokens / 1000) * (pricing.prompt / 1000) +
-      (res.usage.output_tokens / 1000) * (pricing.completion / 1000);
+    // Calculate cost using the centralized utility
+    const tokens: TokenUsage = {
+      promptTokens: res.usage.input_tokens,
+      completionTokens: res.usage.output_tokens,
+    };
+    const costUSD = calcCost(tokens, pricing);
 
     return {
       answer,
@@ -298,26 +310,7 @@ export const anthropicProvider: BaseProvider = {
 
   // Native token counting for Claude models
   async countTokens(text: string): Promise<number> {
-    const apiKey = (globalThis as any).getApiKey?.('anthropic');
-    if (!apiKey) throw new Error('Anthropic API key missing');
-
-    const anthropic = new Anthropic({ apiKey });
-
-    try {
-      // Use Claude's native token counting API
-      const response = await anthropic.messages.countTokens({
-        model: 'claude-3-5-sonnet-20241022', // Use a standard model for counting
-        messages: [{ role: 'user', content: text }],
-      });
-
-      return response.input_tokens;
-    } catch (error) {
-      console.error('[Anthropic] Native token counting failed:', error);
-      // Fallback to tiktoken approximation
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const enc = encoding_for_model('gpt-4' as any);
-      return enc.encode(text).length;
-    }
+    return countTokens(text, 'anthropic');
   },
 
   // Batch API implementation for Anthropic

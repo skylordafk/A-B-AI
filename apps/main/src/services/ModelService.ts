@@ -20,13 +20,13 @@ export class ModelService {
         modelsPath = path.join(app.getAppPath(), 'data/models.json');
       } else {
         // In development, we need to go from apps/main/src/services to root
-        // When compiled, this will be in apps/main/dist/apps/main/src/services
+        // When compiled with electron-vite, this will be in apps/main/dist/main/index.js
         // So we need to check if we're running from dist or src
         const currentDir = __dirname;
 
         if (currentDir.includes('/dist/')) {
-          // Running from compiled code: apps/main/dist/apps/main/src/services -> root (7 levels up)
-          modelsPath = path.join(__dirname, '../../../../../../../data/models.json');
+          // Running from compiled code with electron-vite: apps/main/dist/main -> root (3 levels up)
+          modelsPath = path.join(__dirname, '../../../data/models.json');
         } else {
           // Running from source: apps/main/src/services -> root
           modelsPath = path.join(__dirname, '../../../../data/models.json');

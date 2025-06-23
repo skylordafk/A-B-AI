@@ -1,4 +1,5 @@
-import type { RequestType, AppResponse, ModelDefinition } from '../../../../shared/types';
+import type { IpcRequest, IpcResponse } from '../../types/ipc';
+import type { ModelDefinition } from '../../../../shared/types';
 
 class APIError extends Error {
   constructor(
@@ -12,9 +13,9 @@ class APIError extends Error {
 }
 
 class APIClient {
-  async request<T = any>(type: RequestType, payload?: any): Promise<T> {
+  async request<T = any>(type: string, payload?: any): Promise<T> {
     try {
-      const response = (await window.api.request({ type, payload })) as AppResponse;
+      const response = (await window.api.request({ type, payload } as IpcRequest)) as IpcResponse;
 
       // Debug logging for development
       console.debug(`API Response [${type}]:`, response);

@@ -34,7 +34,8 @@ export type RequestType =
   | 'batch:update-status'
   | 'batch:get-status'
   | 'batch:get-results'
-  | 'activity:get';
+  | 'activity:get'
+  | 'tokens:count';
 
 export interface AppRequest {
   type: RequestType;

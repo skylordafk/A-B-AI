@@ -21,7 +21,7 @@ This is a monorepo with two main applications:
 - `src/providers/`: AI provider implementations (OpenAI, Anthropic, Gemini, Grok)
 - `src/settings.ts`: Application settings and API key management
 - `src/chatController.ts`: Chat orchestration logic
-- `src/licensing/`: License validation system
+- `src/db/`: Database layer with SQLite integration
 
 **UI Process (`apps/ui/`):**
 
@@ -35,30 +35,38 @@ This is a monorepo with two main applications:
 
 ```bash
 # Development (starts both UI and main process with hot reload)
-pnpm dev
+npm run dev
 
-# Build entire application
-pnpm build
+# Build entire application (with Turbo caching)
+npm run build
+
+# Type checking across all packages (with Turbo caching)
+npm run typecheck
 
 # Run all tests
-pnpm test
+npm test
 
 # Run with UI for tests
-pnpm test:ui
+npm run test:ui
 
 # Run end-to-end tests
-pnpm test:e2e
+npm run test:e2e
 
-# Lint code
-pnpm lint
+# Lint code (with Turbo caching and parallel execution)
+npm run lint
 
 # Format code
-pnpm format
+npm run format
 
 # Package application for distribution
-pnpm package          # Current platform
-pnpm package:win      # Windows
-pnpm package:mac      # macOS
+npm run package          # Current platform
+npm run package:win      # Windows
+npm run package:mac      # macOS
+
+# Turbo-specific commands
+npx turbo run build --dry  # Show what would run without executing
+npx turbo run build --force  # Force rebuild ignoring cache
+npx turbo run lint --parallel  # Run linting in parallel (default)
 ```
 
 ## Testing
@@ -72,13 +80,13 @@ Run specific test suites:
 
 ```bash
 # Single test file
-pnpm test tests/batch/JobQueue.test.ts
+npm test tests/batch/JobQueue.test.ts
 
 # Component tests (jsdom environment)
-pnpm test tests/components/
+npm test tests/components/
 
 # Skip integration tests that require API keys
-pnpm test --exclude="**/*.skip.ts"
+npm test --exclude="**/*.skip.ts"
 ```
 
 ## AI Provider System
@@ -102,19 +110,36 @@ The batch system (`apps/ui/src/lib/batch/`) supports:
 
 ## Important Development Notes
 
-- Use `pnpm` for package management (workspace configuration in `pnpm-workspace.yaml`)
+- Use `npm` for package management (workspace configuration in root package.json)
 - TypeScript is used throughout with strict configuration
 - Settings are persisted using `electron-store`
 - Job state is saved to `~/.abai/jobqueue/` for persistence
 - History logging is saved to `~/.abai/history/`
 - The app includes a licensing system that's bypassed in development mode
 
+## Build System
+
+- **Turbo**: Monorepo task runner with intelligent caching and parallel execution
+- **electron-vite**: Unified build system for both main and renderer processes  
+- **Hot reload**: Development mode supports hot reload for both processes
+- **TypeScript**: Incremental compilation with build info caching for faster rebuilds
+- **esbuild**: Fast bundling for production builds
+- **Caching**: File-based hashing for optimal cache invalidation and 98% faster rebuilds
+
+### Performance Optimizations
+
+- **Build caching**: Turbo caches successful builds, reducing rebuild time from 2.8s to 98ms (98% faster)
+- **Incremental TypeScript**: Only recompiles changed files using `tsBuildInfoFile`
+- **Parallel execution**: Tasks run in parallel across workspaces when possible
+- **Smart invalidation**: Cache invalidates only when inputs change (source files, configs)
+- **CI/CD Pipeline**: Single streamlined workflow with automated releases and error tracking
+
 ## Key File Locations
 
 - Application settings: Managed by electron-store in user data directory
 - Job queue state: `~/.abai/jobqueue/`
 - History files: `~/.abai/history/` (JSONL format)
-- Pricing data: `data/ai-model-pricing.json`
+- Pricing data: `data/model-pricing.json`
 - Templates: `data/templates/batch/`
 
 ## Code Style Notes

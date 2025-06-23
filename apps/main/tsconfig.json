@@ -11,7 +11,9 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "allowJs": true
+    "allowJs": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.main.tsbuildinfo"
   },
   "include": ["src/**/*", "../../shared/**/*"],
   "exclude": ["node_modules", "dist"],

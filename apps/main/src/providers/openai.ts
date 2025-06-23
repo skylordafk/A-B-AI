@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
-import { encoding_for_model } from '@dqbd/tiktoken';
 import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
+import { countTokens, calcCost, TokenUsage } from '../coreLLM';
 
 const DEFAULT_MODEL = 'gpt-4o';
 
@@ -224,22 +224,9 @@ export const openaiProvider: BaseProvider = {
       throw new Error(`No pricing information provided for model: ${model}`);
     }
 
-    // Use appropriate encoding based on model
-    let encodingModel: string;
-    if (model.includes('gpt-4')) {
-      encodingModel = 'gpt-4';
-    } else if (model.includes('gpt-3.5')) {
-      encodingModel = 'gpt-3.5-turbo';
-    } else {
-      encodingModel = 'gpt-4';
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const enc = encoding_for_model(encodingModel as any);
-
-    // Count tokens for all messages
+    // Count tokens for all messages using centralized utility
     const allMessageText = preparedMessages.map((m) => m.content).join('\n');
-    const promptTokens = enc.encode(allMessageText).length;
+    const promptTokens = countTokens(allMessageText, 'openai', model);
 
     // Convert our messages to OpenAI format
     const openaiMessages = preparedMessages.map((msg) => ({
@@ -276,11 +263,10 @@ export const openaiProvider: BaseProvider = {
         (res.output && res.output.length && res.output.at(-1)?.content?.[0]?.text) ||
         '';
 
-      const answerTokens = enc.encode(answer).length;
+      const answerTokens = countTokens(answer, 'openai', model);
 
-      const costUSD =
-        (promptTokens / 1000) * (pricing.prompt / 1000) +
-        (answerTokens / 1000) * (pricing.completion / 1000);
+      const tokens: TokenUsage = { promptTokens, completionTokens: answerTokens };
+      const costUSD = calcCost(tokens, pricing);
 
       return { answer, promptTokens, answerTokens, costUSD };
     }
@@ -315,12 +301,11 @@ export const openaiProvider: BaseProvider = {
     });
 
     const answer = res.choices?.[0]?.message?.content || '';
-    const answerTokens = enc.encode(answer).length;
+    const answerTokens = countTokens(answer, 'openai', model);
 
-    // Calculate cost based on the model's pricing (convert from per-1M to per-1K)
-    const costUSD =
-      (promptTokens / 1000) * (pricing.prompt / 1000) +
-      (answerTokens / 1000) * (pricing.completion / 1000);
+    // Calculate cost using centralized utility
+    const tokens: TokenUsage = { promptTokens, completionTokens: answerTokens };
+    const costUSD = calcCost(tokens, pricing);
 
     return { answer, promptTokens, answerTokens, costUSD };
   },

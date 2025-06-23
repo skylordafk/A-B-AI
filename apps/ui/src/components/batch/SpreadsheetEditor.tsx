@@ -788,6 +788,17 @@ export default function SpreadsheetEditor({
   // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle keyboard events when the component is focused or no input is focused
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement && 
+        (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || 
+         activeElement.getAttribute('contenteditable') === 'true');
+      
+      // Don't interfere with navigation or other app functionality when not in spreadsheet
+      if (isInputFocused && !activeElement.closest('.spreadsheet-editor')) {
+        return;
+      }
+      
       if (editing.cell && e.key === 'Tab') {
         e.preventDefault();
         finishEditing();
@@ -872,9 +883,11 @@ export default function SpreadsheetEditor({
         a: () => (e.ctrlKey || e.metaKey) && (e.preventDefault(), handleSelectAll()),
       };
 
-      if (e.key in handlers) {
+      // Only handle spreadsheet shortcuts when focused on spreadsheet
+      if (activeElement?.closest('.spreadsheet-editor') && e.key in handlers) {
         handlers[e.key]();
       } else if (
+        activeElement?.closest('.spreadsheet-editor') &&
         selection &&
         interaction.selectionMode === 'cell' &&
         ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)

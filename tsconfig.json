@@ -13,7 +13,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsbuildinfo"
   },
   "include": ["tests/**/*.ts", "apps/**/*.ts", "apps/**/*.d.ts"],
   "exclude": ["node_modules", "dist"]

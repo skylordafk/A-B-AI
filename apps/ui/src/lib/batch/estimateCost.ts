@@ -1,15 +1,14 @@
 import type { BatchRow, CostEstimation } from '../../types/batch';
 import { loadPricingData, getProviderAndModel } from './loadPricingData';
 
-// Estimate tokens for a text using IPC call to main process
-async function estimateTokens(text: string): Promise<number> {
+// Estimate tokens for a text using unified IPC
+async function estimateTokens(text: string, modelId?: string): Promise<number> {
   try {
-    // Use the IPC call to count tokens in the main process
-    if (window.api && window.api.countTokens) {
-      return await window.api.countTokens(text);
-    }
-    // Fallback if API not available
-    return Math.ceil(text.length / 4);
+    const response = await window.api.request({
+      type: 'tokens:count',
+      payload: { text, modelId }
+    });
+    return response.data || Math.ceil(text.length / 4);
   } catch {
     // Fallback: rough estimate of 1 token per 4 characters
     return Math.ceil(text.length / 4);
@@ -31,7 +30,7 @@ export async function estimateCost(rows: BatchRow[]): Promise<CostEstimation> {
     if (row.system) {
       inputText = row.system + '\n\n' + inputText;
     }
-    const tokens_in = await estimateTokens(inputText);
+    const tokens_in = await estimateTokens(inputText, row.model);
 
     // Look up pricing
     let promptPrice = 0;

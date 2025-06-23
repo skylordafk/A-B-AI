@@ -1,5 +1,6 @@
 import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
+import { countTokens, calcCost, TokenUsage } from '../coreLLM';
 
 /** Adapter for Google AI Gemini API */
 export class GeminiProvider implements BaseProvider {
@@ -114,16 +115,14 @@ export class GeminiProvider implements BaseProvider {
 
       const answer = response.text || '';
 
-      // Estimate token counts (Gemini doesn't provide exact token counts in basic API)
-      // Using rough approximation: 1 token ≈ 4 characters
+      // Count tokens using centralized utility
       const allMessageText = messages.map((m) => m.content).join('\n');
-      const promptTokens = Math.ceil(allMessageText.length / 4);
-      const answerTokens = Math.ceil(answer.length / 4);
+      const promptTokens = await countTokens(allMessageText, 'gemini');
+      const answerTokens = await countTokens(answer, 'gemini');
 
-      // Calculate cost using the dynamic pricing from ModelService
-      const costUSD =
-        (promptTokens / 1000) * (pricing.prompt / 1000) +
-        (answerTokens / 1000) * (pricing.completion / 1000);
+      // Calculate cost using centralized utility
+      const tokens: TokenUsage = { promptTokens, completionTokens: answerTokens };
+      const costUSD = calcCost(tokens, pricing);
 
       return {
         answer,

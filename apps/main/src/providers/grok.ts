@@ -2,6 +2,7 @@ import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
 import { createXai } from '@ai-sdk/xai';
 import { generateText } from 'ai';
+import { calcCost, TokenUsage } from '../coreLLM';
 
 /** Adapter for xAI Grok API (v3) */
 export class GrokProvider implements BaseProvider {
@@ -99,12 +100,11 @@ export class GrokProvider implements BaseProvider {
         signal: options?.abortSignal,
       } as any);
 
-      // Calculate cost using the dynamic pricing from ModelService
+      // Calculate cost using centralized utility
       const promptTokens = usage?.promptTokens || 0;
       const answerTokens = usage?.completionTokens || 0;
-      const costUSD =
-        (promptTokens / 1000) * (pricing.prompt / 1000) +
-        (answerTokens / 1000) * (pricing.completion / 1000);
+      const tokens: TokenUsage = { promptTokens, completionTokens: answerTokens };
+      const costUSD = calcCost(tokens, pricing);
 
       return {
         answer: text,

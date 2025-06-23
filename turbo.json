@@ -1,0 +1,81 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.js",
+        "src/**/*.jsx",
+        "src/**/*.json",
+        "tsconfig*.json",
+        "vite.config.ts",
+        "electron-vite.config.ts",
+        "package.json"
+      ],
+      "outputs": [
+        "dist/**",
+        "build/**"
+      ]
+    },
+    "lint": {
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.js",
+        "src/**/*.jsx",
+        "eslint.config.js",
+        ".eslintrc*",
+        "package.json"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "vitest.config.ts",
+        "package.json"
+      ]
+    },
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "inputs": [
+        "tests/playwright/**/*.ts",
+        "playwright.config.ts",
+        "package.json"
+      ]
+    },
+    "package": {
+      "dependsOn": ["build"],
+      "inputs": [
+        "dist/**",
+        "electron-builder.yml",
+        "package.json"
+      ],
+      "outputs": [
+        "dist/*.dmg",
+        "dist/*.exe",
+        "dist/*.AppImage"
+      ],
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

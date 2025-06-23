@@ -1,17 +1,19 @@
 {
   "name": "@abai-desktop/main",
-  "version": "0.0.1",
+  "version": "1.3.0",
   "private": true,
   "description": "A-B Test with any AI model - Main Process",
   "author": {
     "name": "Skylord afk",
     "email": "ssdfsdfasdfa@gmail.com"
   },
-  "main": "dist/main.js",
+  "main": "dist/main/index.js",
   "scripts": {
     "start": "electron .",
-    "build": "tsc -p tsconfig.build.json",
-    "dev": "electron src/electron.js"
+    "build": "electron-vite build",
+    "dev": "electron-vite dev",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\""
   },
   "dependencies": {
     "@ai-sdk/xai": "^1.2.16",
@@ -21,9 +23,10 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/uuid": "^10.0.0",
     "ai": "^4.3.16",
-    "electron-store": "8.1.0",
+    "electron-store": "^8.1.0",
     "openai": "^5.1.1",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",

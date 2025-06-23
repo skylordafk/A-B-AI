@@ -70,7 +70,7 @@
     "@ai-sdk/react": "^0.0.12",
     "@dqbd/tiktoken": "^1.0.13",
     "@sentry/electron": "^6.8.0",
-    "@stripe/stripe-js": "^3.5.0",
+    "@stripe/stripe-js": "^7.3.1",
     "ai": "^3.2.16",
     "axios": "^1.7.2",
     "better-sqlite3": "^9.4.3",

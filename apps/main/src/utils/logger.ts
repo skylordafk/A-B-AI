@@ -3,32 +3,29 @@ import { app } from 'electron';
 const isDev = !app.isPackaged;
 
 export const logger = {
-  log: (..._args: any[]) => {
-    if (isDev) {
-      // Logging disabled in production
-    }
+  log: (...args: any[]) => {
+    // Always log in production for debugging
+    console.log(...args);
   },
 
   info: (...args: any[]) => {
-    if (isDev) {
-      console.info(...args);
-    }
+    // Always log info in production
+    console.info(...args);
   },
 
   warn: (...args: any[]) => {
-    if (isDev) {
-      console.warn(...args);
-    }
+    // Always log warnings in production
+    console.warn(...args);
   },
 
   error: (...args: any[]) => {
-    if (isDev) {
-      console.error(...args);
-    }
+    // Always log errors in production
+    console.error(...args);
   },
 
   debug: (...args: any[]) => {
-    if (isDev) {
+    // Only debug in dev mode, but still allow in prod if needed
+    if (isDev || process.env.ENABLE_DEBUG_LOGGING === 'true') {
       console.debug(...args);
     }
   },

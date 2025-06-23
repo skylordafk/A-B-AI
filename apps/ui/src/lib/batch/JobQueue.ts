@@ -249,6 +249,18 @@ export class JobQueue extends EventEmitter {
     }
   }
 
+  private async loadModels(): Promise<any[]> {
+    try {
+      const response = await this.api.request({
+        type: 'models:get-all',
+      });
+      return response?.data || [];
+    } catch (error) {
+      console.warn('Could not load models, using empty array:', error);
+      return [];
+    }
+  }
+
   private async processRow(row: BatchRow): Promise<void> {
     try {
       // Get caching settings
@@ -272,7 +284,10 @@ export class JobQueue extends EventEmitter {
         console.warn('Could not load caching settings, using defaults:', error);
       }
 
-      const result = await runRow(row, {
+      // Load models for pricing calculations
+      const allModels = await this.loadModels();
+
+      const result = await runRow(row, allModels, {
         enablePromptCaching,
         cacheTTL,
         cacheSystemPrompt: true, // Cache system prompts by default

@@ -38,6 +38,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import { shell, BrowserWindow } from 'electron';
+import { loadPricing } from '@shared/utils/loadPricing';
 
 // Initialize services
 const modelService = new ModelService();
@@ -96,6 +97,9 @@ export class IpcRouter {
     switch (request.type) {
       case 'models:get-all':
         return this.handleModelsGetAll();
+
+      case 'models:load':
+        return this.handleLoadModels();
 
       case 'settings:save':
         return this.handleSettingsSave(request.payload);
@@ -190,6 +194,15 @@ export class IpcRouter {
   // Handler implementations
   private async handleModelsGetAll(): Promise<IpcResponse> {
     return { success: true, data: modelService.getAllModels() };
+  }
+
+  private async handleLoadModels(): Promise<IpcResponse> {
+    try {
+      const models = loadPricing();
+      return { success: true, data: models };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 
   private async handleSettingsSave(payload: any): Promise<IpcResponse> {

@@ -1,73 +1,93 @@
-import { ipcMain } from 'electron';
+import type { IpcMain } from 'electron';
 import { allProviders, ProviderId } from './providers';
+import { ChatOptions, ChatResult } from './providers/base';
 
-interface ChatController {
-  stream: AsyncIterable<string>;
-  abort: () => void;
+// NOTE: `ipcMain` is imported inside the handler function to ensure
+// it can be mocked correctly in tests.
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export class ChatController {
+  private abortController: AbortController;
+
+  constructor() {
+    this.abortController = new AbortController();
+  }
+
+  abort() {
+    this.abortController.abort();
+  }
+
+  async *stream(prompt: string, providerIds: ProviderId[]): AsyncGenerator<string> {
+    const providers = allProviders.filter((p) => providerIds.includes(p.id as ProviderId));
+
+    const promises = providers.map(async (provider) => {
+      try {
+        const options: ChatOptions = {
+          abortSignal: this.abortController.signal,
+        };
+        const result: ChatResult = await provider.chat(prompt, undefined, options);
+        return {
+          provider: provider.label,
+          ...result,
+          complete: true,
+        };
+      } catch (error: any) {
+        return {
+          provider: provider.label,
+          answer: `Error: ${error.message}`,
+          promptTokens: 0,
+          answerTokens: 0,
+          costUSD: 0,
+          error: true,
+        };
+      }
+    });
+
+    for (const promise of promises) {
+      try {
+        const result = await promise;
+        yield JSON.stringify(result);
+      } catch (error: any) {
+        yield JSON.stringify({
+          error: true,
+          answer: `Error: ${error.message}`,
+        });
+      }
+    }
+  }
 }
 
-// Store active abort controllers
-const activeControllers = new Map<string, AbortController>();
+export const activeControllers = new Map<string, ChatController>();
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export function startChat(
   prompt: string,
   providerIds: ProviderId[],
   sessionId: string
 ): ChatController {
-  const controller = new AbortController();
+  const controller = new ChatController();
   activeControllers.set(sessionId, controller);
 
-  // Create an async generator for streaming responses
-  async function* streamResponses() {
-    const selected = allProviders.filter((p) => providerIds.includes(p.id as ProviderId));
-
-    try {
-      for (const provider of selected) {
-        if (controller.signal.aborted) {
-          throw new Error('Chat aborted');
-        }
-
-        try {
-          // Pass the abort signal to the provider's chat method
-          const result = await provider.chat(prompt, undefined, {
-            abortSignal: controller.signal,
-          });
-
-          yield JSON.stringify({
-            provider: provider.label,
-            ...result,
-            complete: true,
-          });
-        } catch (err: any) {
-          yield JSON.stringify({
-            provider: provider.label,
-            answer: `Error: ${err.message}`,
-            promptTokens: 0,
-            answerTokens: 0,
-            costUSD: 0,
-            error: true,
-          });
-        }
-      }
-    } finally {
-      activeControllers.delete(sessionId);
+  const stream = controller.stream(prompt, providerIds);
+  (async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for await (const _ of stream) {
+      // Just consume the stream to completion
     }
-  }
+    activeControllers.delete(sessionId);
+  })();
 
-  return {
-    stream: streamResponses(),
-    abort: () => {
-      controller.abort();
-      activeControllers.delete(sessionId);
-    },
-  };
+  return controller;
 }
 
-// IPC handler for aborting chat
-ipcMain.handle('chat:abort', (_, sessionId: string) => {
-  const controller = activeControllers.get(sessionId);
-  if (controller) {
-    controller.abort();
-    activeControllers.delete(sessionId);
-  }
-});
+export function registerChatControllerIpcHandlers(ipcMain: IpcMain) {
+  ipcMain.handle('chat:abort', (_, sessionId: string) => {
+    const controller = activeControllers.get(sessionId);
+    if (controller) {
+      controller.abort();
+      activeControllers.delete(sessionId);
+      return { success: true, message: `Aborted session ${sessionId}` };
+    }
+    return { success: false, error: `No active session found for ID: ${sessionId}` };
+  });
+}

@@ -198,3 +198,11 @@ Comprehensive test suite with Jest + React Testing Library:
 ### Contributors
 
 - Refactoring and enhancements implemented via AI pair programming
+
+### [Fix] - 2025-06-XX (Hotfix)
+
+- **Consolidated Pricing**: Refactored the entire pricing model to use a single source of truth at `/data/model-pricing.json`. This eliminates pricing drift between the main and UI processes.
+- **Removed "Free" Fallback**: The application will now throw a hard error if a model's pricing information is not found, preventing incorrect "free" cost estimations.
+- **Simplified `ModelService`**: Removed over 50 lines of complex, brittle path-finding logic for loading models and replaced it with a simple, robust shared loader.
+- **Added Pricing Regression Tests**: A new test suite was added to `tests/pricing/` to lock in prices and prevent accidental changes.
+- **Added ESLint Rule**: A custom ESLint rule now prevents new, non-canonical pricing files from being used.

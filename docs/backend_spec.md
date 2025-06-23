@@ -125,8 +125,8 @@ export interface AppResponse {
     "features": ["json_mode"]
   },
   {
-    "id": "claude-3-5-sonnet-20241022",
-    "name": "Claude 3.5 Sonnet",
+    "id": "claude-4-opus",
+    "name": "Claude 4 Opus",
     "provider": "anthropic",
     "description": "Anthropic's most capable model",
     "contextSize": 200000,

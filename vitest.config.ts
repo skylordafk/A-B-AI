@@ -1,28 +1,20 @@
 import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
+  plugins: [react()],
   test: {
     globals: true,
-    environment: 'node',
-    setupFiles: ['./tests/setup.ts'],
-    environmentMatchGlobs: [['**/tests/components/**/*.test.tsx', 'jsdom']],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/cypress/**',
-      '**/.{idea,git,cache,output,temp}/**',
-      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*',
-      'tests/playwright/**',
-      'tests/license-e2e.test.js', // Standalone Node.js script, not a Vitest test
-    ],
-    include: ['tests/**/*.test.ts'],
-  },
-  testMatch: ['**/tests/ui/**/*.test.tsx'],
-  testEnvironment: 'jsdom',
-  resolve: {
+    environment: 'jsdom',
+    setupFiles: './tests/setup.ts',
+    // To mimic jest's `testMatch`
+    include: ['tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    exclude: ['tests/playwright/**'],
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@shared': path.resolve(__dirname, './shared'),
+      '@main': path.resolve(__dirname, './apps/main/src'),
+      '@ui': path.resolve(__dirname, './apps/ui/src'),
     },
   },
 });

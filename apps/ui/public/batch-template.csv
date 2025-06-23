@@ -1,9 +1,16 @@
-prompt,model,system,temperature,variable1,variable2
-"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4o,"You are a helpful travel assistant who provides detailed and practical recommendations.",0.0,activities,Japan
-"What are the best {{variable1}} to do in {{variable2}}?",openai/gpt-4.1-mini,"You are a knowledgeable local guide who knows the best hidden gems and popular spots.",0.143,restaurants,Paris
-"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-opus-4-20250514,"You are a cultural expert who provides insightful information about history and significance.",0.286,museums,London
-"What are the best {{variable1}} to do in {{variable2}}?",anthropic/claude-3-haiku,"You are an outdoor enthusiast who loves nature and recreational activities.",0.429,parks,New York
-"What are the best {{variable1}} to do in {{variable2}}?",gemini/models/gemini-2.5-pro-thinking,"You are a coastal lifestyle expert who knows the best beach activities and seaside attractions.",0.571,beaches,Sydney
-"What are the best {{variable1}} to do in {{variable2}}?",gemini/models/gemini-2.5-flash-preview,"You are a shopping enthusiast who knows the best stores, markets, and shopping districts.",0.714,shops,Tokyo
-"What are the best {{variable1}} to do in {{variable2}}?",grok/grok-3,"You are a coffee connoisseur and café culture expert who knows the best spots for coffee and atmosphere.",0.857,cafes,Berlin
-"What are the best {{variable1}} to do in {{variable2}}?",grok/grok-3-mini,"You are an outdoor adventure guide who knows the best hiking trails and scenic routes.",1.0,trails,Vancouver 
+prompt,system,model,temperature,json_schema,category,topic,status,response,cost_usd,latency_ms,error
+Explain {{topic}} in the context of {{category}} with practical examples,"You are an expert educator who excels at explaining complex topics in simple, engaging ways.",openai/gpt-4o,0.3,,quantum physics,superposition,,,,,
+Wdoinky boinkches {{category}},You are a creative writer who specializes in educational storytelling.,openai/gpt-4o-mini,0.7,,environmental science,climate change,,,,,
+Analyze the philosophical implications of {{topic}} in {{category}},You are a philosopher with deep expertise in ethics and modern technology.,openai/gpt-4.1,0.5,,artificial intelligence,consciousness,,,,,
+Create a detailed technical tutorial on {{topic}} for {{category}},"You are a technical writer who creates clear, step-by-step guides.",openai/o3-mini,0.2,,web development,React hooks,,,,,
+Compare and contrast {{topic}} across different {{category}},You are a comparative analyst with expertise in cross-cultural studies.,anthropic/claude-3-5-haiku-20241022,0.4,,mythology,creation stories,,,,,
+Generate innovative solutions for {{topic}} in {{category}},You are an innovation consultant who thinks outside the box.,anthropic/claude-3-5-haiku-20241022,0.8,,urban planning,sustainable cities,,,,,
+Explain the historical evolution of {{topic}} in {{category}},You are a historian who specializes in technological and social change.,anthropic/claude-4-sonnet,0.5,,communication,internet,,,,,
+Create a comprehensive guide to {{topic}} for {{category}} beginners,You are a patient teacher who excels at breaking down complex topics.,anthropic/claude-4-opus,0.3,,machine learning,neural networks,,,,,
+Design a creative project involving {{topic}} for {{category}},You are a creative director who designs engaging educational experiences.,gemini/models/gemini-2.5-pro-thinking,0.6,,art,generative algorithms,,,,,
+Analyze data patterns in {{topic}} related to {{category}},You are a data scientist who finds insights in complex datasets.,gemini/models/gemini-2.5-flash-preview,0.1,,economics,market trends,,,,,
+Write poetry about {{topic}} inspired by {{category}},You are a poet who finds beauty in scientific and technical concepts.,gemini/models/gemini-2.5-pro-thinking,0.9,,mathematics,fractals,,,,,
+Create a business plan for {{topic}} in the {{category}} industry,You are a business strategist with expertise in emerging technologies.,gemini/models/gemini-2.5-flash-preview,0.4,,blockchain,finance,,,,,
+Develop a game concept based on {{topic}} teaching {{category}},You are a game designer who creates educational entertainment.,gemini/models/gemini-2.5-flash-preview,0.7,,biology,evolution,,,,,
+Explain {{topic}} using metaphors from {{category}},You are a creative educator who uses analogies to explain complex ideas.,grok/grok-3,0.6,,quantum computing,cooking,,,,,
+Generate a research proposal for {{topic}} in {{category}},You are a research scientist preparing grant proposals.,grok/grok-3-mini,0.2,,renewable energy,solar technology ,,,,,

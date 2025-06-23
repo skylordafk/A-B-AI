@@ -1,6 +1,11 @@
+/// <reference types="vitest/globals" />
+
 import type { BatchRow, BatchResult } from '../../types/batch';
 import { calculateActualCost } from './estimateCost';
 import { substituteTemplateVars } from './parseInput';
+import { ChatOptions } from '@main/providers/base';
+import { parseModelId } from '@shared/utils/model';
+import type { LLMModel } from '@shared/types/ModelPricing';
 
 // Import providers - we'll use window.electron to access them
 
@@ -16,7 +21,7 @@ interface ModelResponse {
   cost: number;
 }
 
-interface ExtendedModelResponse extends ModelResponse {
+interface _ExtendedModelResponse extends ModelResponse {
   usage: ModelResponse['usage'] & {
     cache_creation_input_tokens?: number;
     cache_read_input_tokens?: number;
@@ -25,43 +30,53 @@ interface ExtendedModelResponse extends ModelResponse {
   model: string;
 }
 
+// Mock the pricing data loading for tests
+if (import.meta.vitest) {
+  vi.mock('../../shared/utils/loadPricing', () => ({
+    loadPricing: vi.fn(() => []), // Return empty array for model lookups
+    getModel: vi.fn(),
+  }));
+}
+
+/**
+ * Runs a single row and returns the result.
+ */
 export async function runRow(
   row: BatchRow,
-  options?: {
+  allModels: LLMModel[],
+  options: {
     enablePromptCaching?: boolean;
     cacheTTL?: '5m' | '1h';
     cacheSystemPrompt?: boolean;
   }
 ): Promise<BatchResult> {
   const startTime = Date.now();
-  const model = row.model || 'openai/gpt-4o';
+  const { id, prompt, model, system, temperature, data } = row;
+
+  if (!model) {
+    return {
+      id,
+      prompt,
+      model: 'unknown',
+      status: 'error',
+      error: 'Model not specified',
+      latency_ms: 0,
+    };
+  }
 
   try {
-    // Substitute template variables in the prompt
-    const { output: processedPrompt, missing } = substituteTemplateVars(row.prompt, row.data || {});
-    if (missing.length) {
-      return {
-        id: row.id,
-        prompt: row.prompt,
-        model,
-        status: 'error',
-        error: `Missing values for: ${missing.join(', ')}`,
-        errorMessage: `Missing values for: ${missing.join(', ')}`,
-        latency_ms: Date.now() - startTime,
-        data: row.data,
-      };
-    }
+    // Check if API key is configured for the model's provider
+    const { provider } = parseModelId(model);
+    const apiKeysResponse = await window.api.request({
+      type: 'settings:load',
+      payload: { key: 'allKeys' },
+    });
+    const apiKeys = apiKeysResponse.data || {};
 
-    // Check if API key exists for the provider - Fixed validation logic
-    const apiKeys = await (window as any).api.getAllKeys();
-    const provider = model.split('/')[0] || 'openai';
-
-    // Fixed: Check the configured property properly
-    const providerKeys = apiKeys[provider as keyof typeof apiKeys];
-    if (!providerKeys || !providerKeys.configured) {
+    if (!apiKeys[provider]?.configured) {
       return {
-        id: row.id,
-        prompt: row.prompt,
+        id,
+        prompt,
         model,
         status: 'error-missing-key',
         error: `Missing API key for provider: ${provider}`,
@@ -71,116 +86,80 @@ export async function runRow(
       };
     }
 
-    // We initialize here without a value because the specific API method depends on conditional branches.
-    // Using 'let' is intentional, so we disable the prefer-const rule for this declaration.
-    // eslint-disable-next-line prefer-const
-    let response: ModelResponse | ExtendedModelResponse;
-
-    // Determine if this is an OpenAI batch-capable model
-    const isO = model.startsWith('openai/o');
-
-    if (isO && (window as any).api.sendToModelBatch) {
-      // Use Batch API path
-      response = await (window as any).api.sendToModelBatch(
+    // Substitute template variables in the prompt
+    const { output: processedPrompt, missing } = substituteTemplateVars(prompt, row.data || {});
+    if (missing.length) {
+      return {
+        id,
+        prompt,
         model,
-        processedPrompt,
-        row.developer ?? row.system,
-        row.temperature
-      );
-    } else if (
-      provider === 'anthropic' &&
-      options?.enablePromptCaching &&
-      (window as any).api.sendToModelWithFeatures
-    ) {
-      // Use the enhanced method with caching options
-      response = await (window as any).api.sendToModelWithFeatures(model, processedPrompt, {
-        systemPrompt: row.developer ?? row.system,
-        temperature: row.temperature,
-        enablePromptCaching: options.enablePromptCaching,
-        cacheTTL: options.cacheTTL || '5m',
-        cacheSystemPrompt: options.cacheSystemPrompt || true,
-      });
-    } else {
-      // Send message using the standard model handler
-      response = await (window as any).api.sendToModel(
-        model,
-        processedPrompt,
-        row.developer ?? row.system,
-        row.temperature,
-        {
-          jsonMode: row.data?.jsonMode,
-          jsonSchema: row.data?.jsonSchema,
-        }
-      );
+        status: 'error',
+        error: `Missing template variables: ${missing.join(', ')}`,
+        errorMessage: `The following template variables were not found in the row data: ${missing.join(', ')}`,
+        latency_ms: Date.now() - startTime,
+        data: row.data,
+      };
     }
 
-    // Get token counts
-    const tokensIn = response.usage?.prompt_tokens || response.promptTokens || 0;
-    const tokensOut = response.usage?.completion_tokens || response.answerTokens || 0;
+    const chatOptions: ChatOptions = {
+      systemPrompt: system,
+      temperature,
+      enablePromptCaching: options.enablePromptCaching,
+      cacheTTL: options.cacheTTL,
+      jsonMode: data?.jsonMode,
+      jsonSchema: data?.jsonSchema ? JSON.parse(data.jsonSchema) : undefined,
+    };
 
-    // Calculate actual cost based on the pricing data
-    const actualCost = await calculateActualCost(row, tokensIn, tokensOut);
+    const response = await window.api.request({
+      type: 'chat:send',
+      payload: {
+        modelId: model,
+        content: processedPrompt,
+        options: chatOptions,
+      },
+    });
 
-    // Check for caching information in response
-    let cachingInfo = '';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-    const usage = response.usage as ExtendedModelResponse['usage']; // Use the extended usage type
-    if (usage?.cache_creation_input_tokens || usage?.cache_read_input_tokens) {
-      const cacheCreated = usage.cache_creation_input_tokens || 0;
-      const cacheRead = usage.cache_read_input_tokens || 0;
-
-      if (cacheCreated > 0) {
-        cachingInfo += ` [Cache: Created ${cacheCreated} tokens]`;
-      }
-      if (cacheRead > 0) {
-        const savings = Math.round((1 - 0.1) * 100); // 90% savings on cache hits
-        cachingInfo += ` [Cache: Read ${cacheRead} tokens, ${savings}% savings]`;
-      }
+    if (response.error) {
+      throw new Error(response.error);
     }
+    const resultData = response.data;
+
+    const modelDef = allModels.find((m) => m.id === model || `${m.provider}/${m.id}` === model);
+
+    if (!modelDef) {
+      throw new Error(`Could not find a definition for model: ${model}`);
+    }
+
+    const cost = await calculateActualCost(
+      row,
+      resultData.promptTokens,
+      resultData.answerTokens,
+      allModels
+    );
 
     return {
-      id: row.id,
-      prompt: row.prompt,
+      id,
+      prompt,
       model,
       status: 'success',
-      response: response.answer || '',
-      tokens_in: tokensIn,
-      tokens_out: tokensOut,
-      cost_usd: actualCost,
+      response: resultData.answer,
+      tokens_in: resultData.promptTokens,
+      tokens_out: resultData.answerTokens,
+      cost_usd: cost,
       latency_ms: Date.now() - startTime,
       data: row.data,
-      cachingInfo, // Add caching information for display
     };
-  } catch (error: unknown) {
-    console.error('Error processing row:', error);
-
-    let errorMessage = 'Unknown error';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    }
-
-    // Check if it's an API error
-    const isApiError =
-      errorMessage.includes('API') ||
-      errorMessage.includes('rate limit') ||
-      errorMessage.includes('quota') ||
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (typeof error === 'object' &&
-        error !== null &&
-        'status' in error &&
-        (error as any).status >= 400); // More robust status check
-
+  } catch (error: any) {
+    const isApiError = error.message?.includes('API');
     return {
-      id: row.id,
-      prompt: row.prompt,
+      id,
+      prompt,
       model,
       status: isApiError ? 'error-api' : 'error',
-      error: errorMessage,
-      errorMessage: errorMessage,
+      error: error.message || 'An unknown error occurred',
+      errorMessage: error.message || 'An unknown error occurred',
       latency_ms: Date.now() - startTime,
-      data: row.data, // Preserve original CSV data
+      data: row.data,
     };
   }
 }

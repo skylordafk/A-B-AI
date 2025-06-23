@@ -17,15 +17,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm package
+          cache: npm
+      - run: npm ci
+      - run: npm run package
       - name: Get version from package.json
         id: version
         shell: bash
@@ -64,7 +61,7 @@ jobs:
           name: installers-Windows
           path: artifacts/
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: A-B/AI v${{ steps.version.outputs.version }}

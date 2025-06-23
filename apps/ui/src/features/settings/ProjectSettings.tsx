@@ -38,9 +38,13 @@ export default function ProjectSettings() {
       setThrottleMs(currentProject.throttleMs);
 
       // Load current API key status from main process
-      const keys = await window.api.getAllKeys();
+      const keysResponse = await window.api.request({
+        type: 'settings:load',
+        payload: { key: 'allKeys' },
+      });
+      const keys = keysResponse.data || {};
       const currentApiKeys: Record<string, string> = { ...currentProject.apiKeys };
-      Object.entries(keys).forEach(([provider, keyInfo]) => {
+      Object.entries(keys).forEach(([provider, keyInfo]: [string, any]) => {
         if (keyInfo && keyInfo.configured) {
           // Show masked key if configured in main process
           currentApiKeys[provider] = currentApiKeys[provider] || '••••••••';

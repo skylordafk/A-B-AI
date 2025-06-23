@@ -45,3 +45,35 @@ export interface SettingsRequest extends AppRequest {
     provider?: string;
   };
 }
+
+export type IpcRequestType =
+  | 'models:get-all'
+  | 'settings:save'
+  | 'settings:load'
+  | 'chat:send'
+  | 'project:create'
+  | 'project:list'
+  | 'project:get'
+  | 'project:switch'
+  | 'project:delete'
+  | 'conversation:create'
+  | 'conversation:list'
+  | 'messages:add'
+  | 'messages:list'
+  | 'batch:submit'
+  | 'batch:update-status'
+  | 'batch:submit-native'
+  | 'batch:get-status'
+  | 'batch:get-results'
+  | 'activity:get'
+  | 'utils:count-tokens' // Legacy, to be merged
+  | 'tokens:count' // New standardized type
+  | 'jobqueue:save-state'
+  | 'jobqueue:load-state'
+  | 'jobqueue:clear-state'
+  | 'jobqueue:get-directory'
+  | 'jobqueue:list-files'
+  | 'history:log'
+  | 'history:open-folder'
+  | 'history:read'
+  | 'data:load-pricing';

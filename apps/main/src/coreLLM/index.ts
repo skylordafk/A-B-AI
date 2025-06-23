@@ -36,7 +36,11 @@ export type ProviderType = 'openai' | 'anthropic' | 'gemini' | 'grok';
 /**
  * Provider-agnostic token counting with native API support and fallbacks
  */
-export async function countTokens(text: string, provider: ProviderType, model?: string): Promise<number> {
+export async function countTokens(
+  text: string,
+  provider: ProviderType,
+  model?: string
+): Promise<number> {
   switch (provider) {
     case 'anthropic':
       return countTokensAnthropic(text);
@@ -62,12 +66,15 @@ async function countTokensAnthropic(text: string): Promise<number> {
   try {
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.countTokens({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-7-sonnet-20250219',
       messages: [{ role: 'user', content: text }],
     });
     return response.input_tokens;
   } catch (error) {
-    console.warn('[CoreLLM] Anthropic native token counting failed, using tiktoken fallback:', error);
+    console.warn(
+      '[CoreLLM] Anthropic native token counting failed, using tiktoken fallback:',
+      error
+    );
     // Fallback to tiktoken approximation
     const enc = encoding_for_model('gpt-4' as any);
     return enc.encode(text).length;
@@ -79,7 +86,7 @@ async function countTokensAnthropic(text: string): Promise<number> {
  */
 function countTokensOpenAI(text: string, model?: string): number {
   let encodingModel: string;
-  
+
   if (model?.includes('gpt-4')) {
     encodingModel = 'gpt-4';
   } else if (model?.includes('gpt-3.5')) {
@@ -110,7 +117,8 @@ export function calcCost(tokens: TokenUsage, pricing: PricingInfo): number {
   if (!pricing) return 0;
 
   // Base cost: prompt and completion tokens
-  let cost = (tokens.promptTokens * pricing.prompt + tokens.completionTokens * pricing.completion) / 1000000;
+  let cost =
+    (tokens.promptTokens * pricing.prompt + tokens.completionTokens * pricing.completion) / 1000000;
 
   // Add cache costs if applicable
   if (tokens.cacheCreationTokens && pricing.cacheWrite5m) {
@@ -143,16 +151,8 @@ export function calcCostFromLegacyPricing(
 /**
  * Exponential backoff retry utility with configurable options
  */
-export async function withRetries<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {}
-): Promise<T> {
-  const {
-    maxAttempts = 3,
-    baseDelay = 1000,
-    maxDelay = 10000,
-    backoffFactor = 2,
-  } = options;
+export async function withRetries<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+  const { maxAttempts = 3, baseDelay = 1000, maxDelay = 10000, backoffFactor = 2 } = options;
 
   let lastError: Error;
 
@@ -168,9 +168,12 @@ export async function withRetries<T>(
 
       // Calculate delay with exponential backoff
       const delay = Math.min(baseDelay * Math.pow(backoffFactor, attempt - 1), maxDelay);
-      
-      console.warn(`[CoreLLM] Attempt ${attempt}/${maxAttempts} failed, retrying in ${delay}ms:`, error);
-      await new Promise(resolve => setTimeout(resolve, delay));
+
+      console.warn(
+        `[CoreLLM] Attempt ${attempt}/${maxAttempts} failed, retrying in ${delay}ms:`,
+        error
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 
@@ -187,9 +190,9 @@ export async function withRetries<T>(
 export function parseModelId(modelId: string): { provider: ProviderType; model: string } {
   if (modelId.includes('/')) {
     const [provider, model] = modelId.split('/', 2);
-    return { 
-      provider: provider as ProviderType, 
-      model 
+    return {
+      provider: provider as ProviderType,
+      model,
     };
   }
 

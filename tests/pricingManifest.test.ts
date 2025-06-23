@@ -1,28 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import type { ModelDefinition } from '../shared/types';
+import { loadPricing } from '../shared/utils/loadPricing';
+import { LLMModel as ModelPricingDefinition } from '../shared/types/ModelPricing';
 
 describe('Model Pricing Data', () => {
-  // New centralized model data structure
-  const models: ModelDefinition[] = JSON.parse(readFileSync('./data/models.json', 'utf-8'));
+  const models: ModelPricingDefinition[] = loadPricing();
 
   it('should have valid pricing for all models', () => {
-    models.forEach((model) => {
-      // Skip checking if model uses free pricing (0 values)
-      if (model.pricing.prompt === 0 && model.pricing.completion === 0) {
-        return;
-      }
+    for (const model of models) {
+      expect(model.pricing).toBeDefined();
+      expect(typeof model.pricing.prompt).toBe('number');
+      expect(typeof model.pricing.completion).toBe('number');
+      // All prices should be non-negative
+      expect(model.pricing.prompt).toBeGreaterThanOrEqual(0);
+      expect(model.pricing.completion).toBeGreaterThanOrEqual(0);
+    }
+  });
 
-      expect(model.pricing, `Model ${model.id} should have pricing object`).toBeDefined();
-      expect(
-        model.pricing.prompt,
-        `Model ${model.id} should have prompt pricing`
-      ).toBeGreaterThanOrEqual(0);
-      expect(
-        model.pricing.completion,
-        `Model ${model.id} should have completion pricing`
-      ).toBeGreaterThanOrEqual(0);
-    });
+  it('should contain essential models', () => {
+    const modelIds = models.map((m) => m.id);
+    expect(modelIds).toContain('gpt-4o');
+    expect(modelIds).toContain('claude-4-opus');
+    expect(modelIds).toContain('models/gemini-2.5-flash-preview');
   });
 
   it('should have valid provider assignments', () => {
@@ -51,14 +49,20 @@ describe('Model Pricing Data', () => {
   });
 
   it('should have valid features array', () => {
-    const validFeatures = ['web_search', 'extended_thinking', 'prompt_caching', 'json_mode'];
+    const validFeatures = [
+      'reasoning',
+      'extended_thinking',
+      'prompt_caching',
+      'json_mode',
+      'thinking',
+    ];
 
     models.forEach((model) => {
       expect(Array.isArray(model.features), `Model ${model.id} should have features array`).toBe(
         true
       );
 
-      model.features.forEach((feature) => {
+      model.features.forEach((feature: string) => {
         expect(validFeatures, `Model ${model.id} has invalid feature: ${feature}`).toContain(
           feature
         );

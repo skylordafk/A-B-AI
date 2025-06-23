@@ -1,22 +1,31 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
+    "target": "ESNext",
+    "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "types": ["vitest/globals"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@shared/*": ["shared/*"],
+      "@main/*": ["apps/main/src/*"],
+      "@ui/*": ["apps/ui/src/*"]
     },
     "incremental": true,
-    "tsBuildInfoFile": "./.tsbuildinfo"
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "allowJs": true
   },
-  "include": ["tests/**/*.ts", "apps/**/*.ts", "apps/**/*.d.ts"],
+  "include": [
+    "apps/main/src/**/*.ts",
+    "apps/ui/src/**/*.ts",
+    "tests/**/*.ts",
+    "apps/**/*.ts",
+    "apps/**/*.d.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

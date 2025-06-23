@@ -164,11 +164,11 @@ export async function parseSmartCSV(file: File): Promise<{
 
         const batchRow: BatchRow = {
           id: `row-${index + 1}`,
-          prompt,
-          model,
-          system,
-          developer,
-          temperature,
+          prompt: prompt || developer || '',
+          model: model || 'anthropic/claude-3-7-sonnet-20250219',
+          system: system,
+          developer: developer,
+          temperature: temperature !== undefined ? parseFloat(temperature) : undefined,
           data: Object.keys(data).length > 0 ? data : undefined,
         };
 
@@ -213,7 +213,7 @@ export function generateInitialRows(count: number = 8): BatchRow[] {
     { prompt: 'Explain quantum computing in simple terms', model: 'openai/gpt-4o' },
     {
       prompt: 'Write a haiku about artificial intelligence',
-      model: 'anthropic/claude-3-5-sonnet-20241022',
+      model: 'anthropic/claude-3-7-sonnet-20250219',
     },
     { prompt: 'List the benefits of renewable energy', model: 'gemini/gemini-1.5-pro' },
     { prompt: 'Describe the process of photosynthesis', model: 'openai/gpt-4o-mini' },

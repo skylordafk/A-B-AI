@@ -5,7 +5,31 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  {
+    ignores: ['**/*.js', '**/*.cjs'],
+    rules: {
+      'no-duplicate-model-pricing': [
+        'error',
+        {
+          create: (context) => ({
+            Literal(node) {
+              if (
+                typeof node.value === 'string' &&
+                /model-pricing.*\\.json$/.test(node.value) &&
+                node.value !== 'data/model-pricing.json'
+              ) {
+                context.report({
+                  node,
+                  message:
+                    'Incorrect pricing file. Use the canonical `data/model-pricing.json` via the shared `loadPricing` utility.',
+                });
+              }
+            },
+          }),
+        },
+      ],
+    },
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

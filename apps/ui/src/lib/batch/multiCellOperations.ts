@@ -242,8 +242,11 @@ export const PROMPT_SUGGESTIONS = [
 export const MODEL_SUGGESTIONS = [
   'openai/gpt-4o',
   'openai/gpt-4o-mini',
-  'anthropic/claude-3-5-sonnet-20241022',
-  'anthropic/claude-3-5-haiku',
+  'openai/gpt-4.1',
+  'anthropic/claude-3-7-sonnet-20250219',
+  'anthropic/claude-3.5-haiku-20241022',
+  'anthropic/claude-4-opus',
+  'anthropic/claude-4-sonnet',
   'gemini/gemini-1.5-pro',
   'gemini/gemini-1.5-flash',
   'grok/grok-3',

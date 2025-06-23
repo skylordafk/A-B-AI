@@ -19,13 +19,7 @@ import {
   type DragPreview,
 } from '../../lib/batch/dragFillUtils';
 import { copySelection, pasteClipboard, deleteSelection } from '../../lib/batch/clipboardUtils';
-import {
-  calculateRowCost,
-  calculateBatchCosts,
-  formatCost,
-  formatTokens,
-  type CostBreakdown,
-} from '../../lib/batch/tokenCalculator';
+import { estimateCost, type CostEstimation } from '../../lib/batch/estimateCost';
 import { parseSmartCSV, generateInitialRows } from '../../lib/batch/smartCsvImport';
 import {
   bulkChangeTemperature,
@@ -35,6 +29,7 @@ import {
   getModelSuggestions,
 } from '../../lib/batch/multiCellOperations';
 import '../../styles/spreadsheet.css';
+import { useProjectStore } from '../../store/projectStore';
 
 // Extended BatchRow type that includes execution results
 type ExtendedBatchRow = BatchRow & {
@@ -44,6 +39,17 @@ type ExtendedBatchRow = BatchRow & {
   latency_ms?: number;
   error?: string;
 };
+
+// Re-implement formatters locally
+function formatCost(cost: number): string {
+  if (cost === 0) return '$0.00';
+  if (cost < 0.000001) return '<$0.000001';
+  return `$${cost.toFixed(6)}`;
+}
+
+function formatTokens(tokens: number): string {
+  return tokens.toLocaleString();
+}
 
 interface SpreadsheetEditorProps {
   rows: BatchRow[];
@@ -91,12 +97,8 @@ interface SpreadsheetState {
     };
   };
   costs: {
-    rowCosts: Map<string, CostBreakdown>;
-    batchTotal: {
-      totalCost: number;
-      totalInputTokens: number;
-      totalOutputTokens: number;
-    };
+    rowCosts: Map<string, { totalCost: number; inputTokens: number }>;
+    batchTotal: CostEstimation;
     isCalculating: boolean;
   };
   history: {
@@ -119,11 +121,8 @@ type SpreadsheetAction =
   | { type: 'START_COLUMN_RESIZE'; column: number; startX: number; startWidth: number }
   | { type: 'UPDATE_COLUMN_WIDTH'; column: string; width: string }
   | { type: 'FINISH_COLUMN_RESIZE' }
-  | { type: 'UPDATE_ROW_COST'; rowId: string; cost: CostBreakdown }
-  | {
-      type: 'UPDATE_BATCH_TOTAL';
-      total: { totalCost: number; totalInputTokens: number; totalOutputTokens: number };
-    }
+  | { type: 'UPDATE_ROW_COST'; rowId: string; cost: { totalCost: number; inputTokens: number } }
+  | { type: 'UPDATE_BATCH_TOTAL'; total: CostEstimation }
   | { type: 'SET_CALCULATING'; isCalculating: boolean }
   | { type: 'SHOW_SUGGESTIONS'; items: string[]; position: { x: number; y: number } }
   | { type: 'HIDE_SUGGESTIONS' }
@@ -375,7 +374,7 @@ export default function SpreadsheetEditor({
     },
     costs: {
       rowCosts: new Map(),
-      batchTotal: { totalCost: 0, totalInputTokens: 0, totalOutputTokens: 0 },
+      batchTotal: { totalUSD: 0, perRow: [] },
       isCalculating: false,
     },
     history: { states: [], index: -1 },
@@ -383,6 +382,7 @@ export default function SpreadsheetEditor({
 
   const [state, dispatch] = useReducer(spreadsheetReducer, initialState);
   const [showTempMenu, setShowTempMenu] = useState(false);
+  const { models: allModels } = useProjectStore();
 
   const tableRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -433,34 +433,26 @@ export default function SpreadsheetEditor({
   }, []);
 
   // Cost calculation functions
-  const updateRowCost = useCallback(async (row: ExtendedBatchRow) => {
-    try {
-      const costBreakdown = await calculateRowCost(row);
-      dispatch({ type: 'UPDATE_ROW_COST', rowId: row.id, cost: costBreakdown });
-    } catch (error) {
-      console.error('Failed to calculate row cost:', error);
-    }
-  }, []);
-
   const updateBatchCosts = useCallback(async () => {
     dispatch({ type: 'SET_CALCULATING', isCalculating: true });
     try {
-      const batchCosts = await calculateBatchCosts(rows);
-      dispatch({ type: 'UPDATE_BATCH_TOTAL', total: batchCosts });
+      const estimation = await estimateCost(rows, allModels);
+      dispatch({ type: 'UPDATE_BATCH_TOTAL', total: estimation });
 
-      // Update individual row costs
-      batchCosts.rowCosts.forEach((cost, index) => {
-        const row = rows[index];
-        if (row) {
-          dispatch({ type: 'UPDATE_ROW_COST', rowId: row.id, cost });
-        }
+      // Update individual row costs from the estimation result
+      estimation.perRow.forEach((rowCost) => {
+        dispatch({
+          type: 'UPDATE_ROW_COST',
+          rowId: rowCost.id,
+          cost: { totalCost: rowCost.est_cost, inputTokens: rowCost.tokens_in },
+        });
       });
     } catch (error) {
       console.error('Failed to calculate batch costs:', error);
     } finally {
       dispatch({ type: 'SET_CALCULATING', isCalculating: false });
     }
-  }, [rows]);
+  }, [rows, allModels]);
 
   const startEditing = useCallback(
     (row: number, col: number) => {
@@ -497,12 +489,12 @@ export default function SpreadsheetEditor({
     dispatch({ type: 'FINISH_EDITING' });
     saveToHistory(newRows, dynamicColumns);
 
-    // Update cost calculation for the edited row if it affects cost-relevant fields
+    // Update cost calculation for the entire batch when a relevant cell changes
     const costRelevantFields = ['prompt', 'system', 'model', 'jsonSchema'];
     if (costRelevantFields.includes(allColumns[col].key) || allColumns[col].isDynamic) {
-      updateRowCost(updatedRow);
+      updateBatchCosts();
     }
-  }, [editing, rows, allColumns, dynamicColumns, saveToHistory, updateRowCost]);
+  }, [editing, rows, allColumns, dynamicColumns, saveToHistory, updateBatchCosts]);
 
   const handleCellMouseDown = useCallback(
     (row: number, col: number, e: React.MouseEvent) => {
@@ -779,11 +771,19 @@ export default function SpreadsheetEditor({
       if (showTempMenu && !target.closest('.relative')) {
         setShowTempMenu(false);
       }
+      // Close suggestions dropdown
+      if (ui.suggestions.visible && !target.closest('.suggestions-dropdown')) {
+        dispatch({ type: 'HIDE_SUGGESTIONS' });
+      }
+      // Close context menu
+      if (ui.contextMenu.visible) {
+        dispatch({ type: 'HIDE_CONTEXT_MENU' });
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showTempMenu]);
+  }, [showTempMenu, ui.suggestions.visible, ui.contextMenu.visible]);
 
   // Keyboard handler
   useEffect(() => {
@@ -1085,6 +1085,22 @@ export default function SpreadsheetEditor({
         );
       }
 
+      if (col.key === 'jsonMode') {
+        return (
+          <select
+            ref={selectRef}
+            value={editing.value}
+            onChange={(e) => dispatch({ type: 'UPDATE_EDIT_VALUE', value: e.target.value })}
+            onBlur={finishEditing}
+            className="w-full px-1 py-0.5 border rounded outline-none bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)]"
+            autoFocus
+          >
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        );
+      }
+
       if (['prompt', 'system', 'jsonSchema'].includes(col.key) || col.isDynamic) {
         return (
           <textarea
@@ -1103,6 +1119,32 @@ export default function SpreadsheetEditor({
               if (e.key === 'Escape') {
                 e.preventDefault();
                 dispatch({ type: 'CANCEL_EDITING' });
+              }
+              // Handle suggestions navigation
+              if (ui.suggestions.visible) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  dispatch({
+                    type: 'UPDATE_SUGGESTION_SELECTION',
+                    index: Math.min(
+                      ui.suggestions.selectedIndex + 1,
+                      ui.suggestions.items.length - 1
+                    ),
+                  });
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  dispatch({
+                    type: 'UPDATE_SUGGESTION_SELECTION',
+                    index: Math.max(ui.suggestions.selectedIndex - 1, 0),
+                  });
+                } else if (e.key === 'Tab' || e.key === 'Enter') {
+                  e.preventDefault();
+                  dispatch({
+                    type: 'UPDATE_EDIT_VALUE',
+                    value: ui.suggestions.items[ui.suggestions.selectedIndex],
+                  });
+                  dispatch({ type: 'HIDE_SUGGESTIONS' });
+                }
               }
             }}
             className="w-full min-h-[24px] px-1 py-0.5 border rounded outline-none resize-none bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)]"
@@ -1163,6 +1205,16 @@ export default function SpreadsheetEditor({
       );
     }
 
+    if (col.key === 'jsonMode') {
+      return (
+        <span
+          className={`text-center block ${value === 'true' ? 'text-green-600' : 'text-gray-500'}`}
+        >
+          {value === 'true' ? '✓' : '✗'}
+        </span>
+      );
+    }
+
     if (col.key === 'model') {
       const model = MODELS.find((m) => m.value === value);
       return (
@@ -1207,6 +1259,13 @@ export default function SpreadsheetEditor({
     );
   };
 
+  const renderTotalCost = () => {
+    if (costs.isCalculating) {
+      return 'Calculating...';
+    }
+    return <span className="font-medium">{formatCost(costs.batchTotal.totalUSD)}</span>;
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-4 gap-4">
@@ -1217,18 +1276,12 @@ export default function SpreadsheetEditor({
           <div className="flex items-center gap-4 mt-1 text-sm text-[var(--text-secondary)]">
             <span>{rows.length} rows</span>
             <span>•</span>
-            <span>
-              Est. Cost:{' '}
-              {costs.isCalculating ? 'Calculating...' : formatCost(costs.batchTotal.totalCost)}
-            </span>
+            <span>Est. Cost: {renderTotalCost()}</span>
             <span>•</span>
-            <span>Input Tokens: {formatTokens(costs.batchTotal.totalInputTokens)}</span>
-            {costs.batchTotal.totalOutputTokens > 0 && (
-              <>
-                <span>•</span>
-                <span>Output Tokens: {formatTokens(costs.batchTotal.totalOutputTokens)}</span>
-              </>
-            )}
+            <span>
+              Input Tokens:{' '}
+              {formatTokens(costs.batchTotal.perRow.reduce((sum, r) => sum + r.tokens_in, 0))}
+            </span>
           </div>
         </div>
         <div className="flex gap-3">
@@ -1317,14 +1370,69 @@ export default function SpreadsheetEditor({
                   style={{ width: ui.columnWidths[col.key] || col.width }}
                 >
                   <div className="flex items-center justify-between">
-                    <span
-                      onDoubleClick={() =>
-                        col.isDynamic &&
-                        dispatch({ type: 'SET_UI', field: 'editingColumnName', value: idx })
-                      }
-                    >
-                      {col.label}
-                    </span>
+                    {ui.editingColumnName === idx ? (
+                      <input
+                        type="text"
+                        defaultValue={col.label}
+                        autoFocus
+                        onBlur={(e) => {
+                          const newLabel = e.target.value.trim();
+                          if (newLabel && col.isDynamic) {
+                            const newCols = dynamicColumns.map((c) =>
+                              c.key === col.key ? { ...c, label: newLabel } : c
+                            );
+                            dispatch({ type: 'SET_DYNAMIC_COLUMNS', columns: newCols });
+                            saveToHistory(rows, newCols);
+                          }
+                          dispatch({ type: 'SET_UI', field: 'editingColumnName', value: null });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                          }
+                          if (e.key === 'Escape') {
+                            dispatch({ type: 'SET_UI', field: 'editingColumnName', value: null });
+                          }
+                        }}
+                        className="bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border)] rounded px-1 text-sm"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {/* Column type indicator */}
+                        {col.isDynamic ? (
+                          <span
+                            className="text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded"
+                            title="Dynamic column - can be used as {{variable}} in prompts"
+                          >
+                            VAR
+                          </span>
+                        ) : OUTPUT_COLUMNS.some((c) => c.key === col.key) ? (
+                          <span
+                            className="text-xs px-1 py-0.5 bg-green-100 text-green-800 rounded"
+                            title="Output column - populated by batch results"
+                          >
+                            OUT
+                          </span>
+                        ) : (
+                          <span
+                            className="text-xs px-1 py-0.5 bg-gray-100 text-gray-800 rounded"
+                            title="Input column - configures batch behavior"
+                          >
+                            IN
+                          </span>
+                        )}
+                        <span
+                          onDoubleClick={() =>
+                            col.isDynamic &&
+                            dispatch({ type: 'SET_UI', field: 'editingColumnName', value: idx })
+                          }
+                          className={col.isDynamic ? 'cursor-pointer' : ''}
+                          title={col.isDynamic ? 'Double-click to rename' : ''}
+                        >
+                          {col.label}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
                       {col.key === 'temperature' && (
                         <div className="relative">
@@ -1402,7 +1510,8 @@ export default function SpreadsheetEditor({
                       {col.isDynamic && (
                         <button
                           onClick={() => handleDeleteColumn(col.key)}
-                          className="ml-1 text-[var(--accent-danger)]"
+                          className="ml-1 text-[var(--accent-danger)] hover:bg-[var(--accent-danger)] hover:text-white rounded px-1"
+                          title="Delete column"
                         >
                           ×
                         </button>
@@ -1466,6 +1575,17 @@ export default function SpreadsheetEditor({
                         }
                       }}
                       onDoubleClick={() => col.editable && handleCellDoubleClick(rowIdx, colIdx)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (selection) {
+                          dispatch({
+                            type: 'SHOW_CONTEXT_MENU',
+                            position: { x: e.clientX, y: e.clientY },
+                            selection,
+                          });
+                        }
+                      }}
+                      title="Double-click to edit"
                     >
                       {renderCell(row, col, rowIdx, colIdx)}
                       {isDragHandle && col.editable && (
@@ -1489,6 +1609,112 @@ export default function SpreadsheetEditor({
           </tbody>
         </table>
       </div>
+
+      {/* Suggestions Dropdown */}
+      {ui.suggestions.visible && (
+        <div
+          className="fixed bg-[var(--bg-primary)] border border-[var(--border)] rounded shadow-lg z-50 max-w-xs suggestions-dropdown"
+          style={{
+            left: ui.suggestions.position.x,
+            top: ui.suggestions.position.y,
+            maxHeight: '200px',
+            overflowY: 'auto',
+          }}
+        >
+          {ui.suggestions.items.map((item, index) => (
+            <div
+              key={index}
+              className={`px-3 py-2 text-sm cursor-pointer ${
+                index === ui.suggestions.selectedIndex
+                  ? 'bg-[var(--accent-primary)] text-[var(--accent-primary-foreground)]'
+                  : 'hover:bg-[var(--bg-secondary)]'
+              }`}
+              onClick={() => {
+                if (editing.cell) {
+                  dispatch({ type: 'UPDATE_EDIT_VALUE', value: item });
+                }
+                dispatch({ type: 'HIDE_SUGGESTIONS' });
+              }}
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {ui.contextMenu.visible && (
+        <div
+          className="fixed bg-[var(--bg-primary)] border border-[var(--border)] rounded shadow-lg z-50 min-w-48"
+          style={{
+            left: ui.contextMenu.position.x,
+            top: ui.contextMenu.position.y,
+          }}
+        >
+          <div className="py-1">
+            <button
+              onClick={() => {
+                if (selection) {
+                  copySelection(rows, selection, allColumns, interaction.selectionMode);
+                }
+                dispatch({ type: 'HIDE_CONTEXT_MENU' });
+              }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)]"
+            >
+              Copy
+            </button>
+            <button
+              onClick={() => {
+                if (selection) {
+                  pasteClipboard(rows, selection, allColumns).then((newRows) => {
+                    dispatch({ type: 'SET_ROWS', rows: newRows });
+                    saveToHistory(newRows, dynamicColumns);
+                  });
+                }
+                dispatch({ type: 'HIDE_CONTEXT_MENU' });
+              }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)]"
+            >
+              Paste
+            </button>
+            <hr className="my-1 border-[var(--border)]" />
+            <button
+              onClick={() => {
+                if (selection) {
+                  handleFillDown();
+                }
+                dispatch({ type: 'HIDE_CONTEXT_MENU' });
+              }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)]"
+            >
+              Fill Down
+            </button>
+            <button
+              onClick={() => {
+                handleFindReplace();
+                dispatch({ type: 'HIDE_CONTEXT_MENU' });
+              }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)]"
+            >
+              Find & Replace
+            </button>
+            <hr className="my-1 border-[var(--border)]" />
+            <button
+              onClick={() => {
+                if (selection) {
+                  const newRows = deleteSelection(rows, selection, allColumns);
+                  dispatch({ type: 'SET_ROWS', rows: newRows });
+                  saveToHistory(newRows, dynamicColumns);
+                }
+                dispatch({ type: 'HIDE_CONTEXT_MENU' });
+              }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)] text-[var(--accent-danger)]"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

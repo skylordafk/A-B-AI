@@ -147,8 +147,8 @@ const AssistantComparison = ({ assistantMessages }: { assistantMessages: Message
   // Helpers to render the two answers inside TerminalBlock
   const renderAnswers = () => (
     <div className={`grid gap-2 ${sideBySide ? 'md:grid-cols-2 grid-cols-1' : 'grid-cols-1'}`}>
-      {assistantMessages.map((msg, idx) => (
-        <div key={idx} className="max-w-full">
+      {assistantMessages.map((msg) => (
+        <div key={msg.id} className="max-w-full">
           <div className="flex items-center gap-2 mb-1">
             {msg.provider && (
               <p className="text-xs text-stone-500 dark:text-stone-300 ml-1">{msg.provider}</p>
@@ -363,11 +363,13 @@ export default function ChatPage() {
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [multiModel, setMultiModel] = useState(false);
-  // Updated default to include best models from each provider
-  const [selectedProviders, setSelectedProviders] = useState<string[]>([
+  const DEFAULT_MODELS = [
     'openai/gpt-4o',
-    'anthropic/claude-3-5-sonnet-20241022',
-  ]);
+    'anthropic/claude-3-7-sonnet-20250219',
+    'gemini/models/gemini-2.5-pro-thinking',
+  ];
+
+  const [selectedModels, setSelectedModels] = useState<string[]>(DEFAULT_MODELS);
 
   // JSON mode state
   const [jsonMode, setJsonMode] = useState(false);
@@ -442,13 +444,12 @@ export default function ChatPage() {
       }
 
       // Check if models are selected
-      if (selectedProviders.length === 0) {
+      if (selectedModels.length === 0) {
         throw new Error('Please select at least one model');
       }
 
       // Use the Zustand store sendMessage function with selected models
-      const schema = jsonMode && jsonSchema.trim() ? JSON.parse(jsonSchema) : undefined;
-      await sendMessage(text, selectedProviders, jsonMode, schema);
+      await sendMessage(currentConversationId!, text, selectedModels);
     } catch (err: any) {
       console.error('Failed to send message:', err);
       // You could add error handling here if needed
@@ -548,8 +549,8 @@ export default function ChatPage() {
             <div className="p-4 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg">
               <div className="mb-3">
                 <ModelSelect
-                  selectedModels={selectedProviders}
-                  onSelectionChange={setSelectedProviders}
+                  selectedModels={selectedModels}
+                  onSelectionChange={setSelectedModels}
                 />
               </div>
               <FeatureStatusIndicator />
@@ -603,11 +604,11 @@ export default function ChatPage() {
                 <SplitButton
                   primaryAction={{
                     label:
-                      selectedProviders.length > 1
-                        ? `Send to ${selectedProviders.length} models`
+                      selectedModels.length > 1
+                        ? `Send to ${selectedModels.length} models`
                         : 'Send Prompt',
                     onClick: () => send(),
-                    disabled: selectedProviders.length === 0 || isThinking,
+                    disabled: selectedModels.length === 0 || isThinking,
                   }}
                   dropdownActions={[
                     {

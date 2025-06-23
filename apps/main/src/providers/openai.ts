@@ -161,6 +161,22 @@ export const openaiProvider: BaseProvider = {
         pricePrompt: 0.5,
         priceCompletion: 1.5,
       },
+      {
+        id: 'o3',
+        name: 'o3',
+        description: "OpenAI's most powerful reasoning model",
+        contextSize: 200_000,
+        pricePrompt: 2.0,
+        priceCompletion: 8.0,
+      },
+      {
+        id: 'o3-mini',
+        name: 'o3 Mini',
+        description: 'Cost-efficient reasoning model',
+        contextSize: 200_000,
+        pricePrompt: 1.1,
+        priceCompletion: 4.4,
+      },
       // Legacy model (keeping for backward compatibility)
       {
         id: 'o3-2025-04-16',

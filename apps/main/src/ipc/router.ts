@@ -457,6 +457,7 @@ export const HistoryResponseSchema = BaseResponseSchema.extend({
 // Union of all request types
 export const RequestSchema = z.discriminatedUnion('type', [
   ModelsGetAllRequestSchema,
+  z.object({ type: z.literal('models:load') }),
   SettingsSaveRequestSchema,
   SettingsLoadRequestSchema,
   ChatSendRequestSchema,
@@ -509,6 +510,7 @@ export type IpcResponse = z.infer<typeof ResponseSchema>;
 // Route mapping for handlers
 export const ROUTE_HANDLERS = {
   'models:get-all': 'handleModelsGetAll',
+  'models:load': 'handleLoadModels',
   'settings:save': 'handleSettingsSave',
   'settings:load': 'handleSettingsLoad',
   'chat:send': 'handleChatSend',
@@ -528,6 +530,7 @@ export const ROUTE_HANDLERS = {
   'batch:get-results': 'handleBatchGetResults',
   'activity:get': 'handleActivityGet',
   'utils:count-tokens': 'handleCountTokens',
+  'tokens:count': 'handleCountTokens',
   'jobqueue:save-state': 'handleJobQueueSaveState',
   'jobqueue:load-state': 'handleJobQueueLoadState',
   'jobqueue:clear-state': 'handleJobQueueClearState',

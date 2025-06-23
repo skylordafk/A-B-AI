@@ -12,11 +12,17 @@ files:
   - node_modules/**/*
   - package.json
 
+extraResources:
+  - from: data
+    to: data
+  - from: apps/ui/public/templates
+    to: resources/templates
+  - from: apps/data
+    to: resources/data
+
 extraFiles:
   - from: apps/data
     to: data
-    filter:
-      - "**/*"
 
 includeSubNodeModules: true
 

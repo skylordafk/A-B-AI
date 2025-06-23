@@ -2,6 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 // import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { getModel } from '../../shared/utils/loadPricing';
+import { calculateActualCost } from '../../apps/ui/src/lib/batch/estimateCost';
+import type { BatchRow } from '../../apps/ui/src/types/batch';
 
 // Mock the API
 const mockApi = {
@@ -84,7 +87,7 @@ describe('Chat Window Pricing Tests (Fixed)', () => {
         expectedCost: (1000 / 1000) * 0.0006 + (500 / 1000) * 0.0024, // $0.0006 + $0.0012 = $0.0018
       },
       {
-        model: 'claude-3-5-sonnet',
+        model: 'claude-3-7-sonnet-20250219',
         promptTokens: 1000,
         answerTokens: 500,
         expectedCost: (1000 / 1000) * 0.003 + (500 / 1000) * 0.015, // $0.003 + $0.0075 = $0.0105
@@ -109,10 +112,10 @@ describe('Chat Window Pricing Tests (Fixed)', () => {
         expectedCost: (1000 / 1000) * 0.0025 + (500 / 1000) * 0.005,
       },
       {
-        model: 'anthropic/claude-3-5-sonnet-20241022',
+        model: 'anthropic/claude-3.7-sonnet-20241022',
         promptTokens: 1000,
         answerTokens: 500,
-        // Claude 3.5 Sonnet: $3.00/1M input, $15.00/1M output -> $0.003/1K, $0.015/1K
+        // Claude 3.7 Sonnet: $3.00/1M input, $15.00/1M output -> $0.003/1K, $0.015/1K
         expectedCost: (1000 / 1000) * 0.003 + (500 / 1000) * 0.015,
       },
       {
@@ -153,7 +156,7 @@ describe('Chat Window Pricing Tests (Fixed)', () => {
           cache_creation_input_tokens: 800, // 800 tokens cached
           cache_read_input_tokens: 0,
         },
-        // Claude 3.5 Sonnet with caching (actual pricing from anthropic.ts):
+        // Claude 3.7 Sonnet with caching (actual pricing from anthropic.ts):
         // Regular tokens: 200 * $0.003/1K = $0.0006
         // Cache creation: 800 * $0.00375/1K = $0.003 (1.25x multiplier for 5m TTL)
         // Output: 500 * $0.015/1K = $0.0075
@@ -275,7 +278,7 @@ describe('Chat Window Pricing Tests (Fixed)', () => {
         scenario: 'Code review',
         promptTokens: 2000,
         answerTokens: 800,
-        model: 'claude-3-5-sonnet',
+        model: 'claude-3-7-sonnet-20250219',
         expectedCost: (2000 / 1000) * 0.003 + (800 / 1000) * 0.015, // $0.018
       },
       {
@@ -325,7 +328,7 @@ describe('Chat Window Pricing Tests (Fixed)', () => {
         cost: (comparisonTokens.prompt / 1000) * 0.0025 + (comparisonTokens.answer / 1000) * 0.005, // $0.005
       },
       {
-        model: 'claude-3-5-sonnet',
+        model: 'claude-3-7-sonnet-20250219',
         cost: (comparisonTokens.prompt / 1000) * 0.003 + (comparisonTokens.answer / 1000) * 0.015, // $0.0105
       },
       {
@@ -341,7 +344,7 @@ describe('Chat Window Pricing Tests (Fixed)', () => {
     expect(sortedCosts[0].model).toBe('claude-3-haiku');
     expect(sortedCosts[1].model).toBe('gpt-4o-mini');
     expect(sortedCosts[2].model).toBe('gpt-4o');
-    expect(sortedCosts[3].model).toBe('claude-3-5-sonnet');
+    expect(sortedCosts[3].model).toBe('claude-3-7-sonnet-20250219');
     expect(sortedCosts[4].model).toBe('claude-opus-4');
 
     // Verify each cost is formatted correctly
@@ -397,5 +400,31 @@ describe('Chat Window Pricing Tests (Fixed)', () => {
         }
       }
     );
+  });
+
+  it('should use correct pricing for claude-3-7-sonnet-20250219', async () => {
+    const model = getModel('anthropic/claude-3-7-sonnet-20250219');
+    const row: BatchRow = {
+      id: '1',
+      prompt: 'Test prompt',
+      model: 'anthropic/claude-3-7-sonnet-20250219',
+    };
+    const cost = await calculateActualCost(row, 1000, 2000);
+    const expectedCost =
+      (1000 / 1_000_000) * model.pricing.prompt + (2000 / 1_000_000) * model.pricing.completion;
+    expect(cost).toBeCloseTo(expectedCost, 8);
+  });
+
+  it('should handle claude-3-7-sonnet-20250219 model ID correctly', async () => {
+    const model = getModel('anthropic/claude-3-7-sonnet-20250219');
+    const row: BatchRow = {
+      id: '1',
+      prompt: 'Test prompt',
+      model: 'anthropic/claude-3-7-sonnet-20250219',
+    };
+    const cost = await calculateActualCost(row, 1000, 2000);
+    const expectedCost =
+      (1000 / 1_000_000) * model.pricing.prompt + (2000 / 1_000_000) * model.pricing.completion;
+    expect(cost).toBeCloseTo(expectedCost, 8);
   });
 });

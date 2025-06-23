@@ -10,7 +10,7 @@ on:
   pull_request:
     paths:
       - '**/package.json'
-      - '**/pnpm-lock.yaml'
+      - '**/npm-lock.json'
       - '.github/workflows/security.yml'
       - 'scripts/licence-server.ts'
       - 'servers/server.js'
@@ -32,19 +32,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8.15.8
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run comprehensive security audit
         run: |
@@ -55,19 +50,19 @@ jobs:
 
       - name: Run dependency audit
         run: |
-          echo "🔍 Running dependency security audit with pnpm..."
-          pnpm audit --recursive --audit-level=moderate
+          echo "🔍 Running dependency security audit with npm..."
+          npm audit --recursive --audit-level=moderate
         continue-on-error: true
 
       - name: Check for known vulnerabilities
         run: |
-          echo "🔍 Checking for known vulnerabilities via pnpm..."
-          pnpm audit --recursive --json || true
+          echo "🔍 Checking for known vulnerabilities via npm..."
+          npm audit --recursive --json || true
 
       - name: License compliance check
         run: |
           echo "📜 Checking license compliance..."
-          pnpm licenses list --prod > licenses-report.txt
+          npm licenses list --prod > licenses-report.txt
           
           # Check for problematic licenses
           if grep -E "(GPL|AGPL|LGPL|SSPL)" licenses-report.txt; then

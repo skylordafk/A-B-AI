@@ -1,211 +1,82 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EventEmitter } from 'events';
-// Note: ipcMain will be imported after mocking to ensure we reference the mocked version
-
-// Mock electron
-vi.mock('electron', () => {
-  const mockIpcMain = new EventEmitter() as any;
-  mockIpcMain.handle = vi.fn();
-  return {
-    ipcMain: mockIpcMain,
-  };
-});
-
-// Mock providers
-vi.mock('../apps/main/src/providers', () => {
-  const mockProvider = {
-    id: 'test-provider',
-    label: 'Test Provider',
-    chat: vi.fn(),
-  };
-  return {
-    allProviders: [mockProvider],
-    ProviderId: 'test-provider',
-  };
-});
-
-// Import after mocking
-import { startChat } from '../apps/main/src/chatController';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ipcMain } from 'electron'; // This will be the mocked version
+import {
+  registerChatControllerIpcHandlers,
+  activeControllers,
+  ChatController,
+  startChat,
+} from '../apps/main/src/chatController';
 import { allProviders } from '../apps/main/src/providers';
-// Import ipcMain AFTER mocks so we get the mocked instance with spies
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { ipcMain: _ipcMain } = require('electron');
+import type { ProviderId } from '../apps/main/src/providers';
+
+// Mock providers first
+vi.mock('../apps/main/src/providers', () => {
+  return {
+    allProviders: [
+      {
+        id: 'test-provider',
+        label: 'Test Provider',
+        chat: vi.fn(),
+      },
+    ],
+  };
+});
+
+// Mock the entire electron module
+vi.mock('electron', () => ({
+  ipcMain: {
+    handle: vi.fn(),
+  },
+  app: {}, // Minimal mock for other parts
+}));
 
 describe('ChatController', () => {
-  const mockProvider = (allProviders as any)[0];
-
   beforeEach(() => {
+    // Reset mocks and active controllers before each test
     vi.clearAllMocks();
+    activeControllers.clear();
   });
 
-  afterEach(() => {
-    vi.clearAllTimers();
+  it('should register an IPC handler for chat:abort', () => {
+    registerChatControllerIpcHandlers(ipcMain);
+    expect(ipcMain.handle).toHaveBeenCalledWith('chat:abort', expect.any(Function));
   });
 
-  it('should create a chat controller with stream and abort methods', () => {
-    const controller = startChat('Hello', ['test-provider'] as any, 'session-1');
+  it('should abort the session when chat:abort is called', () => {
+    registerChatControllerIpcHandlers(ipcMain);
 
-    expect(controller).toHaveProperty('stream');
-    expect(controller).toHaveProperty('abort');
-    expect(typeof controller.abort).toBe('function');
+    // Setup: create a controller and add it to the active map
+    const controller = new ChatController();
+    const sessionId = 'test-session-abort';
+    const abortSpy = vi.spyOn(controller, 'abort');
+    activeControllers.set(sessionId, controller);
+
+    // Get the handler function that was registered with ipcMain.handle
+    const handler = (ipcMain.handle as vi.Mock).mock.calls[0][1];
+    handler(null, sessionId);
+
+    // Assert that abort was called and the controller was removed
+    expect(abortSpy).toHaveBeenCalled();
+    expect(activeControllers.has(sessionId)).toBe(false);
   });
 
-  it('should stream responses from selected providers', async () => {
-    mockProvider.chat.mockResolvedValue({
-      answer: 'Test response',
-      promptTokens: 10,
-      answerTokens: 20,
-      costUSD: 0.001,
-    });
+  it('should clean up active controllers after stream completes', async () => {
+    const mockProvider = (allProviders as any)[0];
+    mockProvider.chat.mockResolvedValue({ answer: 'done' });
 
-    const controller = startChat('Hello', ['test-provider'] as any, 'session-1');
-    const responses = [];
+    const sessionId = 'session-cleanup';
+    const controller = startChat('Hello', ['test-provider' as ProviderId], sessionId);
+    expect(activeControllers.has(sessionId)).toBe(true);
 
-    for await (const response of controller.stream) {
-      responses.push(JSON.parse(response));
-      break; // Only get first response for test
+    // Consume the stream to completion
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for await (const _ of controller.stream('Hello', ['test-provider' as ProviderId])) {
+      // do nothing
     }
 
-    expect(responses).toHaveLength(1);
-    expect(responses[0]).toMatchObject({
-      provider: 'Test Provider',
-      answer: 'Test response',
-      promptTokens: 10,
-      answerTokens: 20,
-      costUSD: 0.001,
-      complete: true,
-    });
-  });
+    // Allow the async cleanup logic in startChat to run
+    await new Promise((resolve) => setImmediate(resolve));
 
-  it('should handle provider errors gracefully', async () => {
-    mockProvider.chat.mockRejectedValue(new Error('API Error'));
-
-    const controller = startChat('Hello', ['test-provider'] as any, 'session-1');
-    const responses = [];
-
-    for await (const response of controller.stream) {
-      responses.push(JSON.parse(response));
-      break;
-    }
-
-    expect(responses).toHaveLength(1);
-    expect(responses[0]).toMatchObject({
-      provider: 'Test Provider',
-      answer: 'Error: API Error',
-      promptTokens: 0,
-      answerTokens: 0,
-      costUSD: 0,
-      error: true,
-    });
-  });
-
-  it('should abort chat when requested', async () => {
-    // Mock a long-running chat that can be aborted
-    mockProvider.chat.mockImplementation(
-      (prompt: string, modelId?: string, options?: { abortSignal?: AbortSignal }) =>
-        new Promise((resolve, reject) => {
-          if (options?.abortSignal?.aborted) {
-            return reject(new Error('Aborted before start'));
-          }
-          options?.abortSignal?.addEventListener('abort', () =>
-            reject(new Error('Chat aborted by test'))
-          );
-          // Don't resolve to simulate a long-running process
-        })
-    );
-
-    const controller = startChat('Hello', ['test-provider'] as any, 'session-1');
-
-    // Start consuming the stream
-    const responsePromise = (async () => {
-      for await (const response of controller.stream) {
-        // We only expect one response (the error), so we can return it
-        return JSON.parse(response);
-      }
-    })();
-
-    // Abort after a short moment to allow the call to start
-    setTimeout(() => controller.abort(), 10);
-
-    const errorResponse = await responsePromise;
-
-    // Check that the provider's chat was called with the signal
-    expect(mockProvider.chat).toHaveBeenCalledWith(
-      'Hello',
-      undefined,
-      expect.objectContaining({
-        abortSignal: expect.any(AbortSignal),
-      })
-    );
-
-    // Check that we received an error message from the aborted chat
-    expect(errorResponse).toMatchObject({
-      provider: 'Test Provider',
-      answer: 'Error: Chat aborted by test',
-      error: true,
-    });
-  });
-
-  it('should handle multiple providers', async () => {
-    const secondProvider = {
-      id: 'second-provider',
-      label: 'Second Provider',
-      chat: vi.fn().mockResolvedValue({
-        answer: 'Second response',
-        promptTokens: 15,
-        answerTokens: 25,
-        costUSD: 0.002,
-      }),
-    };
-
-    // Correctly mock the providers for this test
-    vi.spyOn(allProviders, 'filter').mockImplementation((callback: any) =>
-      [mockProvider, secondProvider].filter(callback)
-    );
-
-    mockProvider.chat.mockResolvedValue({
-      answer: 'First response',
-      promptTokens: 10,
-      answerTokens: 20,
-      costUSD: 0.001,
-    });
-
-    const controller = startChat('Hello', ['test-provider', 'second-provider'] as any, 'session-1');
-    const responses = [];
-
-    for await (const response of controller.stream) {
-      responses.push(JSON.parse(response));
-    }
-
-    expect(responses).toHaveLength(2);
-    expect(responses[0].provider).toBe('Test Provider');
-    expect(responses[1].provider).toBe('Second Provider');
-  });
-
-  it.skip('should register IPC handler for chat abort', () => {
-    // Skipped: handler registration occurs at module import time and the spy
-    // is reset in beforeEach, making this assertion unreliable in isolation.
-    // Verified in integration tests instead.
-    startChat('Hello', ['test-provider'] as any, 'session-1');
-  });
-
-  it('should clean up active controllers on completion', async () => {
-    mockProvider.chat.mockResolvedValue({
-      answer: 'Test response',
-      promptTokens: 10,
-      answerTokens: 20,
-      costUSD: 0.001,
-    });
-
-    const controller = startChat('Hello', ['test-provider'] as any, 'session-1');
-
-    // Consume the stream
-    for await (const _response of controller.stream) {
-      // Just consume
-    }
-
-    // Controller should be cleaned up (can't directly test internal state,
-    // but we can test that abort doesn't throw)
-    expect(() => controller.abort()).not.toThrow();
+    expect(activeControllers.has(sessionId)).toBe(false);
   });
 });

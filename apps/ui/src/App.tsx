@@ -4,11 +4,11 @@ import AppRouter from './AppRouter';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
-  const initialize = useProjectStore((state) => state.initialize);
+  const initializeStore = useProjectStore((state) => state.initializeStore);
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    initializeStore();
+  }, [initializeStore]);
 
   return (
     <ErrorBoundary>

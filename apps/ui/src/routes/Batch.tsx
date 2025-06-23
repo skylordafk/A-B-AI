@@ -21,6 +21,7 @@ const MODEL_ID_FIXES: Record<string, string> = {
 
   // Claude fixes
   'anthropic/claude-sonnet-4': 'anthropic/claude-4-sonnet',
+  'anthropic/claude-3.7-sonnet-20241022': 'anthropic/claude-3-7-sonnet-20250219',
   'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku-20241022',
 
   // Gemini fixes (prioritize 2.5 models)
@@ -36,7 +37,7 @@ const MODEL_ID_FIXES: Record<string, string> = {
   // Default mapping for models that show as just the name
   'GPT-4o': 'openai/gpt-4o',
   'GPT-4o Mini': 'openai/gpt-4o-mini',
-  'Claude 3.5 Sonnet': 'anthropic/claude-3-5-sonnet-20241022',
+  'Claude 3.5 Sonnet': 'anthropic/claude-3-7-sonnet-20250219',
   'Claude 3.5 Haiku': 'anthropic/claude-3-5-haiku-20241022',
   'Gemini 1.5 Pro': 'gemini/models/gemini-2.5-pro-thinking',
   'Gemini 1.5 Flash': 'gemini/models/gemini-2.5-flash-preview',
@@ -154,7 +155,18 @@ export default function Batch() {
       setJobResults(new Map());
 
       // First, create the batch job (this validates API keys)
-      const newJobId = await createBatchJob('batch-job', rows, useNativeAPI);
+      const newJobId = `job-${Date.now()}`;
+      createBatchJob({
+        id: newJobId,
+        fileName: 'batch-job',
+        rows,
+        useNativeAPI,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        projectId: currentProjectId,
+        totalRows: rows.length,
+        completedRows: 0,
+      });
       setJobId(newJobId);
 
       // If using native API, don't start JobQueue - let the provider handle it
@@ -303,7 +315,7 @@ export default function Batch() {
                   disabled={isRunning}
                 />
                 <span className="text-[var(--text-primary)]">
-                  Use Provider's Batch API (faster for large batches)
+                  Use Provider's Batch API (lower cost for large batches)
                 </span>
               </label>
 

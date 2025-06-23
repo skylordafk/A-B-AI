@@ -10,15 +10,33 @@ export async function parseInput(file: File): Promise<{ rows: BatchRow[]; errors
   const text = await file.text();
   const extension = file.name.toLowerCase().split('.').pop();
 
-  if (extension !== 'csv') {
-    errors.push({
-      row: 0,
-      message: 'Only CSV files are supported. Please upload a .csv file.',
-    });
-    return { rows, errors };
+  if (extension === 'json') {
+    try {
+      const jsonData = JSON.parse(text);
+      if (Array.isArray(jsonData)) {
+        jsonData.forEach((item, index) => {
+          if (!item.prompt) {
+            errors.push({ row: index + 1, message: 'JSON object missing prompt' });
+            return;
+          }
+          rows.push({
+            id: `row-${index + 1}`,
+            prompt: item.prompt,
+            model: item.model,
+            system: item.system,
+            temperature: item.temperature,
+            data: item,
+          });
+        });
+        return { rows, errors };
+      }
+    } catch (e) {
+      errors.push({ row: 0, message: 'Invalid JSON file' });
+      return { rows, errors };
+    }
   }
 
-  // Parse CSV
+  // Fallback to CSV parsing
   const results = Papa.parse(text, {
     header: true,
     skipEmptyLines: true,

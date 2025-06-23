@@ -14,6 +14,13 @@ export interface ModelDefinition {
   features: ('web_search' | 'extended_thinking' | 'prompt_caching' | 'json_mode')[];
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+}
+
 export type RequestType =
   | 'models:get-all'
   | 'chat:send'

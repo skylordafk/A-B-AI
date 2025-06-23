@@ -27,16 +27,34 @@ describe('JobQueue', () => {
 
   // Mock API for testing
   const mockApi = {
-    getEnablePromptCaching: vi.fn(async () => false),
-    getPromptCacheTTL: vi.fn(async () => '5m' as const),
-    saveJobQueueState: vi.fn(async () => {}),
-    loadJobQueueState: vi.fn(async () => null),
-    clearJobQueueState: vi.fn(async () => {}),
-    getStateDirectory: vi.fn(async () => '/tmp'),
-    listFiles: vi.fn(async () => []),
+    request: vi.fn(async (req: { type: string; payload?: any }) => {
+      switch (req.type) {
+        case 'settings:load':
+          if (req.payload?.key === 'enablePromptCaching') {
+            return { success: true, data: false };
+          }
+          if (req.payload?.key === 'promptCacheTTL') {
+            return { success: true, data: '5m' };
+          }
+          return { success: true, data: null };
+        case 'jobqueue:save-state':
+          return { success: true };
+        case 'jobqueue:load-state':
+          return { success: true, data: null };
+        case 'jobqueue:clear-state':
+          return { success: true };
+        case 'jobqueue:get-directory':
+          return { success: true, data: '/tmp/test-batches' };
+        case 'jobqueue:list-files':
+          return { success: true, data: [] };
+        default:
+          return { success: false, error: `Unknown request type: ${req.type}` };
+      }
+    }),
   };
 
   beforeEach(() => {
+    vi.clearAllMocks();
     queue = new JobQueue(3, undefined, mockApi);
   });
 

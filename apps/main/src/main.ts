@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, shell } from 'electron';
+import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron';
 import * as Sentry from '@sentry/electron';
 import path from 'path';
 import type { ProviderId } from './providers';
@@ -14,7 +14,11 @@ import {
   getJsonMode,
   getReasoningEffort,
 } from './settings';
+import { registerChatControllerIpcHandlers } from './chatController'; // Import the new function
 import './ipc/handlers'; // Initialize IPC router
+
+// Register chat-specific IPC handlers
+registerChatControllerIpcHandlers(ipcMain);
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -107,6 +111,17 @@ function createWindow() {
   if (isDev) {
     win.webContents.openDevTools({ mode: 'detach' });
   }
+
+  // Allow dev tools in production with keyboard shortcut
+  win.webContents.on('before-input-event', (event, input) => {
+    // Cmd+Option+I (Mac) or Ctrl+Shift+I (Windows/Linux)
+    if (
+      (input.meta && input.alt && input.key === 'i') ||
+      (input.control && input.shift && input.key === 'I')
+    ) {
+      win.webContents.toggleDevTools();
+    }
+  });
 
   // Return the window for use in menu
   return win;

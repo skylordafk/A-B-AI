@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "concurrently -k -n UI,MAIN \"npm run dev --prefix apps/ui\" \"cross-env VITE_DEV_SERVER_URL=http://localhost:5174 npm run dev --prefix apps/main\"",
     "build": "turbo run build",
+    "build:fresh": "turbo run build --force",
     "start:prod": "cd apps/main && npm run start",
+    "dev:prod": "npm run build:fresh && npm run start:prod",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
@@ -20,10 +22,10 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "prepare": "husky",
     "docs": "start docs/first-model.md || open docs/first-model.md || xdg-open docs/first-model.md",
-    "package": "npm run build && electron-builder --publish never",
-    "package:win": "npm run build && electron-builder --win --x64 --publish never",
-    "package:win:npm": "npm run build && cd apps/main && npm install --production --force && cd ../.. && electron-builder --win --x64 --publish never",
-    "package:mac": "npm run build && electron-builder --mac --arm64 --x64 --publish never"
+    "package": "npm run build:fresh && electron-builder --publish never",
+    "package:win": "npm run build:fresh && electron-builder --win --x64 --publish never",
+    "package:win:npm": "npm run build:fresh && cd apps/main && npm install --production --force && cd ../.. && electron-builder --win --x64 --publish never",
+    "package:mac": "npm run build:fresh && electron-builder --mac --arm64 --x64 --publish never"
   },
   "keywords": [],
   "author": {

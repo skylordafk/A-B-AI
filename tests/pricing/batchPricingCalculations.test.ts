@@ -2,45 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { estimateCost, calculateActualCost } from '../../apps/ui/src/lib/batch/estimateCost';
 // import { runRow } from '../../apps/ui/src/lib/batch/runRow';
 import type { BatchRow } from '../../apps/ui/src/types/batch';
+import modelPricingData from '../../data/model-pricing.json';
 
-// Mock the pricing data loading with CORRECT per-1K-token pricing
-vi.mock('../../apps/ui/src/lib/batch/loadPricingData', () => ({
-  loadPricingData: vi.fn().mockResolvedValue({
-    openai: {
-      'gpt-4o': { prompt: 0.0025, completion: 0.005 },
-      'gpt-4o-mini': { prompt: 0.0006, completion: 0.0024 },
-      'gpt-3.5-turbo': { prompt: 0.0005, completion: 0.0015 },
-      'o3-2025-04-16': { prompt: 0.002, completion: 0.008 }, // Fallback model
-    },
-    anthropic: {
-      'claude-3-5-sonnet-20241022': { prompt: 0.003, completion: 0.015 },
-      'claude-3-haiku-20240307': { prompt: 0.00025, completion: 0.00125 },
-      'claude-opus-4-20250514': { prompt: 0.015, completion: 0.075 },
-    },
-    grok: {
-      'grok-3': { prompt: 0.003, completion: 0.015 },
-      'grok-3-mini': { prompt: 0.0003, completion: 0.0005 },
-    },
-    gemini: {
-      'models/gemini-2.5-pro-thinking': { prompt: 0.00125, completion: 0.01 },
-      'models/gemini-2.5-flash-preview': { prompt: 0.00035, completion: 0.00175 },
-    },
-  }),
-  getProviderAndModel: vi.fn().mockImplementation((modelString) => {
-    if (!modelString) {
-      return { provider: 'openai', model: 'o3-2025-04-16' };
-    }
-
-    // Handle provider/model format correctly
-    if (modelString.includes('/')) {
-      const firstSlashIndex = modelString.indexOf('/');
-      const provider = modelString.substring(0, firstSlashIndex);
-      const model = modelString.substring(firstSlashIndex + 1);
-      return { provider, model };
-    }
-
-    // Default to openai
-    return { provider: 'openai', model: modelString };
+// Mock the new pricing utility
+vi.mock('../../shared/utils/loadPricing', () => ({
+  loadPricing: vi.fn(),
+  getModel: vi.fn((id: string) => {
+    const model = modelPricingData.find((m) => `${m.provider}/${m.id}` === id);
+    if (model) return model;
+    const modelWithoutProvider = modelPricingData.find((m) => m.id === id);
+    if (modelWithoutProvider) return modelWithoutProvider;
+    throw new Error(`Unknown model id: ${id}`);
   }),
 }));
 
@@ -75,8 +47,8 @@ describe('Batch Pricing Calculations', () => {
         },
         {
           id: '2',
-          prompt: 'Another test prompt that is slightly different but similar length.',
-          model: 'anthropic/claude-3-5-sonnet-20241022',
+          prompt: 'Another prompt that is slightly different but similar length.',
+          model: 'anthropic/claude-3-7-sonnet-20250219',
         },
       ];
 
@@ -92,9 +64,9 @@ describe('Batch Pricing Calculations', () => {
       expect(row1!.tokens_in).toBeGreaterThan(0);
       expect(row1!.est_cost).toBeGreaterThan(0);
 
-      // Calculate expected cost with correct pricing: ~20 tokens * $0.0025/1K tokens
+      // Calculate expected cost: tokens * ($5.0 / 1M)
       const expectedTokens1 = Math.ceil(rows[0].prompt.length / 4);
-      const expectedCost1 = (expectedTokens1 / 1000) * 0.0025;
+      const expectedCost1 = (expectedTokens1 / 1000000) * 5.0;
       expect(row1!.est_cost).toBeCloseTo(expectedCost1, 8);
 
       // Verify second row (Anthropic Claude)
@@ -103,9 +75,9 @@ describe('Batch Pricing Calculations', () => {
       expect(row2!.tokens_in).toBeGreaterThan(0);
       expect(row2!.est_cost).toBeGreaterThan(0);
 
-      // Calculate expected cost with correct pricing: ~20 tokens * $0.003/1K tokens
+      // Calculate expected cost: tokens * ($3.0 / 1M)
       const expectedTokens2 = Math.ceil(rows[1].prompt.length / 4);
-      const expectedCost2 = (expectedTokens2 / 1000) * 0.003;
+      const expectedCost2 = (expectedTokens2 / 1000000) * 3.0;
       expect(row2!.est_cost).toBeCloseTo(expectedCost2, 8);
     });
 
@@ -131,18 +103,18 @@ describe('Batch Pricing Calculations', () => {
         'You are a helpful assistant. Please respond thoughtfully and comprehensively.\n\nUser prompt text'
           .length / 4
       );
-      const expectedCost = (expectedTokens / 1000) * 0.0025; // GPT-4o pricing: $0.0025 per 1K tokens
+      const expectedCost = (expectedTokens / 1000000) * 5.0; // GPT-4o pricing: $5.0 per 1M tokens
       expect(row.est_cost).toBeCloseTo(expectedCost, 8);
     });
 
     it('should handle different model pricing correctly', async () => {
       const models = [
-        { model: 'openai/gpt-4o', expectedRate: 0.0025 },
-        { model: 'openai/gpt-4o-mini', expectedRate: 0.0006 },
-        { model: 'anthropic/claude-3-haiku-20240307', expectedRate: 0.00025 },
-        { model: 'anthropic/claude-opus-4-20250514', expectedRate: 0.015 },
-        { model: 'grok/grok-3', expectedRate: 0.003 },
-        { model: 'gemini/models/gemini-2.5-flash-preview', expectedRate: 0.00035 },
+        { model: 'openai/gpt-4o', expectedRate: 5.0 },
+        { model: 'openai/gpt-4o-mini', expectedRate: 0.6 },
+        { model: 'anthropic/claude-3-5-haiku-20241022', expectedRate: 0.8 },
+        { model: 'anthropic/claude-4-opus', expectedRate: 15.0 },
+        { model: 'grok/grok-3', expectedRate: 3.0 },
+        { model: 'gemini/models/gemini-2.5-flash-preview', expectedRate: 0.15 },
       ];
 
       const prompt = 'Standard test prompt for comparison';
@@ -152,7 +124,7 @@ describe('Batch Pricing Calculations', () => {
         const rows: BatchRow[] = [{ id: '1', prompt, model }];
         const estimation = await estimateCost(rows);
 
-        const expectedCost = (expectedTokens / 1000) * expectedRate;
+        const expectedCost = (expectedTokens / 1000000) * expectedRate;
         expect(estimation.perRow[0].est_cost).toBeCloseTo(expectedCost, 8);
       }
     });
@@ -161,7 +133,7 @@ describe('Batch Pricing Calculations', () => {
       const rows: BatchRow[] = [
         { id: '1', prompt: 'First prompt', model: 'openai/gpt-4o' },
         { id: '2', prompt: 'Second prompt', model: 'openai/gpt-4o' },
-        { id: '3', prompt: 'Third prompt', model: 'anthropic/claude-3-5-sonnet-20241022' },
+        { id: '3', prompt: 'Third prompt', model: 'anthropic/claude-3-7-sonnet-20250219' },
       ];
 
       const estimation = await estimateCost(rows);
@@ -174,95 +146,47 @@ describe('Batch Pricing Calculations', () => {
 
   describe('Actual Cost Calculation (Post-Processing)', () => {
     it('should calculate actual costs with input and output tokens', async () => {
-      const row: BatchRow = {
-        id: '1',
-        prompt: 'Test prompt',
-        model: 'openai/gpt-4o',
-      };
+      const row: BatchRow = { id: '1', prompt: 'Test', model: 'gpt-4o' };
+      const tokensIn = 1000;
+      const tokensOut = 2000;
 
-      const inputTokens = 100;
-      const outputTokens = 150;
-
-      const actualCost = await calculateActualCost(row, inputTokens, outputTokens);
-
-      // GPT-4o: $0.0025/1K input, $0.005/1K output
-      const expectedInputCost = (inputTokens / 1000) * 0.0025;
-      const expectedOutputCost = (outputTokens / 1000) * 0.005;
-      const expectedTotal = expectedInputCost + expectedOutputCost;
-
-      expect(actualCost).toBeCloseTo(expectedTotal, 8);
-      expect(actualCost).toBeGreaterThan(0);
+      const cost = await calculateActualCost(row, tokensIn, tokensOut);
+      // gpt-4o: (1000/1M * 5) + (2000/1M * 20) = 0.005 + 0.04 = 0.045
+      expect(cost).toBeCloseTo(0.045, 8);
     });
 
     it('should handle different completion costs correctly', async () => {
-      const testCases = [
-        {
-          model: 'openai/gpt-4o',
-          inputTokens: 1000,
-          outputTokens: 500,
-          expectedInputRate: 0.0025,
-          expectedOutputRate: 0.005,
-        },
-        {
-          model: 'anthropic/claude-3-5-sonnet-20241022',
-          inputTokens: 1000,
-          outputTokens: 500,
-          expectedInputRate: 0.003,
-          expectedOutputRate: 0.015,
-        },
-        {
-          model: 'anthropic/claude-opus-4-20250514',
-          inputTokens: 1000,
-          outputTokens: 500,
-          expectedInputRate: 0.015,
-          expectedOutputRate: 0.075,
-        },
+      const modelsToTest = [
+        { id: 'openai/gpt-4o', expectedCost: 0.015 },
+        { id: 'anthropic/claude-4-opus', expectedCost: 0.0525 },
       ];
 
-      for (const {
-        model,
-        inputTokens,
-        outputTokens,
-        expectedInputRate,
-        expectedOutputRate,
-      } of testCases) {
-        const row: BatchRow = { id: '1', prompt: 'Test', model };
-        const actualCost = await calculateActualCost(row, inputTokens, outputTokens);
-
-        const expectedInputCost = (inputTokens / 1000) * expectedInputRate;
-        const expectedOutputCost = (outputTokens / 1000) * expectedOutputRate;
-        const expectedTotal = expectedInputCost + expectedOutputCost;
-
-        expect(actualCost).toBeCloseTo(expectedTotal, 8);
+      for (const { id, expectedCost } of modelsToTest) {
+        const row: BatchRow = { id: '1', prompt: 'Test', model: id };
+        const actualCost = await calculateActualCost(row, 1000, 500);
+        // gpt-4o: (1000/1M * 5) + (500/1M * 20) = 0.005 + 0.01 = 0.015
+        // claude-4-opus: (1000/1M * 15) + (500/1M * 75) = 0.015 + 0.0375 = 0.0525
+        expect(actualCost).toBeCloseTo(expectedCost, 8);
       }
     });
 
     it('should handle zero output tokens (input-only cost)', async () => {
-      const row: BatchRow = {
-        id: '1',
-        prompt: 'Test prompt',
-        model: 'openai/gpt-4o',
-      };
-
-      const actualCost = await calculateActualCost(row, 100, 0);
-
-      // Should only include input cost
-      const expectedCost = (100 / 1000) * 0.0025;
-      expect(actualCost).toBeCloseTo(expectedCost, 8);
+      const row: BatchRow = { id: '1', prompt: 'Test', model: 'openai/gpt-4o' };
+      const cost = await calculateActualCost(row, 100, 0);
+      // (100/1M * 5) = 0.0005
+      expect(cost).toBeCloseTo(0.0005, 8);
     });
 
-    it('should use fallback pricing for unknown models', async () => {
+    it('should throw an error for unknown models', async () => {
       const row: BatchRow = {
         id: '1',
         prompt: 'Test prompt',
         model: 'unknown/model',
       };
 
-      const actualCost = await calculateActualCost(row, 100, 50);
-
-      // Should use fallback o3-2025-04-16 pricing: $0.002 input, $0.008 output
-      const expectedCost = (100 / 1000) * 0.002 + (50 / 1000) * 0.008;
-      expect(actualCost).toBeCloseTo(expectedCost, 8);
+      await expect(calculateActualCost(row, 100, 50)).rejects.toThrow(
+        'Unknown model id: unknown/model'
+      );
     });
   });
 
@@ -280,7 +204,8 @@ describe('Batch Pricing Calculations', () => {
       const actualCost = await calculateActualCost(row, largeInputTokens, largeOutputTokens);
 
       // Should handle large numbers without precision loss
-      const expectedCost = (largeInputTokens / 1000) * 0.0025 + (largeOutputTokens / 1000) * 0.005;
+      const expectedCost =
+        (largeInputTokens / 1000000) * 5.0 + (largeOutputTokens / 1000000) * 20.0;
       expect(actualCost).toBeCloseTo(expectedCost, 6);
       expect(actualCost).toBeGreaterThanOrEqual(5); // Should be substantial cost
     });
@@ -295,7 +220,7 @@ describe('Batch Pricing Calculations', () => {
       const actualCost = await calculateActualCost(row, 1, 1);
 
       // Should handle small numbers with proper precision
-      const expectedCost = (1 / 1000) * 0.0025 + (1 / 1000) * 0.005;
+      const expectedCost = (1 / 1000000) * 5.0 + (1 / 1000000) * 20.0;
       expect(actualCost).toBeCloseTo(expectedCost, 8);
       expect(actualCost).toBeGreaterThan(0);
     });
@@ -304,13 +229,13 @@ describe('Batch Pricing Calculations', () => {
       const row: BatchRow = {
         id: '1',
         prompt: 'Test',
-        model: 'anthropic/claude-3-haiku-20240307', // Low cost model
+        model: 'openai/gpt-4.1-nano', // Low cost model
       };
 
       const actualCost = await calculateActualCost(row, 1, 1);
 
-      // Claude 3 Haiku: $0.00025/1K input, $0.00125/1K output
-      const expectedCost = (1 / 1000) * 0.00025 + (1 / 1000) * 0.00125;
+      // gpt-4.1-nano: $0.1/M input, $0.4/M output
+      const expectedCost = (1 / 1000000) * 0.1 + (1 / 1000000) * 0.4;
       expect(actualCost).toBeCloseTo(expectedCost, 10);
       expect(actualCost).toBeGreaterThan(0);
 
@@ -323,7 +248,7 @@ describe('Batch Pricing Calculations', () => {
     it('should provide consistent estimation format for dry-run modal', async () => {
       const rows: BatchRow[] = [
         { id: '1', prompt: 'Test prompt 1', model: 'openai/gpt-4o' },
-        { id: '2', prompt: 'Test prompt 2', model: 'anthropic/claude-3-5-sonnet-20241022' },
+        { id: '2', prompt: 'Test prompt 2', model: 'anthropic/claude-3-7-sonnet-20250219' },
       ];
 
       const estimation = await estimateCost(rows);
@@ -348,7 +273,7 @@ describe('Batch Pricing Calculations', () => {
     it('should handle mixed model types in single batch', async () => {
       const rows: BatchRow[] = [
         { id: '1', prompt: 'OpenAI test', model: 'openai/gpt-4o' },
-        { id: '2', prompt: 'Anthropic test', model: 'anthropic/claude-3-5-sonnet-20241022' },
+        { id: '2', prompt: 'Anthropic test', model: 'anthropic/claude-3-7-sonnet-20250219' },
         { id: '3', prompt: 'Grok test', model: 'grok/grok-3' },
         { id: '4', prompt: 'Gemini test', model: 'gemini/models/gemini-2.5-flash-preview' },
       ];
@@ -364,6 +289,25 @@ describe('Batch Pricing Calculations', () => {
       // At least some costs should be different (different models have different rates)
       const uniqueCosts = new Set(costs);
       expect(uniqueCosts.size).toBeGreaterThan(1);
+    });
+
+    it('should accumulate total cost correctly', async () => {
+      const rows: BatchRow[] = [
+        { id: '1', prompt: 'Prompt 1', model: 'openai/gpt-4o' },
+        { id: '2', prompt: 'Prompt 2', model: 'anthropic/claude-3-7-sonnet-20250219' },
+      ];
+      const estimation = await estimateCost(rows);
+
+      const p1Tokens = Math.ceil('Prompt 1'.length / 4);
+      const p2Tokens = Math.ceil('Prompt 2'.length / 4);
+
+      // gpt-4o: $5.0 / 1M tokens
+      const cost1 = (p1Tokens / 1000000) * 5.0;
+      // claude-3-7-sonnet: $3.0 / 1M tokens
+      const cost2 = (p2Tokens / 1000000) * 3.0;
+
+      const expectedTotal = cost1 + cost2;
+      expect(estimation.totalUSD).toBeCloseTo(expectedTotal, 8);
     });
   });
 });

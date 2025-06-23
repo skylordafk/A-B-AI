@@ -32,14 +32,6 @@ export default function ModelSelect({ selectedModels, onSelectionChange }: Model
     {} as Record<string, Array<(typeof models)[0] & { formattedId: string }>>
   );
 
-  // Define best models for highlighting
-  const bestModels = new Set([
-    'openai/gpt-4o',
-    'anthropic/claude-3-5-sonnet-20241022',
-    'gemini/gemini-1.5-pro-002',
-    'grok/grok-3',
-  ]);
-
   // Provider display names
   const providerNames: Record<string, string> = {
     openai: 'OpenAI',
@@ -62,41 +54,26 @@ export default function ModelSelect({ selectedModels, onSelectionChange }: Model
     }
   };
 
-  const selectBestModels = () => {
-    const availableBestModels = Array.from(bestModels).filter((modelId) =>
-      models.some((m) => `${m.provider}/${m.id}` === modelId)
-    );
-    onSelectionChange(availableBestModels);
-  };
-
-  const getPriceBadge = (pricing: any, modelId: string) => {
+  const getPriceBadge = (pricing: any) => {
     if (!pricing) return '(unknown)';
     const promptPrice = pricing.prompt || 0;
-    let badge = '';
 
-    if (promptPrice === 0) badge = '(free)';
-    else if (promptPrice <= 0.001) badge = '(fast)';
-    else if (promptPrice <= 0.005) badge = '(premium)';
-    else badge = '(expensive)';
-
-    // Add "best" indicator for recommended models
-    if (bestModels.has(modelId)) {
-      badge = '⭐ ' + badge;
-    }
-
-    return badge;
+    // Prices are per 1M tokens.
+    if (promptPrice === 0) return '(free)';
+    if (promptPrice <= 1.0) return '(fast)'; // e.g., gpt-4o-mini at $0.6
+    if (promptPrice <= 5.0) return '(balanced)'; // e.g., gpt-4o at $5.0
+    return '(expensive)'; // e.g., claude-4-opus at $15.0
   };
+
+  // Add a guard clause to prevent rendering if models are not yet loaded
+  if (!models || models.length === 0) {
+    return <div>Loading models...</div>;
+  }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-sm font-medium text-[var(--text-primary)]">Select Models</h3>
-        <button
-          onClick={selectBestModels}
-          className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-        >
-          Select Best Models
-        </button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {Object.entries(modelsByProvider).map(([provider, providerModels]) => (
@@ -144,7 +121,7 @@ export default function ModelSelect({ selectedModels, onSelectionChange }: Model
                     <span className="text-xs font-medium text-stone-800 dark:text-stone-100 group-hover:text-stone-900 dark:group-hover:text-stone-50 transition-colors">
                       {model.name}{' '}
                       <span className="text-[10px] text-stone-600 dark:text-stone-300 font-normal">
-                        {getPriceBadge(model.pricing, model.formattedId)}
+                        {getPriceBadge(model.pricing)}
                       </span>
                     </span>
                   </label>

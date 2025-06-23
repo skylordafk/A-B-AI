@@ -28,7 +28,6 @@ import {
   setReasoningEffort,
 } from './settings';
 // import { checkLicence } from './licensing/checkLicence';
-import { ipcRouter } from './ipc/handlers';
 // import { logger } from './utils/logger';
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
@@ -122,7 +121,7 @@ ipcMain.handle('app:request', async (event, request: AppRequest): Promise<AppRes
   try {
     // Only log in development mode to avoid EPIPE errors in packaged app
     if (isDev) {
-      console.log(`IPC Request: ${request.type}`, request.payload);
+      console.debug(`IPC Request: ${request.type}`, request.payload);
     }
 
     switch (request.type) {

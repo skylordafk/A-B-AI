@@ -88,6 +88,12 @@ export default function Batch() {
     const handleMenuSettings = () => setSettingsOpen(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).ipc?.onOpenSettings?.(handleMenuSettings);
+
+    // Cleanup function to remove event listener
+    return () => {
+      // Note: If the IPC API provides a way to remove listeners, add that here
+      // For now, this serves as a reminder for proper cleanup
+    };
   }, []);
 
   // Initialize with 1 empty row on mount if no data
@@ -199,7 +205,9 @@ export default function Batch() {
         setIsRunning(false);
         setProgress(null);
         setJobQueue(null);
-        alert('✅ Batch processing completed successfully!');
+        // Use non-blocking notification instead of alert
+        console.info('✅ Batch processing completed successfully!');
+        // You can add a toast notification here if desired
       });
 
       queue.on('failed', (error) => {
@@ -207,7 +215,9 @@ export default function Batch() {
         setIsRunning(false);
         setProgress(null);
         setJobQueue(null);
-        alert(`❌ Batch processing failed: ${error.reason || 'Unknown error'}`);
+        // Use non-blocking notification instead of alert
+        console.error(`❌ Batch processing failed: ${error.reason || 'Unknown error'}`);
+        // You can add a toast notification here if desired
       });
 
       queue.on('stopped', (_info) => {
@@ -229,7 +239,7 @@ export default function Batch() {
     } catch (error: any) {
       console.error('Failed to run batch:', error);
 
-      // Show specific error message for missing API keys
+      // Show specific error message for missing API keys (this is important for user)
       if (error.message && error.message.includes('Missing API keys')) {
         alert(
           `❌ Batch Job Failed\n\n${error.message}\n\n` +

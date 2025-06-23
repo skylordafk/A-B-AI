@@ -11,7 +11,12 @@ files:
   - apps/ui/dist/**/*
   - node_modules/**/*
   - package.json
-  - data/**/*
+
+extraFiles:
+  - from: apps/data
+    to: data
+    filter:
+      - "**/*"
 
 includeSubNodeModules: true
 
@@ -35,6 +40,12 @@ mac:
   extendInfo:
     NSHighResolutionCapable: true
   # icon: build/icon.icns  # TODO: Add icon file
+  # Code signing configuration (requires Apple Developer account)
+  # identity: "Developer ID Application: Your Name (TEAM_ID)"
+  # hardenedRuntime: true
+  # gatekeeperAssess: false
+  # notarize:
+  #   teamId: "YOUR_TEAM_ID"
 
 win:
   target:

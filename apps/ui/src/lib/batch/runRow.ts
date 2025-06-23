@@ -71,8 +71,12 @@ export async function runRow(
       };
     }
 
+    // We initialize here without a value because the specific API method depends on conditional branches.
+    // Using 'let' is intentional, so we disable the prefer-const rule for this declaration.
+    // eslint-disable-next-line prefer-const
     let response: ModelResponse | ExtendedModelResponse;
 
+    // Determine if this is an OpenAI batch-capable model
     const isO = model.startsWith('openai/o');
 
     if (isO && (window as any).api.sendToModelBatch) {

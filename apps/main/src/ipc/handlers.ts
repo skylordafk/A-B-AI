@@ -5,12 +5,29 @@ import { ZodError } from 'zod';
 // Import existing services
 import { ModelService } from '../services/ModelService';
 import { Database } from '../db/mockDatabase';
-import { 
-  getAllKeys, setKey, getKey, validateKey as _validateKey, setMaxOutputTokens, getMaxOutputTokens,
-  setEnableWebSearch, getEnableWebSearch, setMaxWebSearchUses, getMaxWebSearchUses,
-  setEnableExtendedThinking, getEnableExtendedThinking, setEnablePromptCaching, 
-  getEnablePromptCaching, setPromptCacheTTL, getPromptCacheTTL, setEnableStreaming,
-  getEnableStreaming, getJsonMode, setJsonMode, getReasoningEffort, setReasoningEffort
+import {
+  getAllKeys,
+  setKey,
+  getKey,
+  validateKey as _validateKey,
+  setMaxOutputTokens,
+  getMaxOutputTokens,
+  setEnableWebSearch,
+  getEnableWebSearch,
+  setMaxWebSearchUses,
+  getMaxWebSearchUses,
+  setEnableExtendedThinking,
+  getEnableExtendedThinking,
+  setEnablePromptCaching,
+  getEnablePromptCaching,
+  setPromptCacheTTL,
+  getPromptCacheTTL,
+  setEnableStreaming,
+  getEnableStreaming,
+  getJsonMode,
+  setJsonMode,
+  getReasoningEffort,
+  setReasoningEffort,
 } from '../settings';
 import { allProviders, ProviderId } from '../providers';
 import { ChatOptions } from '../providers/base';
@@ -38,20 +55,35 @@ export class IpcRouter {
       try {
         // Validate request schema
         const request = RequestSchema.parse(rawRequest);
-        
+
         // Route to appropriate handler
         const response = await this.handleRequest(request);
-        
-        // Validate response schema
-        return ResponseSchema.parse(response);
+
+        // Ensure response is serializable before sending back
+        try {
+          // This will throw if response contains non-serializable data
+          const serializedResponse = JSON.parse(JSON.stringify(response));
+
+          // Validate response schema
+          return ResponseSchema.parse(serializedResponse);
+        } catch (serializeError: any) {
+          console.error('[IPC Router] Response serialization failed:', serializeError);
+          console.error('[IPC Router] Original response:', response);
+
+          // Return a safe error response
+          return {
+            success: false,
+            error: `Response serialization failed: ${serializeError.message || 'Unknown error'}`,
+          };
+        }
       } catch (error: any) {
         if (error instanceof ZodError) {
           return {
             success: false,
-            error: `Validation error: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
+            error: `Validation error: ${error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
           };
         }
-        
+
         return {
           success: false,
           error: error.message || 'Unknown error occurred',
@@ -64,89 +96,89 @@ export class IpcRouter {
     switch (request.type) {
       case 'models:get-all':
         return this.handleModelsGetAll();
-      
+
       case 'settings:save':
         return this.handleSettingsSave(request.payload);
-      
+
       case 'settings:load':
         return this.handleSettingsLoad(request.payload);
-      
+
       case 'chat:send':
         return this.handleChatSend(request.payload);
-      
+
       case 'project:create':
         return this.handleProjectCreate(request.payload);
-      
+
       case 'project:list':
         return this.handleProjectList();
-      
+
       case 'project:get':
         return this.handleProjectGet(request.payload);
-      
+
       case 'project:switch':
         return this.handleProjectSwitch(request.payload);
-      
+
       case 'project:delete':
         return this.handleProjectDelete(request.payload);
-      
+
       case 'conversation:create':
         return this.handleConversationCreate(request.payload);
-      
+
       case 'conversation:list':
         return this.handleConversationList(request.payload);
-      
+
       case 'messages:add':
         return this.handleMessagesAdd(request.payload);
-      
+
       case 'messages:list':
         return this.handleMessagesList(request.payload);
-      
+
       case 'batch:submit':
         return this.handleBatchSubmit(request.payload);
-      
+
       case 'batch:update-status':
         return this.handleBatchUpdateStatus(request.payload);
-      
+
       case 'batch:submit-native':
         return this.handleBatchSubmitNative(request.payload);
-      
+
       case 'batch:get-status':
         return this.handleBatchGetStatus(request.payload);
-      
+
       case 'batch:get-results':
         return this.handleBatchGetResults(request.payload);
-      
+
       case 'activity:get':
         return this.handleActivityGet(request.payload);
-      
+
       case 'utils:count-tokens':
       case 'tokens:count':
         return this.handleCountTokens(request.payload);
-      
+
       case 'jobqueue:save-state':
         return this.handleJobQueueSaveState(request.payload);
-      
+
       case 'jobqueue:load-state':
         return this.handleJobQueueLoadState(request.payload);
-      
+
       case 'jobqueue:clear-state':
         return this.handleJobQueueClearState(request.payload);
-      
+
       case 'jobqueue:get-directory':
         return this.handleJobQueueGetDirectory();
-      
+
       case 'jobqueue:list-files':
         return this.handleJobQueueListFiles(request.payload);
-      
+
       case 'history:log':
         return this.handleHistoryLog(request.payload);
-      
+
       case 'history:open-folder':
         return this.handleHistoryOpenFolder(request.payload);
-      
+
       case 'history:read':
         return this.handleHistoryRead(request.payload);
-      
+
       default:
         return {
           success: false,
@@ -162,7 +194,7 @@ export class IpcRouter {
 
   private async handleSettingsSave(payload: any): Promise<IpcResponse> {
     const { key, value, provider } = payload;
-    
+
     if (provider && key === 'apiKey') {
       setKey(provider as ProviderId, value);
     } else if (key === 'maxOutputTokens') {
@@ -184,14 +216,14 @@ export class IpcRouter {
     } else if (key === 'reasoningEffort') {
       setReasoningEffort(value);
     }
-    
+
     return { success: true, data: null };
   }
 
   private async handleSettingsLoad(payload: any): Promise<IpcResponse> {
     const { key, provider } = payload;
     let data;
-    
+
     if (provider && key === 'apiKey') {
       data = getKey(provider as ProviderId);
     } else if (key === 'allKeys') {
@@ -229,7 +261,7 @@ export class IpcRouter {
         reasoningEffort: getReasoningEffort(),
       };
     }
-    
+
     return { success: true, data };
   }
 
@@ -268,6 +300,7 @@ export class IpcRouter {
       }
 
       // Create ChatOptions with pricing and other options
+      // NOTE: Remove non-serializable properties (abortSignal, onStreamChunk) that can't be sent over IPC
       const chatOptions: ChatOptions = {
         pricing: modelDefinition.pricing,
         jsonMode: options?.jsonMode,
@@ -276,9 +309,8 @@ export class IpcRouter {
         cacheTTL: options?.cacheTTL,
         systemPrompt: systemPrompt,
         temperature: options?.temperature,
-        abortSignal: options?.abortSignal,
         enableStreaming: options?.enableStreaming,
-        onStreamChunk: options?.onStreamChunk,
+        // abortSignal and onStreamChunk are intentionally omitted as they can't be serialized over IPC
       };
 
       // Use enhanced features if available
@@ -292,9 +324,7 @@ export class IpcRouter {
 
       // Get the specific model details
       const models = provider.listModels();
-      const modelInfo = models.find(
-        (m) => modelName.includes(m.id) || m.id.includes(modelName)
-      );
+      const modelInfo = models.find((m) => modelName.includes(m.id) || m.id.includes(modelName));
       const modelLabel = modelInfo ? modelInfo.name : provider.label;
 
       // Save user message to database
@@ -326,28 +356,65 @@ export class IpcRouter {
         });
       }
 
-      return {
-        success: true,
-        data: {
-          id: savedMessage?.id || `msg-${Date.now()}`,
-          answer: result.answer,
-          content: result.answer,
-          role: 'assistant',
-          promptTokens: result.promptTokens,
-          answerTokens: result.answerTokens,
-          costUSD: result.costUSD,
-          usage: {
-            prompt_tokens: result.promptTokens,
-            completion_tokens: result.answerTokens,
-            cache_creation_input_tokens: (result as any).cacheCreationTokens,
-            cache_read_input_tokens: (result as any).cacheReadTokens,
-          },
-          cost: result.costUSD,
-          provider: modelLabel,
-          model: modelId,
-          timestamp: savedMessage?.timestamp || Date.now(),
+      // Build response data - ensure all values are serializable
+      const responseData: any = {
+        id: String(savedMessage?.id || `msg-${Date.now()}`),
+        answer: String(result.answer || ''),
+        content: String(result.answer || ''),
+        role: 'assistant',
+        promptTokens: Number(result.promptTokens || 0),
+        answerTokens: Number(result.answerTokens || 0),
+        costUSD: Number(result.costUSD || 0),
+        usage: {
+          prompt_tokens: Number(result.promptTokens || 0),
+          completion_tokens: Number(result.answerTokens || 0),
         },
+        cost: Number(result.costUSD || 0),
+        provider: String(modelLabel || ''),
+        model: String(modelId || ''),
+        timestamp: Number(savedMessage?.timestamp || Date.now()),
       };
+
+      // Only add cache tokens if they exist
+      if ((result as any).cacheCreationTokens !== undefined) {
+        responseData.usage.cache_creation_input_tokens = (result as any).cacheCreationTokens;
+      }
+      if ((result as any).cacheReadTokens !== undefined) {
+        responseData.usage.cache_read_input_tokens = (result as any).cacheReadTokens;
+      }
+
+      // Ensure the response is serializable by parsing and stringifying
+      try {
+        const serialized = JSON.parse(JSON.stringify(responseData));
+        return {
+          success: true,
+          data: serialized,
+        };
+      } catch (e) {
+        console.error('[IPC] Response serialization error:', e);
+        console.error('[IPC] Response data:', responseData);
+        // Return a minimal response if serialization fails
+        return {
+          success: true,
+          data: {
+            id: responseData.id,
+            answer: String(result.answer || ''),
+            content: String(result.answer || ''),
+            role: 'assistant',
+            promptTokens: Number(result.promptTokens || 0),
+            answerTokens: Number(result.answerTokens || 0),
+            costUSD: Number(result.costUSD || 0),
+            usage: {
+              prompt_tokens: Number(result.promptTokens || 0),
+              completion_tokens: Number(result.answerTokens || 0),
+            },
+            cost: Number(result.costUSD || 0),
+            provider: String(modelLabel || ''),
+            model: String(modelId || ''),
+            timestamp: Number(savedMessage?.timestamp || Date.now()),
+          },
+        };
+      }
     } catch (error: any) {
       // Check for auth errors
       if (
@@ -361,7 +428,13 @@ export class IpcRouter {
           win.webContents.send('settings:invalidKey', provider.id);
         }
       }
-      throw error;
+      // Ensure we only throw serializable errors to avoid "An object could not be cloned" error
+      // Include status information in the error message if available
+      let errorMessage = error.message || 'An error occurred during chat';
+      if (error.status) {
+        errorMessage = `${errorMessage} (Status: ${error.status})`;
+      }
+      throw new Error(errorMessage);
     }
   }
 
@@ -550,7 +623,7 @@ export class IpcRouter {
   // Utility handlers
   private async handleCountTokens(payload: any): Promise<IpcResponse> {
     const { text, modelId } = payload;
-    
+
     try {
       // Use centralized token counting utility
       const { provider } = parseModelId(modelId || 'openai/gpt-4o');
@@ -573,7 +646,7 @@ export class IpcRouter {
 
     const statePath = path.join(stateDir, `${batchId}.jobqueue`);
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
-    
+
     return { success: true, data: null };
   }
 
@@ -598,7 +671,7 @@ export class IpcRouter {
     if (fs.existsSync(statePath)) {
       fs.unlinkSync(statePath);
     }
-    
+
     return { success: true, data: null };
   }
 
@@ -620,21 +693,22 @@ export class IpcRouter {
     try {
       appendHistory(project, row);
       return { success: true, data: null };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error logging history:', error);
-      throw error;
+      throw new Error(error.message || 'Error logging history');
     }
   }
 
   private async handleHistoryOpenFolder(payload: any): Promise<IpcResponse> {
-    const { project } = payload;
+    // project is currently unused but destructured from payload; prefix with underscore to satisfy lint rules
+    const { project: _project } = payload;
     try {
       const historyDir = path.join(os.homedir(), '.abai', 'history');
       await shell.openPath(historyDir);
       return { success: true, data: null };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error opening history folder:', error);
-      throw error;
+      throw new Error(error.message || 'Error opening history folder');
     }
   }
 

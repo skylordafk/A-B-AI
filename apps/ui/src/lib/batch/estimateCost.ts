@@ -6,7 +6,7 @@ async function estimateTokens(text: string, modelId?: string): Promise<number> {
   try {
     const response = await window.api.request({
       type: 'tokens:count',
-      payload: { text, modelId }
+      payload: { text, modelId },
     });
     return response.data || Math.ceil(text.length / 4);
   } catch {
@@ -85,10 +85,17 @@ export async function calculateActualCost(
     promptPrice = modelPricing.prompt;
     completionPrice = modelPricing.completion;
   } else {
-    // Fallback to default model pricing
-    const defaultPricing = pricing.openai['o3-2025-04-16'];
-    promptPrice = defaultPricing.prompt;
-    completionPrice = defaultPricing.completion;
+    // Fallback to default pricing if model not found
+    if (pricing.openai && pricing.openai['o3-2025-04-16']) {
+      const defaultPricing = pricing.openai['o3-2025-04-16'];
+      promptPrice = defaultPricing.prompt;
+      completionPrice = defaultPricing.completion;
+    } else {
+      // Use safe fallback pricing
+      promptPrice = 0.01; // $0.01 per 1K tokens as fallback
+      completionPrice = 0.03; // $0.03 per 1K tokens as fallback
+      console.warn(`No pricing data found for model ${row.model}, using fallback pricing`);
+    }
   }
 
   // Skip if pricing is -1 (unavailable)

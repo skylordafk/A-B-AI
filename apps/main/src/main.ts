@@ -1,7 +1,6 @@
 import { app, BrowserWindow, Menu, shell } from 'electron';
 import * as Sentry from '@sentry/electron';
 import path from 'path';
-import Store from 'electron-store';
 import type { ProviderId } from './providers';
 import {
   getKey,
@@ -56,7 +55,7 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 // Initialize Sentry for error tracking
 if (!isDev && process.env.SENTRY_DSN) {
-  Sentry.init({
+  (Sentry as any).init({
     dsn: process.env.SENTRY_DSN,
     environment: app.isPackaged ? 'production' : 'development',
     release: app.getVersion(),

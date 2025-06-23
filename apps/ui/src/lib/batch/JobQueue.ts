@@ -1,5 +1,6 @@
 import { EventEmitter } from 'eventemitter3';
 import type { BatchRow, BatchResult, BatchProgress } from '../../types/batch';
+// Note: IPC types are available but not explicitly imported as we use any for flexibility
 import { runRow } from './runRow';
 
 export interface JobQueueState {
@@ -13,13 +14,7 @@ export interface JobQueueState {
 }
 
 interface JobQueueAPI {
-  getEnablePromptCaching?: () => Promise<boolean>;
-  getPromptCacheTTL?: () => Promise<string>;
-  saveJobQueueState?: (batchId: string, state: JobQueueState) => Promise<void>;
-  loadJobQueueState?: (batchId: string) => Promise<JobQueueState | null>;
-  clearJobQueueState?: (batchId: string) => Promise<void>;
-  getStateDirectory?: () => Promise<string>;
-  listFiles?: (dir: string) => Promise<string[]>;
+  request: (request: any) => Promise<any>;
 }
 
 export class JobQueue extends EventEmitter {
@@ -33,14 +28,33 @@ export class JobQueue extends EventEmitter {
   private isRunning = false;
   private isStopping = false;
   private batchId: string;
-  private stateFile: string | null = null;
   private api: JobQueueAPI;
 
   constructor(maxInFlight: number = 3, batchId?: string, api?: JobQueueAPI) {
     super();
     this.maxInFlight = Math.max(1, Math.min(10, maxInFlight));
-    this.batchId = batchId || `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    this.api = api || (typeof window !== 'undefined' ? window.api : {});
+    this.batchId = batchId || `batch_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    this.api =
+      api ||
+      (typeof window !== 'undefined' && window.api
+        ? window.api
+        : {
+            request: async (req) => {
+              console.warn(
+                '[JobQueue] API not available, falling back to defaults for request:',
+                req.type
+              );
+              // Return appropriate defaults for different request types
+              if (req.type === 'settings:load') {
+                const defaults: Record<string, any> = {
+                  enablePromptCaching: false,
+                  promptCacheTTL: '5m',
+                };
+                return { success: true, data: defaults[req.payload?.key] || null };
+              }
+              return { success: false, error: 'API not available' };
+            },
+          });
   }
 
   enqueue(row: BatchRow): void {
@@ -160,11 +174,32 @@ export class JobQueue extends EventEmitter {
   // Get list of resumable batches
   static async getResumableBatches(api?: JobQueueAPI): Promise<string[]> {
     try {
-      const jobQueueAPI = api || (typeof window !== 'undefined' ? window.api : {});
-      const stateDir = await jobQueueAPI.getStateDirectory?.();
+      const jobQueueAPI =
+        api ||
+        (typeof window !== 'undefined' && window.api
+          ? window.api
+          : {
+              request: async (req) => {
+                console.warn(
+                  '[JobQueue] API not available for getResumableBatches, request:',
+                  req.type
+                );
+                return { success: false, error: 'API not available' };
+              },
+            });
+      const stateDirResponse = await jobQueueAPI.request({
+        type: 'jobqueue:get-directory',
+      });
+      const stateDir = stateDirResponse?.data;
       if (!stateDir) return [];
 
-      const files = await jobQueueAPI.listFiles?.(stateDir);
+      const filesResponse = await jobQueueAPI.request({
+        type: 'jobqueue:list-files',
+        payload: {
+          directory: stateDir,
+        },
+      });
+      const files = filesResponse?.data;
       return (
         files
           ?.filter((f: string) => f.endsWith('.jobqueue'))
@@ -217,8 +252,25 @@ export class JobQueue extends EventEmitter {
   private async processRow(row: BatchRow): Promise<void> {
     try {
       // Get caching settings
-      const enablePromptCaching = (await this.api.getEnablePromptCaching?.()) ?? false;
-      const cacheTTL = ((await this.api.getPromptCacheTTL?.()) as '5m' | '1h') ?? '5m';
+      let enablePromptCaching = false;
+      let cacheTTL = '5m' as '5m' | '1h';
+
+      try {
+        const enableCachingResponse = await this.api.request({
+          type: 'settings:load',
+          payload: { key: 'enablePromptCaching' },
+        });
+        enablePromptCaching = enableCachingResponse?.data ?? false;
+
+        const cacheTTLResponse = await this.api.request({
+          type: 'settings:load',
+          payload: { key: 'promptCacheTTL' },
+        });
+        cacheTTL = cacheTTLResponse?.data ?? '5m';
+      } catch (error) {
+        // Use defaults if settings can't be loaded
+        console.warn('Could not load caching settings, using defaults:', error);
+      }
 
       const result = await runRow(row, {
         enablePromptCaching,
@@ -310,7 +362,13 @@ export class JobQueue extends EventEmitter {
     };
 
     try {
-      await this.api.saveJobQueueState?.(this.batchId, state);
+      await this.api.request({
+        type: 'jobqueue:save-state',
+        payload: {
+          batchId: this.batchId,
+          state,
+        },
+      });
     } catch (error) {
       console.error('Error saving job queue state:', error);
     }
@@ -318,7 +376,13 @@ export class JobQueue extends EventEmitter {
 
   private async loadState(): Promise<JobQueueState | null> {
     try {
-      return (await window.api.loadJobQueueState?.(this.batchId)) || null;
+      const response = await this.api.request({
+        type: 'jobqueue:load-state',
+        payload: {
+          batchId: this.batchId,
+        },
+      });
+      return response?.data || null;
     } catch (error) {
       console.error('Error loading job queue state:', error);
       return null;
@@ -327,7 +391,12 @@ export class JobQueue extends EventEmitter {
 
   private async clearState(): Promise<void> {
     try {
-      await this.api.clearJobQueueState?.(this.batchId);
+      await this.api.request({
+        type: 'jobqueue:clear-state',
+        payload: {
+          batchId: this.batchId,
+        },
+      });
     } catch (error) {
       console.error('Error clearing job queue state:', error);
     }

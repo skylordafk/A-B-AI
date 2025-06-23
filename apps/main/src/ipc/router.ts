@@ -26,24 +26,37 @@ export const ModelsGetAllRequestSchema = z.object({
 });
 
 export const ModelsGetAllResponseSchema = BaseResponseSchema.extend({
-  data: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    provider: z.string(),
-    pricing: z.object({
-      input: z.number(),
-      output: z.number(),
-    }),
-  })).optional(),
+  data: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        provider: z.string(),
+        pricing: z.object({
+          input: z.number(),
+          output: z.number(),
+        }),
+      })
+    )
+    .optional(),
 });
 
 // Settings
 export const SettingsSaveRequestSchema = z.object({
   type: z.literal('settings:save'),
   payload: z.object({
-    key: z.enum(['apiKey', 'maxOutputTokens', 'enableWebSearch', 'maxWebSearchUses', 
-                'enableExtendedThinking', 'enablePromptCaching', 'promptCacheTTL', 
-                'enableStreaming', 'jsonMode', 'reasoningEffort']),
+    key: z.enum([
+      'apiKey',
+      'maxOutputTokens',
+      'enableWebSearch',
+      'maxWebSearchUses',
+      'enableExtendedThinking',
+      'enablePromptCaching',
+      'promptCacheTTL',
+      'enableStreaming',
+      'jsonMode',
+      'reasoningEffort',
+    ]),
     value: z.any(),
     provider: ProviderIdSchema.optional(),
   }),
@@ -52,9 +65,19 @@ export const SettingsSaveRequestSchema = z.object({
 export const SettingsLoadRequestSchema = z.object({
   type: z.literal('settings:load'),
   payload: z.object({
-    key: z.enum(['apiKey', 'allKeys', 'maxOutputTokens', 'enableWebSearch', 'maxWebSearchUses',
-                'enableExtendedThinking', 'enablePromptCaching', 'promptCacheTTL',
-                'enableStreaming', 'jsonMode', 'reasoningEffort']),
+    key: z.enum([
+      'apiKey',
+      'allKeys',
+      'maxOutputTokens',
+      'enableWebSearch',
+      'maxWebSearchUses',
+      'enableExtendedThinking',
+      'enablePromptCaching',
+      'promptCacheTTL',
+      'enableStreaming',
+      'jsonMode',
+      'reasoningEffort',
+    ]),
     provider: ProviderIdSchema.optional(),
   }),
 });
@@ -71,39 +94,42 @@ export const ChatSendRequestSchema = z.object({
     content: z.string(),
     modelId: ModelIdSchema,
     systemPrompt: z.string().optional(),
-    options: z.object({
-      temperature: z.number().min(0).max(2).optional(),
-      jsonMode: z.boolean().optional(),
-      jsonSchema: z.string().optional(),
-      enablePromptCaching: z.boolean().optional(),
-      cacheTTL: z.enum(['5m', '1h']).optional(),
-      enableStreaming: z.boolean().optional(),
-      onStreamChunk: z.function().optional(),
-      abortSignal: z.any().optional(),
-    }).optional(),
+    options: z
+      .object({
+        temperature: z.number().min(0).max(2).optional(),
+        jsonMode: z.boolean().optional(),
+        jsonSchema: z.string().optional(),
+        enablePromptCaching: z.boolean().optional(),
+        cacheTTL: z.enum(['5m', '1h']).optional(),
+        enableStreaming: z.boolean().optional(),
+        // NOTE: onStreamChunk and abortSignal removed - functions and DOM objects can't be serialized over IPC
+      })
+      .optional(),
   }),
 });
 
 export const ChatResponseSchema = BaseResponseSchema.extend({
-  data: z.object({
-    id: z.string(),
-    answer: z.string(),
-    content: z.string(),
-    role: z.literal('assistant'),
-    promptTokens: z.number(),
-    answerTokens: z.number(),
-    costUSD: z.number(),
-    usage: z.object({
-      prompt_tokens: z.number(),
-      completion_tokens: z.number(),
-      cache_creation_input_tokens: z.number().optional(),
-      cache_read_input_tokens: z.number().optional(),
-    }),
-    cost: z.number(),
-    provider: z.string(),
-    model: z.string(),
-    timestamp: z.number(),
-  }).optional(),
+  data: z
+    .object({
+      id: z.string(),
+      answer: z.string(),
+      content: z.string(),
+      role: z.literal('assistant'),
+      promptTokens: z.number(),
+      answerTokens: z.number(),
+      costUSD: z.number(),
+      usage: z.object({
+        prompt_tokens: z.number(),
+        completion_tokens: z.number(),
+        cache_creation_input_tokens: z.number().optional(),
+        cache_read_input_tokens: z.number().optional(),
+      }),
+      cost: z.number(),
+      provider: z.string(),
+      model: z.string(),
+      timestamp: z.number(),
+    })
+    .optional(),
 });
 
 // Projects
@@ -142,19 +168,26 @@ export const ProjectDeleteRequestSchema = z.object({
 });
 
 export const ProjectResponseSchema = BaseResponseSchema.extend({
-  data: z.object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    created_at: z.string(),
-    last_used: z.string(),
-  }).or(z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    created_at: z.string(),
-    last_used: z.string(),
-  }))).optional(),
+  data: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string().optional(),
+      created_at: z.string(),
+      last_used: z.string(),
+    })
+    .or(
+      z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string().optional(),
+          created_at: z.string(),
+          last_used: z.string(),
+        })
+      )
+    )
+    .optional(),
 });
 
 // Conversations
@@ -174,19 +207,26 @@ export const ConversationListRequestSchema = z.object({
 });
 
 export const ConversationResponseSchema = BaseResponseSchema.extend({
-  data: z.object({
-    id: z.string(),
-    projectId: z.string(),
-    name: z.string().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-  }).or(z.array(z.object({
-    id: z.string(),
-    projectId: z.string(),
-    name: z.string().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-  }))).optional(),
+  data: z
+    .object({
+      id: z.string(),
+      projectId: z.string(),
+      name: z.string().optional(),
+      created_at: z.string(),
+      updated_at: z.string(),
+    })
+    .or(
+      z.array(
+        z.object({
+          id: z.string(),
+          projectId: z.string(),
+          name: z.string().optional(),
+          created_at: z.string(),
+          updated_at: z.string(),
+        })
+      )
+    )
+    .optional(),
 });
 
 // Messages
@@ -212,29 +252,36 @@ export const MessagesListRequestSchema = z.object({
 });
 
 export const MessagesResponseSchema = BaseResponseSchema.extend({
-  data: z.object({
-    id: z.string(),
-    conversationId: z.string(),
-    role: z.enum(['user', 'assistant']),
-    content: z.string(),
-    provider: z.string().optional(),
-    model: z.string().optional(),
-    cost: z.number().optional(),
-    tokensIn: z.number().optional(),
-    tokensOut: z.number().optional(),
-    timestamp: z.number(),
-  }).or(z.array(z.object({
-    id: z.string(),
-    conversationId: z.string(),
-    role: z.enum(['user', 'assistant']),
-    content: z.string(),
-    provider: z.string().optional(),
-    model: z.string().optional(),
-    cost: z.number().optional(),
-    tokensIn: z.number().optional(),
-    tokensOut: z.number().optional(),
-    timestamp: z.number(),
-  }))).optional(),
+  data: z
+    .object({
+      id: z.string(),
+      conversationId: z.string(),
+      role: z.enum(['user', 'assistant']),
+      content: z.string(),
+      provider: z.string().optional(),
+      model: z.string().optional(),
+      cost: z.number().optional(),
+      tokensIn: z.number().optional(),
+      tokensOut: z.number().optional(),
+      timestamp: z.number(),
+    })
+    .or(
+      z.array(
+        z.object({
+          id: z.string(),
+          conversationId: z.string(),
+          role: z.enum(['user', 'assistant']),
+          content: z.string(),
+          provider: z.string().optional(),
+          model: z.string().optional(),
+          cost: z.number().optional(),
+          tokensIn: z.number().optional(),
+          tokensOut: z.number().optional(),
+          timestamp: z.number(),
+        })
+      )
+    )
+    .optional(),
 });
 
 // Batch Processing
@@ -242,14 +289,16 @@ export const BatchSubmitRequestSchema = z.object({
   type: z.literal('batch:submit'),
   payload: z.object({
     projectId: ProjectIdSchema,
-    rows: z.array(z.object({
-      id: z.string(),
-      prompt: z.string(),
-      model: ModelIdSchema,
-      systemPrompt: z.string().optional(),
-      jsonMode: z.boolean().optional(),
-      jsonSchema: z.string().optional(),
-    })),
+    rows: z.array(
+      z.object({
+        id: z.string(),
+        prompt: z.string(),
+        model: ModelIdSchema,
+        systemPrompt: z.string().optional(),
+        jsonMode: z.boolean().optional(),
+        jsonSchema: z.string().optional(),
+      })
+    ),
     fileName: z.string().optional(),
   }),
 });
@@ -305,13 +354,17 @@ export const ActivityGetRequestSchema = z.object({
 });
 
 export const ActivityResponseSchema = BaseResponseSchema.extend({
-  data: z.array(z.object({
-    id: z.string(),
-    type: z.string(),
-    description: z.string(),
-    timestamp: z.number(),
-    metadata: z.any().optional(),
-  })).optional(),
+  data: z
+    .array(
+      z.object({
+        id: z.string(),
+        type: z.string(),
+        description: z.string(),
+        timestamp: z.number(),
+        metadata: z.any().optional(),
+      })
+    )
+    .optional(),
 });
 
 // Utilities

@@ -13,30 +13,55 @@ export class ModelService {
 
   private loadModels(): void {
     try {
-      let modelsPath: string;
+      let modelsPath: string | null = null;
 
       if (app.isPackaged) {
-        // In packaged app, models.json should be at the app root
-        modelsPath = path.join(app.getAppPath(), 'data/models.json');
-      } else {
-        // In development, we need to go from apps/main/src/services to root
-        // When compiled with electron-vite, this will be in apps/main/dist/main/index.js
-        // So we need to check if we're running from dist or src
-        const currentDir = __dirname;
+        // In packaged mode the file may reside in different locations depending on how electron-builder packed it.
+        // 1. Inside the ASAR (app.getAppPath())
+        // 2. As an extra file beside the ASAR (process.resourcesPath)
+        // 3. One directory above app path (when asarUnpack is used)
+        const candidatePaths = [
+          path.join(app.getAppPath(), 'data', 'models.json'),
+          path.join(process.resourcesPath, 'data', 'models.json'),
+          path.join(path.dirname(app.getAppPath()), 'data', 'models.json'),
+        ];
 
-        if (currentDir.includes('/dist/')) {
-          // Running from compiled code with electron-vite: apps/main/dist/main -> root (3 levels up)
-          modelsPath = path.join(__dirname, '../../../data/models.json');
-        } else {
-          // Running from source: apps/main/src/services -> root
-          modelsPath = path.join(__dirname, '../../../../data/models.json');
+        for (const p of candidatePaths) {
+          if (fs.existsSync(p)) {
+            modelsPath = p;
+            break;
+          }
         }
+
+        if (!modelsPath) {
+          throw new Error(
+            `models.json not found in any candidate paths: ${candidatePaths.join(', ')}`
+          );
+        }
+      } else {
+        // In development, find the workspace root and go to data/models.json
+        let workspaceRoot = __dirname;
+        while (workspaceRoot !== '/') {
+          const packageJsonPath = path.join(workspaceRoot, 'package.json');
+          if (fs.existsSync(packageJsonPath)) {
+            try {
+              const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+              if (packageJson.name === 'abai-desktop') {
+                break;
+              }
+            } catch (_) {
+              // ignore parse errors and keep traversing up
+            }
+          }
+          workspaceRoot = path.dirname(workspaceRoot);
+        }
+        modelsPath = path.join(workspaceRoot, 'data', 'models.json');
       }
 
       logger.debug(`[ModelService] Loading models from: ${modelsPath}`);
       const data = fs.readFileSync(modelsPath, 'utf-8');
       this.models = JSON.parse(data);
-      logger.debug(`[ModelService] Loaded ${this.models.length} models from data/models.json`);
+      logger.debug(`[ModelService] Loaded ${this.models.length} models`);
     } catch (error) {
       logger.error('[ModelService] Failed to load models:', error);
       this.models = [];

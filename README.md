@@ -47,6 +47,15 @@ The page always points to the most recent stable release on the [Releases](https
 ## 🚀 Quick Start
 
 1. **Download & Install** – Get the latest version from the download page above
+   - **macOS Users**: If you see a security warning about the disk not being readable, use this Terminal workaround:
+     ```bash
+     # Replace with your actual DMG filename
+     hdiutil attach A-B-AI-1.3.0-arm64.dmg -nobrowse -quiet
+     cp -R "/Volumes/A-B-AI 1.3.0-arm64/A-B-AI.app" /Applications/
+     sudo xattr -r -d com.apple.quarantine /Applications/A-B-AI.app
+     hdiutil detach "/Volumes/A-B-AI 1.3.0-arm64" -quiet
+     open /Applications/A-B-AI.app
+     ```
 2. **Add API Keys** – Open Settings (File → Settings) and add your provider API keys:
    - OpenAI: Get from [platform.openai.com](https://platform.openai.com/api-keys)
    - Anthropic: Get from [console.anthropic.com](https://console.anthropic.com/)

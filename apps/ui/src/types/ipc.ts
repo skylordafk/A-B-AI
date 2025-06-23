@@ -34,9 +34,17 @@ export interface ModelsGetAllResponse extends BaseResponse {
 export interface SettingsSaveRequest {
   type: 'settings:save';
   payload: {
-    key: 'apiKey' | 'maxOutputTokens' | 'enableWebSearch' | 'maxWebSearchUses' | 
-         'enableExtendedThinking' | 'enablePromptCaching' | 'promptCacheTTL' | 
-         'enableStreaming' | 'jsonMode' | 'reasoningEffort';
+    key:
+      | 'apiKey'
+      | 'maxOutputTokens'
+      | 'enableWebSearch'
+      | 'maxWebSearchUses'
+      | 'enableExtendedThinking'
+      | 'enablePromptCaching'
+      | 'promptCacheTTL'
+      | 'enableStreaming'
+      | 'jsonMode'
+      | 'reasoningEffort';
     value: any;
     provider?: 'openai' | 'anthropic' | 'gemini' | 'grok';
   };
@@ -45,9 +53,18 @@ export interface SettingsSaveRequest {
 export interface SettingsLoadRequest {
   type: 'settings:load';
   payload: {
-    key: 'apiKey' | 'allKeys' | 'maxOutputTokens' | 'enableWebSearch' | 'maxWebSearchUses' |
-         'enableExtendedThinking' | 'enablePromptCaching' | 'promptCacheTTL' |
-         'enableStreaming' | 'jsonMode' | 'reasoningEffort';
+    key:
+      | 'apiKey'
+      | 'allKeys'
+      | 'maxOutputTokens'
+      | 'enableWebSearch'
+      | 'maxWebSearchUses'
+      | 'enableExtendedThinking'
+      | 'enablePromptCaching'
+      | 'promptCacheTTL'
+      | 'enableStreaming'
+      | 'jsonMode'
+      | 'reasoningEffort';
     provider?: 'openai' | 'anthropic' | 'gemini' | 'grok';
   };
 }
@@ -71,8 +88,7 @@ export interface ChatSendRequest {
       enablePromptCaching?: boolean;
       cacheTTL?: '5m' | '1h';
       enableStreaming?: boolean;
-      onStreamChunk?: (chunk: string) => void;
-      abortSignal?: any;
+      // NOTE: onStreamChunk and abortSignal removed - functions and DOM objects can't be serialized over IPC
     };
   };
 }
@@ -135,19 +151,21 @@ export interface ProjectDeleteRequest {
 }
 
 export interface ProjectResponse extends BaseResponse {
-  data?: {
-    id: string;
-    name: string;
-    description?: string;
-    created_at: string;
-    last_used: string;
-  } | Array<{
-    id: string;
-    name: string;
-    description?: string;
-    created_at: string;
-    last_used: string;
-  }>;
+  data?:
+    | {
+        id: string;
+        name: string;
+        description?: string;
+        created_at: string;
+        last_used: string;
+      }
+    | Array<{
+        id: string;
+        name: string;
+        description?: string;
+        created_at: string;
+        last_used: string;
+      }>;
 }
 
 // Conversations
@@ -167,19 +185,21 @@ export interface ConversationListRequest {
 }
 
 export interface ConversationResponse extends BaseResponse {
-  data?: {
-    id: string;
-    projectId: string;
-    name?: string;
-    created_at: string;
-    updated_at: string;
-  } | Array<{
-    id: string;
-    projectId: string;
-    name?: string;
-    created_at: string;
-    updated_at: string;
-  }>;
+  data?:
+    | {
+        id: string;
+        projectId: string;
+        name?: string;
+        created_at: string;
+        updated_at: string;
+      }
+    | Array<{
+        id: string;
+        projectId: string;
+        name?: string;
+        created_at: string;
+        updated_at: string;
+      }>;
 }
 
 // Messages
@@ -205,29 +225,31 @@ export interface MessagesListRequest {
 }
 
 export interface MessagesResponse extends BaseResponse {
-  data?: {
-    id: string;
-    conversationId: string;
-    role: 'user' | 'assistant';
-    content: string;
-    provider?: string;
-    model?: string;
-    cost?: number;
-    tokensIn?: number;
-    tokensOut?: number;
-    timestamp: number;
-  } | Array<{
-    id: string;
-    conversationId: string;
-    role: 'user' | 'assistant';
-    content: string;
-    provider?: string;
-    model?: string;
-    cost?: number;
-    tokensIn?: number;
-    tokensOut?: number;
-    timestamp: number;
-  }>;
+  data?:
+    | {
+        id: string;
+        conversationId: string;
+        role: 'user' | 'assistant';
+        content: string;
+        provider?: string;
+        model?: string;
+        cost?: number;
+        tokensIn?: number;
+        tokensOut?: number;
+        timestamp: number;
+      }
+    | Array<{
+        id: string;
+        conversationId: string;
+        role: 'user' | 'assistant';
+        content: string;
+        provider?: string;
+        model?: string;
+        cost?: number;
+        tokensIn?: number;
+        tokensOut?: number;
+        timestamp: number;
+      }>;
 }
 
 // Batch Processing
@@ -387,7 +409,7 @@ export interface HistoryResponse extends BaseResponse {
 }
 
 // Union types for all requests and responses
-export type IpcRequest = 
+export type IpcRequest =
   | ModelsGetAllRequest
   | SettingsSaveRequest
   | SettingsLoadRequest
@@ -417,7 +439,7 @@ export type IpcRequest =
   | HistoryOpenFolderRequest
   | HistoryReadRequest;
 
-export type IpcResponse = 
+export type IpcResponse =
   | ModelsGetAllResponse
   | SettingsResponse
   | ChatResponse

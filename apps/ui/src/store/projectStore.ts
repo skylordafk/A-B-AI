@@ -200,9 +200,17 @@ export const useProjectStore = create<ProjectStore>()(
     },
 
     createConversation: async (name: string) => {
-      // Placeholder - will be implemented when backend provides this endpoint
+      // Generate a proper UUID for the conversation
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+          const r = (Math.random() * 16) | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      };
+
       const newConversation: Conversation = {
-        id: `conv-${Date.now()}`,
+        id: generateUUID(),
         projectId: get().currentProjectId!,
         name,
         createdAt: Date.now(),

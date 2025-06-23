@@ -226,7 +226,7 @@ export const openaiProvider: BaseProvider = {
 
     // Count tokens for all messages using centralized utility
     const allMessageText = preparedMessages.map((m) => m.content).join('\n');
-    const promptTokens = countTokens(allMessageText, 'openai', model);
+    const promptTokens = await countTokens(allMessageText, 'openai', model);
 
     // Convert our messages to OpenAI format
     const openaiMessages = preparedMessages.map((msg) => ({
@@ -263,7 +263,7 @@ export const openaiProvider: BaseProvider = {
         (res.output && res.output.length && res.output.at(-1)?.content?.[0]?.text) ||
         '';
 
-      const answerTokens = countTokens(answer, 'openai', model);
+      const answerTokens = await countTokens(answer, 'openai', model);
 
       const tokens: TokenUsage = { promptTokens, completionTokens: answerTokens };
       const costUSD = calcCost(tokens, pricing);
@@ -301,7 +301,7 @@ export const openaiProvider: BaseProvider = {
     });
 
     const answer = res.choices?.[0]?.message?.content || '';
-    const answerTokens = countTokens(answer, 'openai', model);
+    const answerTokens = await countTokens(answer, 'openai', model);
 
     // Calculate cost using centralized utility
     const tokens: TokenUsage = { promptTokens, completionTokens: answerTokens };

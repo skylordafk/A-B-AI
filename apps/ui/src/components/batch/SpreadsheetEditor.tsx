@@ -790,15 +790,17 @@ export default function SpreadsheetEditor({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle keyboard events when the component is focused or no input is focused
       const activeElement = document.activeElement;
-      const isInputFocused = activeElement && 
-        (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || 
-         activeElement.getAttribute('contenteditable') === 'true');
-      
+      const isInputFocused =
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.getAttribute('contenteditable') === 'true');
+
       // Don't interfere with navigation or other app functionality when not in spreadsheet
       if (isInputFocused && !activeElement.closest('.spreadsheet-editor')) {
         return;
       }
-      
+
       if (editing.cell && e.key === 'Tab') {
         e.preventDefault();
         finishEditing();
@@ -1046,7 +1048,7 @@ export default function SpreadsheetEditor({
     });
 
     dispatch({ type: 'SET_ROWS', rows: updatedRows });
-  }, [currentJobId, jobResults, rows]);
+  }, [currentJobId, jobResults]);
 
   // Effect to calculate costs when rows change significantly
   useEffect(() => {

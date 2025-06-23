@@ -6,7 +6,7 @@ import { ZodError } from 'zod';
 import { ModelService } from '../services/ModelService';
 import { Database } from '../db/mockDatabase';
 import { 
-  getAllKeys, setKey, getKey, validateKey, setMaxOutputTokens, getMaxOutputTokens,
+  getAllKeys, setKey, getKey, validateKey as _validateKey, setMaxOutputTokens, getMaxOutputTokens,
   setEnableWebSearch, getEnableWebSearch, setMaxWebSearchUses, getMaxWebSearchUses,
   setEnableExtendedThinking, getEnableExtendedThinking, setEnablePromptCaching, 
   getEnablePromptCaching, setPromptCacheTTL, getPromptCacheTTL, setEnableStreaming,
@@ -25,7 +25,7 @@ import { shell, BrowserWindow } from 'electron';
 // Initialize services
 const modelService = new ModelService();
 const database = new Database();
-const tokenEncoder = get_encoding('cl100k_base');
+const _tokenEncoder = get_encoding('cl100k_base');
 
 // Router implementation
 export class IpcRouter {

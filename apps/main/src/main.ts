@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, shell } from 'electron';
 import * as Sentry from '@sentry/electron';
 import path from 'path';
 import Store from 'electron-store';
-import { allProviders, ProviderId } from './providers';
+import type { ProviderId } from './providers';
 import {
   getKey,
   getMaxOutputTokens,
@@ -15,14 +15,12 @@ import {
   getJsonMode,
   getReasoningEffort,
 } from './settings';
-// Import the new IPC router which handles all IPC automatically
-import { ipcRouter } from './ipc/handlers';
+import './ipc/handlers'; // Initialize IPC router
 
 const isDev = !app.isPackaged && process.env.VITE_DEV_SERVER_URL;
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const store = new Store() as any;
+// Store removed - using settings module instead
 
 // Set up global API key getter and max output tokens getter
 (globalThis as Record<string, unknown>).getApiKey = (id: ProviderId) => {

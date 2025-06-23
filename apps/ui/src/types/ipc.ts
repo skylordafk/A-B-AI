@@ -71,7 +71,7 @@ export interface ChatSendRequest {
       enablePromptCaching?: boolean;
       cacheTTL?: '5m' | '1h';
       enableStreaming?: boolean;
-      onStreamChunk?: Function;
+      onStreamChunk?: (chunk: string) => void;
       abortSignal?: any;
     };
   };

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ProviderId } from '../providers';
+import type { ProviderId as _ProviderId } from '../providers';
 
 // Base request/response types
 export const BaseRequestSchema = z.object({
@@ -423,6 +423,7 @@ export const RequestSchema = z.discriminatedUnion('type', [
   BatchGetResultsRequestSchema,
   ActivityGetRequestSchema,
   CountTokensRequestSchema,
+  TokensCountRequestSchema,
   JobQueueSaveStateRequestSchema,
   JobQueueLoadStateRequestSchema,
   JobQueueClearStateRequestSchema,

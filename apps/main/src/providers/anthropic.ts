@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BaseProvider, ChatResult, ChatMessage, ChatOptions } from './base';
 import { ModelMeta } from '../types/model';
-import { countTokens, calcCost, withRetries, TokenUsage, PricingInfo } from '../coreLLM';
+import { countTokens, calcCost, withRetries, TokenUsage } from '../coreLLM';
+// Removed unused PricingInfo import
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 

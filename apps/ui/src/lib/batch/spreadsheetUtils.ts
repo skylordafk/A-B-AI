@@ -14,7 +14,6 @@ export const FIXED_INPUT_COLUMNS: Column[] = [
   { key: 'system', label: 'System Message', width: '200px', editable: true },
   { key: 'model', label: 'Model', width: '180px', editable: true },
   { key: 'temperature', label: 'Temperature', width: '100px', editable: true },
-  { key: 'jsonMode', label: 'JSON Mode', width: '100px', editable: true },
   { key: 'jsonSchema', label: 'JSON Schema', width: '200px', editable: true },
 ];
 
@@ -31,7 +30,6 @@ export const RESERVED_KEYS = [
   'system',
   'model',
   'temperature',
-  'jsonMode',
   'jsonSchema',
   'status',
   'response',
@@ -41,22 +39,26 @@ export const RESERVED_KEYS = [
 ];
 
 export const MODELS = [
-  { value: 'openai/gpt-4o', label: 'GPT-4o' },
-  { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'anthropic/claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
-  { value: 'anthropic/claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-  { value: 'gemini/models/gemini-2.5-pro-thinking', label: 'Gemini 2.5 Pro' },
-  { value: 'gemini/models/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash' },
-  { value: 'grok/grok-3', label: 'Grok 3' },
-  { value: 'grok/grok-3-mini', label: 'Grok 3 Mini' },
+  { value: 'gpt-4o', label: 'GPT-4o' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+  { value: 'gpt-4.1', label: 'GPT-4.1' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+  { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano' },
+  { value: 'o3', label: 'o3' },
+  { value: 'o3-mini', label: 'o3 Mini' },
+  { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
+  { value: 'claude-4-sonnet', label: 'Claude 4 Sonnet' },
+  { value: 'claude-4-opus', label: 'Claude 4 Opus' },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+  { value: 'grok-3', label: 'Grok 3' },
+  { value: 'grok-3-mini', label: 'Grok 3 Mini' },
+  { value: 'models/gemini-2.5-pro-thinking', label: 'Gemini 2.5 Pro Thinking' },
+  { value: 'models/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash Preview' },
 ];
 
 export function getCellValue(row: BatchRow, colKey: string): string {
   if (colKey === 'jsonSchema') {
     return (row.data?.jsonSchema as string) || '';
-  }
-  if (colKey === 'jsonMode') {
-    return (row.data?.jsonMode as boolean) ? 'true' : 'false';
   }
   // Check if it's a dynamic column
   if (row.data && colKey in row.data && !RESERVED_KEYS.includes(colKey)) {
@@ -77,11 +79,6 @@ export function setCellValueInRow(
   // Handle special columns
   if (colKey === 'jsonSchema') {
     newRow.data = { ...newRow.data, jsonSchema: value };
-  } else if (colKey === 'jsonMode') {
-    newRow.data = {
-      ...newRow.data,
-      jsonMode: value === 'true' || value === '1' || value === 'yes',
-    };
   } else {
     // Check if it's a dynamic column
     const column = allColumns.find((col) => col.key === colKey);
@@ -115,7 +112,7 @@ export function createEmptyRow(id: string): BatchRow {
   return {
     id,
     prompt: '',
-    model: 'openai/gpt-4o',
+    model: 'gpt-4o',
     temperature: 0.7,
     data: {},
   };
@@ -145,7 +142,7 @@ export function normalizeRows(rows: BatchRow[], dynamicColumns: Column[]): Batch
       normalizedRow.prompt = '';
     }
     if (!normalizedRow.model) {
-      normalizedRow.model = 'openai/gpt-4o';
+      normalizedRow.model = 'gpt-4o';
     }
 
     return normalizedRow;

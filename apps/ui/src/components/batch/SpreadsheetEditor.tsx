@@ -465,7 +465,7 @@ export default function SpreadsheetEditor({
         const colKey = allColumns[col].key;
         if (['prompt', 'system', 'jsonSchema'].includes(colKey) || allColumns[col].isDynamic) {
           textareaRef.current?.focus();
-        } else if (['model', 'jsonMode'].includes(colKey)) {
+        } else if (colKey === 'model') {
           if (selectRef.current) {
             selectRef.current.focus();
             setTimeout(() => selectRef.current?.click(), 0);
@@ -1070,8 +1070,19 @@ export default function SpreadsheetEditor({
           <select
             ref={selectRef}
             value={editing.value}
-            onChange={(e) => dispatch({ type: 'UPDATE_EDIT_VALUE', value: e.target.value })}
-            onBlur={finishEditing}
+            onChange={(e) => {
+              dispatch({ type: 'UPDATE_EDIT_VALUE', value: e.target.value });
+              // Finish editing immediately after selection
+              setTimeout(finishEditing, 0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === 'Tab') {
+                finishEditing();
+              }
+              if (e.key === 'Escape') {
+                dispatch({ type: 'CANCEL_EDITING' });
+              }
+            }}
             className="w-full px-1 py-0.5 border rounded outline-none bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)]"
             autoFocus
           >
@@ -1081,22 +1092,6 @@ export default function SpreadsheetEditor({
                 {m.label}
               </option>
             ))}
-          </select>
-        );
-      }
-
-      if (col.key === 'jsonMode') {
-        return (
-          <select
-            ref={selectRef}
-            value={editing.value}
-            onChange={(e) => dispatch({ type: 'UPDATE_EDIT_VALUE', value: e.target.value })}
-            onBlur={finishEditing}
-            className="w-full px-1 py-0.5 border rounded outline-none bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)]"
-            autoFocus
-          >
-            <option value="false">No</option>
-            <option value="true">Yes</option>
           </select>
         );
       }
@@ -1201,16 +1196,6 @@ export default function SpreadsheetEditor({
       return (
         <span className={cls[value as keyof typeof cls] || 'text-gray-500'}>
           {value || 'pending'}
-        </span>
-      );
-    }
-
-    if (col.key === 'jsonMode') {
-      return (
-        <span
-          className={`text-center block ${value === 'true' ? 'text-green-600' : 'text-gray-500'}`}
-        >
-          {value === 'true' ? '✓' : '✗'}
         </span>
       );
     }

@@ -35,13 +35,13 @@ const MODEL_ID_FIXES: Record<string, string> = {
   'grok/grok-2-vision-1212': 'grok/grok-3',
 
   // Default mapping for models that show as just the name
-  'GPT-4o': 'openai/gpt-4o',
-  'GPT-4o Mini': 'openai/gpt-4o-mini',
-  'Claude 3.5 Sonnet': 'anthropic/claude-3-7-sonnet-20250219',
-  'Claude 3.5 Haiku': 'anthropic/claude-3-5-haiku-20241022',
-  'Gemini 1.5 Pro': 'gemini/models/gemini-2.5-pro-thinking',
-  'Gemini 1.5 Flash': 'gemini/models/gemini-2.5-flash-preview',
-  'Grok 2': 'grok/grok-3',
+  'GPT-4o': 'gpt-4o',
+  'GPT-4o Mini': 'gpt-4o-mini',
+  'Claude 3.5 Sonnet': 'claude-3-7-sonnet-20250219',
+  'Claude 3.5 Haiku': 'claude-3-5-haiku-20241022',
+  'Gemini 1.5 Pro': 'models/gemini-2.5-pro-thinking',
+  'Gemini 1.5 Flash': 'models/gemini-2.5-flash-preview',
+  'Grok 2': 'grok-3',
 };
 
 // Function to map batch result status to UI status
@@ -104,7 +104,7 @@ export default function Batch() {
         {
           id: 'row-1',
           prompt: '',
-          model: 'openai/gpt-4o',
+          model: 'gpt-4o',
           temperature: 0.7,
         },
       ];
@@ -320,14 +320,19 @@ export default function Batch() {
               </label>
 
               {/* JSON Mode Toggle */}
-              <label className="flex items-center gap-2 text-sm">
+              <label
+                className="flex items-center gap-2 text-sm"
+                title="Forces strict JSON output from the model. Works with: OpenAI GPT-4o/4o-mini, Claude 3.5+ Sonnet/Haiku, Gemini 1.5+ Pro/Flash"
+              >
                 <input
                   type="checkbox"
                   checked={jsonMode}
                   onChange={(e) => setJsonMode(e.target.checked)}
                   disabled={isRunning}
                 />
-                <span className="text-[var(--text-primary)]">JSON Mode (structured output)</span>
+                <span className="text-[var(--text-primary)]">
+                  JSON Mode (applies to entire batch)
+                </span>
               </label>
 
               {/* Actions */}
@@ -380,7 +385,7 @@ export default function Batch() {
                 {
                   id: 'row-1',
                   prompt: '',
-                  model: 'openai/gpt-4o',
+                  model: 'gpt-4o',
                   temperature: 0.7,
                 },
               ]);
